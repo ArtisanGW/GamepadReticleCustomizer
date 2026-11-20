@@ -15,6 +15,7 @@
 SavedSettings.lua
 Color.lua
 Icons.lua
+NpcJobs.lua
 Target.lua
 Reticle.lua
 PickerSticks.lua

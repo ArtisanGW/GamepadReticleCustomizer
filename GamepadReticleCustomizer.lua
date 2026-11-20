@@ -223,6 +223,8 @@ function addon.RegisterSettings()
         "What shows instead of the reticle while you have a target.\n\n"
         .. "• None: the reticle stays\n"
         .. "• Target Class: a player's class icon (any other target keeps the reticle)\n"
+        .. "• By target: a player's class, an enemy player's faction, a friendly NPC's job, "
+        .. "a question mark on neutral NPCs, crossed swords on enemy NPCs\n"
         .. "• Raid marker: one of the game's 8 markers\n"
         .. "• Icon: one of a set of the game's icons\n\n"
         .. "Shown only while the reticle sits on the target's nameplate, as Gamepad Reticle On Target puts it; "

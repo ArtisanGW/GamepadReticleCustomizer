@@ -134,11 +134,40 @@ local function boot(options)
     _G.UnitReaction = function(unit) return targetField(unit, "reaction") end
     _G.UnitIsUnit = function(unit, other) return other == "target" and game.target ~= nil and unit == game.target.plateUnit end
     -- The game's class atlases: each a cell of one file (as GetAtlasInfo reports them).
+    -- The game's other atlases "By target" uses (none, with options.noByTargetAtlases).
+    local byTargetAtlases = { ["UI-HUD-UnitFrame-Player-PVP-AllianceIcon"] = true, ["UI-HUD-UnitFrame-Player-PVP-HordeIcon"] = true,
+        ["Crosshair_PVP_128"] = true, ["QuestTurnin"] = true, ["Crosshair_Speak_128"] = true }
     _G.C_Texture = { GetAtlasInfo = function(atlas)
         if atlas:find("^classicon%-") and options.classAtlases ~= false then
             return { file = "classicons-file", leftTexCoord = 0.5, rightTexCoord = 0.75, topTexCoord = 0.25, bottomTexCoord = 0.5 }
         end
+        if byTargetAtlases[atlas] and not options.noByTargetAtlases then
+            return { file = atlas .. "-file", leftTexCoord = 0, rightTexCoord = 1, topTexCoord = 0, bottomTexCoord = 1 }
+        end
     end }
+    -- The target's side, owner and tooltip title (game.target.faction, .controlled, .title).
+    _G.UnitFactionGroup = function(unit) return game.target and unit == "target" and game.target.faction or nil end
+    _G.UnitPlayerControlled = function(unit) return game.target ~= nil and unit == "target" and (game.target.controlled or game.target.isPlayer) == true end
+    _G.C_TooltipInfo = { GetUnit = function(unit)
+        if not (game.target and unit == "target") then return nil end
+        return { lines = { { leftText = "Someone" }, { leftText = game.target.title or "Level 30" } } }
+    end }
+    _G.LEVEL, _G.TRAINER = "Level", "Trainer"
+    _G.LOCALIZED_CLASS_NAMES_MALE = { WARRIOR = "Warrior", MAGE = "Mage", PRIEST = "Priest" }
+    -- The game's minimap tracking list: names in the client's language, icons, types.
+    _G.Enum = _G.Enum or {}
+    Enum.MinimapTrackingFilter = { StableMaster = 4096, TrainerProfession = 256, VenderFood = 32, Innkeeper = 64 }
+    local tracking = {
+        { name = "Stable Master", texture = 136466, filterID = 4096 },
+        { name = "Food & Drink", texture = 136459, filterID = 32 },
+        { name = "Innkeeper", texture = 136458, filterID = 64 },
+        { name = "Profession Trainers", texture = 136463, filterID = 256 },
+    }
+    _G.C_Minimap = {
+        GetNumTrackingTypes = function() return #tracking end,
+        GetTrackingInfo = function(index) local entry = tracking[index]; return { name = entry.name, texture = entry.texture, active = false, type = "other", subType = 0 } end,
+        GetTrackingFilter = function(index) return { filterID = tracking[index].filterID } end,
+    }
     game.classColors = { WARRIOR = { r = 0.78, g = 0.61, b = 0.43 }, MAGE = { r = 0.25, g = 0.78, b = 0.92 },
         PRIEST = { r = 1, g = 1, b = 1 }, DRUID = { r = 1, g = 0.49, b = 0.04 } }
     _G.C_ClassColor = { GetClassColor = function(classFile) return game.classColors[classFile] end }
@@ -541,12 +570,12 @@ test("with Jiberish Fabled Icons installed: its 16 reticles listed and drawn fro
         "credited, as its license asks")
 end)
 
-test("choices are sliders (a dropdown's menu broke on the controller): on a target, none, a player's class, the 8 raid markers, then the game's icons", function()
+test("choices are sliders (a dropdown's menu breaks on the controller): on a target, none, a player's class, by target, the 8 raid markers, then the game's icons", function()
     boot()
     local labels = choiceLabels("On a target")
-    eq(#labels, 10 + 12)
-    eq(labels[1], "None"); eq(labels[2], "Target Class")
-    eq(labels[10], "Raid marker: Skull"); eq(labels[11], "Icon: Sniper scope"); eq(labels[22], "Icon: Holy")
+    eq(#labels, 11 + 12)
+    eq(labels[1], "None"); eq(labels[2], "Target Class"); eq(labels[3], "By target")
+    eq(labels[11], "Raid marker: Skull"); eq(labels[12], "Icon: Sniper scope"); eq(labels[23], "Icon: Holy")
     choose("targetIcon", "marker8")
     eq(GamepadReticleCustomizerDB.targetIcon, "marker8")
     setTarget({ isPlayer = false, reaction = 2 })
@@ -1053,7 +1082,7 @@ end)
 test("the release leaves Debug.lua out: ignored by .pkgmeta, and gone from the release .toc", function()
     assert(readFile(".pkgmeta"):find("\n  %- Debug%.lua\n"), ".pkgmeta ignores Debug.lua, alone on its line")
     eq(table.concat(tocFiles(true), ","),
-        "SavedSettings.lua,Color.lua,Icons.lua,Target.lua,Reticle.lua,PickerSticks.lua,Popup.lua,Preview.lua,RelatedAddons.lua,GamepadReticleCustomizer.lua")
+        "SavedSettings.lua,Color.lua,Icons.lua,NpcJobs.lua,Target.lua,Reticle.lua,PickerSticks.lua,Popup.lua,Preview.lua,RelatedAddons.lua,GamepadReticleCustomizer.lua")
     eq(tocFiles()[#tocFiles()], "Debug.lua", "the repo's .toc loads it last")
 end)
 
@@ -1124,6 +1153,53 @@ test("a Get button for each missing sibling, in order, each with its own CurseFo
     boot({ reticleOnTargetInstalled = true })
     eq(control("button", "Reticle on your target"), nil, "installed: its button gone")
     eq(control("button", "Camera over shoulder") ~= nil, true, "the other one still offered")
+end)
+
+-- "By target": an icon by kind of target.
+local function drawnLook() local look = GamepadReticleCustomizer.Reticle.Drawn(); return look.atlas or look.texture end
+
+test("By target: players their class, enemy players their faction, enemy NPCs crossed swords, neutral NPCs a question mark", function()
+    boot({ saved = { targetIcon = "bytarget" } })
+    setTarget({ isPlayer = true, classFile = "MAGE", reaction = 5, faction = "Horde" })
+    eq(drawnLook(), "classicon-mage", "a friendly player: the class")
+    setTarget({ isPlayer = true, classFile = "MAGE", reaction = 2, faction = "Alliance" })
+    eq(drawnLook(), "UI-HUD-UnitFrame-Player-PVP-AllianceIcon", "an enemy player: the faction")
+    setTarget({ isPlayer = true, classFile = "PRIEST", reaction = 1, faction = "Horde" })
+    eq(drawnLook(), "UI-HUD-UnitFrame-Player-PVP-HordeIcon")
+    setTarget({ isPlayer = false, reaction = 2 })
+    eq(drawnLook(), "Crosshair_PVP_128", "an enemy NPC: crossed swords")
+    setTarget({ isPlayer = false, reaction = 4 })
+    eq(drawnLook(), "QuestTurnin", "a neutral NPC: a question mark")
+end)
+
+test("By target, friendly NPCs: their job's tracking icon, a class trainer's class, other trainers the profession one, else a speech bubble", function()
+    boot({ saved = { targetIcon = "bytarget" } })
+    setTarget({ isPlayer = false, reaction = 5, title = "Stable Master" })
+    eq(drawnLook(), 136466, "the game's Stable Master tracking icon")
+    setTarget({ isPlayer = false, reaction = 5, title = "Food & Drink" })
+    eq(drawnLook(), 136459)
+    setTarget({ isPlayer = false, reaction = 5, title = "Warrior Trainer" })
+    eq(GamepadReticleCustomizer.Reticle.Drawn().atlas, "classicon-warrior", "a class trainer: its class")
+    setTarget({ isPlayer = false, reaction = 5, title = "Cooking Trainer" })
+    eq(drawnLook(), 136463, "another trainer: the profession trainers' icon")
+    setTarget({ isPlayer = false, reaction = 5 })
+    eq(drawnLook(), "Crosshair_Speak_128", "no title (its second line is its level): a speech bubble")
+    setTarget({ isPlayer = false, reaction = 5, title = "Bluffwatcher Captain" })
+    eq(drawnLook(), "Crosshair_Speak_128", "a title with no known job: a speech bubble")
+    setTarget({ isPlayer = false, reaction = 5, controlled = true })
+    eq(GamepadReticleCustomizer.Reticle.Drawn().icon, "dot", "another player's pet: the reticle")
+end)
+
+test("By target on a client without those atlases: the game's icon files instead", function()
+    boot({ noByTargetAtlases = true, saved = { targetIcon = "bytarget" } })
+    setTarget({ isPlayer = false, reaction = 2 })
+    eq(drawnLook(), "Interface\\Icons\\Ability_DualWield")
+    setTarget({ isPlayer = false, reaction = 4 })
+    eq(drawnLook(), "Interface\\Icons\\INV_Misc_QuestionMark")
+    setTarget({ isPlayer = false, reaction = 5 })
+    eq(drawnLook(), "Interface\\GossipFrame\\GossipGossipIcon")
+    setTarget({ isPlayer = true, classFile = "MAGE", reaction = 2, faction = "Alliance" })
+    eq(GamepadReticleCustomizer.Reticle.Drawn().icon, "dot", "no faction atlas: the reticle")
 end)
 
 reportLine(passed .. " passed, " .. failed .. " failed")

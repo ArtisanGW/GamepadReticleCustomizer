@@ -55,10 +55,15 @@ function Reticle.Choose(settings, target)
     local targetIcon = settings.targetIcon
     if target.exists and target.hasNameplate and target.reticleOnNameplate and targetIcon ~= "none" then
         local iconSize = addon.Clamp(settings.iconSize, addon.SIZE_MIN, addon.SIZE_MAX, addon.DEFAULTS.iconSize)
-        if targetIcon == "class" then
-            local classLook = target.isPlayer and addon.Icons.ClassLook(target.classFile, settings.classStyle)
-            if classLook then
-                return { icon = "class", atlas = classLook.atlas, texture = classLook.texture, texCoord = classLook.texCoord,
+        if targetIcon == "class" or targetIcon == "bytarget" then
+            local look
+            if targetIcon == "class" then
+                look = target.isPlayer and addon.Icons.ClassLook(target.classFile, settings.classStyle)
+            else
+                look = addon.Icons.ByTargetLook(target, settings.classStyle)
+            end
+            if look then
+                return { icon = targetIcon, atlas = look.atlas, texture = look.texture, texCoord = look.texCoord,
                     size = iconSize, tinted = false }
             end
         else

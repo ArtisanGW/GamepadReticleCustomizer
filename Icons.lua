@@ -12,6 +12,9 @@
 --   "class"           a player target's class, in a class icon style (setting
 --                     "classStyle"): "game" (the game's classicon-<class> atlases), or
 --                     "jiberish:<style>", a Jiberish Fabled Icons class sheet when installed
+--   "bytarget"        by kind of target (Icons.ByTargetLook): a friendly player's class,
+--                     an enemy player's faction, a friendly NPC's job (NpcJobs.lua) or a
+--                     speech bubble, a question mark on neutral NPCs, crossed swords on enemy NPCs
 --   "marker1".."8"    the game's raid target markers: star, circle, diamond,
 --                     triangle, moon, square, cross, skull
 --   "icon:<key>"      one of GAME_ICONS, a hand-picked set of the game's own icons
@@ -24,6 +27,14 @@ local Icons = {
     RAID_MARKER_TEXTURE = "Interface\\TargetingFrame\\UI-RaidTargetingIcon_",
     RAID_MARKER_NAMES = { "Star", "Circle", "Diamond", "Triangle", "Moon", "Square", "Cross", "Skull" },
     CLASS_ATLAS_PREFIX = "classicon-",
+    -- "By target": the game's own icons, each with a file to fall back on should
+    -- this client not have the atlas.
+    FACTION_ATLASES = { Alliance = "UI-HUD-UnitFrame-Player-PVP-AllianceIcon", Horde = "UI-HUD-UnitFrame-Player-PVP-HordeIcon" },
+    BY_TARGET = {
+        enemyNpc = { atlas = "Crosshair_PVP_128", file = "Interface\\Icons\\Ability_DualWield" },     -- crossed swords
+        neutralNpc = { atlas = "QuestTurnin", file = "Interface\\Icons\\INV_Misc_QuestionMark" },     -- a question mark
+        talk = { atlas = "Crosshair_Speak_128", file = "Interface\\GossipFrame\\GossipGossipIcon" }, -- a speech bubble
+    },
     -- The game's own icons offered on a target: in the game since its first years.
     GAME_ICONS = {
         { key = "scope", name = "Sniper scope", file = "Interface\\Icons\\Ability_Hunter_SniperShot" },
@@ -128,7 +139,8 @@ end
 
 -- The icons for a target, in order: { id, label }.
 function Icons.TargetList()
-    local list = { { id = "none", label = "None" }, { id = "class", label = "Target Class" } }
+    local list = { { id = "none", label = "None" }, { id = "class", label = "Target Class" },
+        { id = "bytarget", label = "By target" } }
     for index = 1, 8 do
         list[#list + 1] = { id = "marker" .. index,
             label = "Raid marker: " .. (_G["RAID_TARGET_" .. index] or Icons.RAID_MARKER_NAMES[index]) }
@@ -178,18 +190,44 @@ function Icons.ClassLook(classFile, style)
         return { texture = Icons.JIBERISH_CLASS_FOLDER .. file,
             texCoord = { cell[1] / cells, (cell[1] + 1) / cells, cell[2] / cells, (cell[2] + 1) / cells } }
     end
-    local atlas = Icons.ClassAtlas(classFile)
-    if not atlas then return nil end
-    -- The game's atlas as its file and cell (C_Texture.GetAtlasInfo,
-    -- TextureUtilsDocumentation.lua:207, forever branch), drawn as a Jiberish Fabled Icons cell is:
-    -- switching from a Jiberish style with SetAtlas keeps that style's cell.
-    local succeeded, info = pcall(C_Texture.GetAtlasInfo, atlas)
-    local file = succeeded and info and (info.file or info.filename)
+    return Icons.AtlasLook(Icons.ClassAtlas(classFile))
+end
+
+-- An atlas as a look, or nil if this client doesn't have it: its file and cell
+-- (C_Texture.GetAtlasInfo, TextureUtilsDocumentation.lua:207, forever branch),
+-- drawn as a Jiberish Fabled Icons cell is: switching from a Jiberish style with
+-- SetAtlas keeps that style's cell.
+function Icons.AtlasLook(atlas)
+    local textures = _G.C_Texture
+    if type(atlas) ~= "string" or type(textures) ~= "table" or type(textures.GetAtlasInfo) ~= "function" then return nil end
+    local succeeded, info = pcall(textures.GetAtlasInfo, atlas)
+    if not (succeeded and info) then return nil end
+    local file = info.file or info.filename
     if file then
         return { atlas = atlas, texture = file,
             texCoord = { info.leftTexCoord, info.rightTexCoord, info.topTexCoord, info.bottomTexCoord } }
     end
     return { atlas = atlas }
+end
+
+-- One of BY_TARGET's icons: its atlas, else its file.
+local function byTargetIcon(key)
+    local entry = Icons.BY_TARGET[key]
+    return Icons.AtlasLook(entry.atlas) or { texture = entry.file }
+end
+
+-- The "By target" icon for a target (from addon.TargetInfo), or nil to keep the
+-- reticle (another player's pet, or a target whose side isn't known).
+function Icons.ByTargetLook(target, classStyle)
+    if target.isPlayer then
+        if target.reaction == "enemy" then return Icons.AtlasLook(Icons.FACTION_ATLASES[target.faction or ""]) end
+        return Icons.ClassLook(target.classFile, classStyle)
+    end
+    if target.controlledByPlayer then return nil end
+    if target.reaction == "enemy" then return byTargetIcon("enemyNpc") end
+    if target.reaction == "neutral" then return byTargetIcon("neutralNpc") end
+    if target.reaction == "friendly" then return addon.NpcJobs.Look("target", classStyle) or byTargetIcon("talk") end
+    return nil
 end
 
 -- The game's atlas for a class ("WARRIOR" -> "classicon-warrior"), or nil if
