@@ -571,6 +571,44 @@ test("/gcc debug: alone (yourself, one NPC kind, no nameplates), the optional pa
     eq(checkResult(run, "the other kind of NPC"), "skip")
 end)
 
+test("/gcc friendly runs only the friendly player part, then the target cleared", function()
+    boot({ saved = { color = "3961CDFF" } })
+    SlashCmdList.GAMEPADCROSSHAIRCUSTOMIZER("friendly")
+    driveDebugRun({ { isPlayer = true, classFile = "WARRIOR", reaction = 5 }, { isPlayer = true, classFile = "MAGE", reaction = 5 } },
+        { { isPlayer = false, reaction = 2 } })
+    local run = GamepadCrosshairCustomizerDebugDB.runs[1]
+    eq(run.name, "friendly")
+    eq(failedChecks(run), "", "nothing failed")
+    eq(run.found.class1, "WARRIOR"); eq(run.found.class2, "MAGE")
+    eq(run.found.npc1, nil, "no NPC part")
+    eq(checkResult(run, "dot, size 12, red"), nil, "no crosshair-only part")
+    eq(checkResult(run, "target cleared: the crosshair back"), "pass", "ends with the target cleared")
+    eq(GamepadCrosshairCustomizerDB.color, "3961CDFF", "your settings back")
+    eq(GamepadCrosshairCustomizerDebugBox:IsShown(), true, "the reload box")
+end)
+
+test("/gcc monsters runs only the NPC part, then the target cleared", function()
+    boot()
+    SlashCmdList.GAMEPADCROSSHAIRCUSTOMIZER("monsters")
+    driveDebugRun({ { isPlayer = true, classFile = "WARRIOR", reaction = 5 } },
+        { { isPlayer = false, reaction = 4 }, { isPlayer = false, reaction = 1 } })
+    local run = GamepadCrosshairCustomizerDebugDB.runs[1]
+    eq(run.name, "monsters")
+    eq(failedChecks(run), "", "nothing failed")
+    eq(run.found.npc1, "neutral"); eq(run.found.npc2, "enemy")
+    eq(run.found.class1, nil, "no friendly part")
+    eq(checkResult(run, "target cleared: the crosshair back"), "pass")
+end)
+
+test("in the release (no Debug.lua), /gcc friendly and /gcc monsters open the settings", function()
+    boot({ releaseBuild = true })
+    SlashCmdList.GAMEPADCROSSHAIRCUSTOMIZER("friendly")
+    eq(game.opened, 42)
+    game.opened = nil
+    SlashCmdList.GAMEPADCROSSHAIRCUSTOMIZER("monsters")
+    eq(game.opened, 42)
+end)
+
 test("/gcc debug: no friendly player selected within 60 s fails; its keys are bound", function()
     boot()
     eq(game.bindings["ALT-CTRL-SHIFT-Y"], "GamepadCrosshairCustomizerDebugTarget")

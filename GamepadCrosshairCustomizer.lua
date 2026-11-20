@@ -210,16 +210,17 @@ end)
 -- /gcc                opens the settings
 -- /gcc RRGGBBAA       sets the color
 -- /gcc texture <path> uses that texture as the crosshair
--- /gcc debug ...      the in-game test suite (Debug.lua, not in the release)
+-- /gcc debug ...      the in-game test suite (Debug.lua, not in the release);
+--                     /gcc friendly and /gcc monsters run its parts
 SLASH_GAMEPADCROSSHAIRCUSTOMIZER1 = "/gcc"
 SlashCmdList.GAMEPADCROSSHAIRCUSTOMIZER = function(message)
     local text = tostring(message or ""):match("^%s*(.-)%s*$")
     local command, arguments = text:match("^(%S+)%s*(.-)$")
     command = command and command:lower()
     if text == "" then return addon.Open() end
-    if command == "debug" then
-        if addon.Debug then return addon.Debug.Command(arguments:lower()) end
-        return addon.Open()   -- the release has no debug suite
+    if command == "debug" or command == "friendly" or command == "monsters" then
+        if not addon.Debug then return addon.Open() end   -- the release has no debug suite
+        return addon.Debug.Command(command == "debug" and arguments:lower() or command)
     end
     if command == "texture" then
         if addon.SetCustomTexture(arguments) then say("crosshair texture: " .. arguments)

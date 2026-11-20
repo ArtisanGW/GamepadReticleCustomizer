@@ -3,7 +3,10 @@
 -- size, color and picture, the game's dot hidden or back), puts your own settings
 -- back, and keeps the findings in GamepadCrosshairCustomizerDebugDB (written to
 -- disk on /reload). Not in the release zip (.pkgmeta).
---   /gcc debug         runs the suite (out of combat, controller UI on)
+--   /gcc debug         runs the whole suite (out of combat, controller UI on)
+--   /gcc friendly      runs only its friendly player part, then the target cleared
+--   /gcc monsters      runs only its neutral and enemy NPC part, then the target cleared
+--   (by hand: select the targets yourself when the corner says so)
 --   /gcc debug last    prints the last run's findings again
 --   /gcc debug clear   empties the saved runs
 -- A fight stops the run; a reload during one puts your settings back at login.
@@ -213,16 +216,21 @@ end
 -- change), and plain checks.
 
 local STEPS = {}
+-- Each step belongs to a part (see Debug.PARTS), the one set when it's added.
+local currentPart
 local function addLook(label, look, options)
-    local step = { label = label, look = look, shows = "crosshair" }
+    local step = { label = label, look = look, shows = "crosshair", part = currentPart }
     for key, value in pairs(options or {}) do step[key] = value end
     STEPS[#STEPS + 1] = step
 end
 -- found: the name its find is kept under (currentRun.found), for steps that require it.
-local function addWait(label, waitFor, found) STEPS[#STEPS + 1] = { label = label, waitFor = waitFor, found = found } end
-local function addCheck(label, check) STEPS[#STEPS + 1] = { label = label, check = check } end
+local function addWait(label, waitFor, found)
+    STEPS[#STEPS + 1] = { label = label, waitFor = waitFor, found = found, part = currentPart }
+end
+local function addCheck(label, check) STEPS[#STEPS + 1] = { label = label, check = check, part = currentPart } end
 
 -- 1. No target: the crosshair.
+currentPart = "crosshair"
 addWait("clear your target", "noTarget")
 addLook("the game's dot (addon off)", { enabled = false })
 addLook("dot, size 4", {})
@@ -243,6 +251,7 @@ addCheck("every class has its class icon on this client", function(label)
 end)
 
 -- 2. A friendly player targeted: the icons on it.
+currentPart = "friendly"
 addWait("select a friendly player", "playerTarget", "class1")
 addLook("target, \"None\": the crosshair stays", { targetIcon = "none", size = 12 })
 addLook("target: its class icon, size 32", { targetIcon = "class", iconSize = 32 }, { shows = "targetIcon", requires = "class1" })
@@ -263,6 +272,7 @@ for number = 2, 1 + Debug.MORE_CLASSES do
 end
 
 -- 3. A neutral or enemy NPC (move near one first), then the other kind if in range.
+currentPart = "monsters"
 for _, group in ipairs({ "npc1", "npc2" }) do
     if group == "npc1" then addWait("move near a neutral or enemy NPC", "npcTarget", group)
     else addWait("the other kind of NPC (neutral or enemy), if one is in range (optional)", "otherReaction", group) end
@@ -272,9 +282,24 @@ for _, group in ipairs({ "npc1", "npc2" }) do
 end
 
 -- 4. The target cleared: the crosshair back.
+currentPart = "cleared"
 addWait("clear the target", "noTarget")
 addLook("target cleared: the crosshair back", { targetIcon = "marker8", size = 12, borderSize = 2 })
 Debug.STEPS = STEPS
+
+-- What each command runs: /gcc debug all of it, /gcc friendly and /gcc monsters their part.
+Debug.PARTS = { debug = { "crosshair", "friendly", "monsters", "cleared" },
+    friendly = { "friendly", "cleared" }, monsters = { "monsters", "cleared" } }
+
+-- The steps of a run's parts, in order.
+function Debug.StepsFor(runName)
+    local wanted, steps = {}, {}
+    for _, part in ipairs(Debug.PARTS[runName] or Debug.PARTS.debug) do wanted[part] = true end
+    for _, step in ipairs(STEPS) do
+        if wanted[step.part] then steps[#steps + 1] = step end
+    end
+    return steps
+end
 
 -- The corner square and the step's name next to it
 
@@ -456,9 +481,9 @@ end
 runNextStep = function()
     if not currentRun then return end
     currentRun.stepNumber = currentRun.stepNumber + 1
-    local step = STEPS[currentRun.stepNumber]
+    local step = currentRun.plan[currentRun.stepNumber]
     if not step then return finishRun() end
-    local label = currentRun.stepNumber .. "/" .. #STEPS .. ": " .. step.label
+    local label = currentRun.stepNumber .. "/" .. #currentRun.plan .. ": " .. step.label
     if step.waitFor then return wait(step.waitFor, label, 0, step.found) end
     if step.requires then
         local find = currentRun.found[step.requires]
@@ -491,20 +516,30 @@ local function describeEnvironment()
     return environment
 end
 
-function Debug.Start()
+local START_TEXTS = {
+    debug = "Stay still; select the targets the corner asks for (or let the screenshot script do it).",
+    friendly = "Select a friendly player when the corner asks, then others of other classes, then clear your target.",
+    monsters = "Select a neutral or enemy NPC (one that won't attack you) when the corner asks, then the other kind if one is near, then clear your target.",
+}
+
+-- runName: "debug" (all of it), "friendly" or "monsters".
+function Debug.Start(runName)
+    runName = Debug.PARTS[runName] and runName or "debug"
     if currentRun then say("already running"); return end
     if InCombatLockdown() then say("not in combat"); return end
     getDebugStore().settingsToRestore = copyCurrentSettings()
-    currentRun = { time = type(date) == "function" and date("%Y-%m-%d %H:%M:%S") or nil,
+    local plan = Debug.StepsFor(runName)
+    currentRun = { name = runName, plan = plan, time = type(date) == "function" and date("%Y-%m-%d %H:%M:%S") or nil,
         environment = describeEnvironment(), checks = {}, steps = {}, stepNumber = 0, found = {}, classesSeen = {} }
-    say(string.format("running %d steps, about %d s. Stay still; target a friendly player when asked.", #STEPS,
-        math.ceil(#STEPS * Debug.SECONDS_PER_STEP)))
+    say(string.format("/gcc %s: %d steps. %s", runName, #plan, START_TEXTS[runName]))
     wait("crosshair", "the crosshair on screen", 0)
 end
 
 function Debug.Command(arguments)
     if arguments == "" or arguments == "run" then
-        Debug.Start()
+        Debug.Start("debug")
+    elseif arguments == "friendly" or arguments == "monsters" then
+        Debug.Start(arguments)
     elseif arguments == "last" then
         local runs = getDebugStore().runs
         Debug.PrintRun(runs[#runs])
@@ -512,7 +547,7 @@ function Debug.Command(arguments)
         getDebugStore().runs = {}
         say("saved runs cleared")
     else
-        say("/gcc debug (run the suite), /gcc debug last, /gcc debug clear")
+        say("/gcc debug (the whole suite), /gcc friendly, /gcc monsters, /gcc debug last, /gcc debug clear")
     end
 end
 
@@ -521,7 +556,7 @@ end
 local function bindKeys()
     if type(SetOverrideBindingClick) ~= "function" then return end
     local startButton = CreateFrame("Button", "GamepadCrosshairCustomizerDebugStart", UIParent)
-    startButton:SetScript("OnClick", function() Debug.Start() end)
+    startButton:SetScript("OnClick", function() Debug.Start("debug") end)
     SetOverrideBindingClick(startButton, true, Debug.START_KEY, "GamepadCrosshairCustomizerDebugStart", "LeftButton")
     local function macroButton(name, key, macroText)
         local button = CreateFrame("Button", name, UIParent, "SecureActionButtonTemplate")
