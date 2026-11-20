@@ -2,7 +2,7 @@
 -- is behind the settings window while you change it. Two cells: the crosshair, and
 -- the icon shown on a target (for a player's class, your own class as the
 -- example). Each cell shows its picture zoomed to fill it, so a small icon (a
--- JiberishUI class icon at 24) can be seen properly, with a copy at its real size
+-- Jiberish Fabled Icons class icon at 24) can be seen properly, with a copy at its real size
 -- in the corner. The window keeps one size whatever is chosen. Painted as the
 -- crosshair is (Crosshair.Paint), redrawn on every change.
 --

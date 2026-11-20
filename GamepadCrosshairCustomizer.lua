@@ -40,21 +40,21 @@ local pickerOwner = {
     SetOpacity = function(alpha) addon.SetOpacity(alpha, pickerColorKey) end,
 }
 
--- One color back to its default ("color": white, a shape's own look, JiberishUI's
+-- One color back to its default ("color": white, a shape's own look, Jiberish Fabled Icons'
 -- too; "borderColor": black).
 function addon.ResetColor(key)
     addon.Settings()[key] = addon.DEFAULTS[key]
     addon.UpdateCrosshair()
 end
 
--- JiberishUI turned off: offer to turn it on for this character and reload, as
+-- Jiberish Fabled Icons turned off: offer to turn it on for this character and reload, as
 -- the game's AddOns list does it (AddonList.lua:12-24, :578-585, :829, forever
 -- branch): EnableAddOn with the player's GUID as the character, then SaveAddOns,
 -- then the popup's secure Reload. (With the character's name instead of the GUID,
 -- and no SaveAddOns, the reload left it off: seen in game, 2026-11-20.)
 function addon.TellToEnableJiberish()
     addon.Popup.Show({
-        text = "JiberishUI Fabled Icons is installed but turned off.\nTurn it on and reload to use its crosshairs and class icons?",
+        text = "Jiberish Fabled Icons is installed but turned off.\nTurn it on and reload to use its crosshairs and class icons?",
         buttons = {
             { text = "Turn on and reload", reload = true, beforeReload = function()
                 C_AddOns.EnableAddOn(addon.Icons.JIBERISH_ADDON, addon.Icons.CharacterKey())
@@ -65,10 +65,10 @@ function addon.TellToEnableJiberish()
     })
 end
 
--- JiberishUI missing: its download link to copy, and a Reload for once it's installed.
+-- Jiberish Fabled Icons missing: its download link to copy, and a Reload for once it's installed.
 function addon.ShowJiberishLink()
     addon.Popup.Show({
-        text = "More crosshairs and class icons come with JiberishUI Fabled Icons. To get them:\n"
+        text = "More crosshairs and class icons come with Jiberish Fabled Icons. To get them:\n"
             .. "• Copy the link (Ctrl+C)\n"
             .. "• Install it\n"
             .. "• Reload",
@@ -167,14 +167,14 @@ function addon.RegisterSettings()
         local size = isDot and settings.dotSize or settings.shapeSize
         if addon.sizeSetting then addon.sizeSetting:SetValue(size) else settings.size = size end
     end
-    -- Without JiberishUI (missing or turned off) the Crosshair and Class icons
+    -- Without Jiberish Fabled Icons (missing or turned off) the Crosshair and Class icons
     -- choices would have one entry each: they're left out, and its button takes the
     -- Class icons row (seen in game: an empty slider).
     if jiberishInstalled then
         addChoice("icon", "Crosshair", addon.Icons.CrosshairList,
             "The crosshair's shape, always shown.\n\n"
             .. "• Default dot: the game's own\n"
-            .. "• The others: JiberishUI's crosshairs\n\n"
+            .. "• The others: Jiberish Fabled Icons' crosshairs\n\n"
             .. addon.Icons.JIBERISH_CREDIT .. ".",
             keepSizePerKind)
     end
@@ -203,7 +203,7 @@ function addon.RegisterSettings()
         -- other controls: a label of one space reads as empty but isn't "", which
         -- the game would put at the left edge (Blizzard_SettingControls.lua:982-999).
         addButton(" ", "Reset color", function() addon.ResetColor("color") end,
-            "Puts the crosshair's color back to white.\n\nWhite shows a shape as it was drawn, JiberishUI's too.")
+            "Puts the crosshair's color back to white.\n\nWhite shows a shape as it was drawn, Jiberish Fabled Icons' too.")
     end
     Settings.CreateSlider(category, addSetting("borderSize", Settings.VarType.Number, "Border"),
         sliderOptions(addon.BORDER_MIN, addon.BORDER_MAX, addon.BORDER_STEP, function(value)
@@ -237,17 +237,17 @@ function addon.RegisterSettings()
         addChoice("classStyle", "Class icons", addon.Icons.ClassStyleList,
             "How a player's class icon looks, when On a target is Target Class.\n\n"
             .. "• Default: the game's own\n"
-            .. "• The others: JiberishUI's class icon styles\n\n"
+            .. "• The others: Jiberish Fabled Icons' class icon styles\n\n"
             .. addon.Icons.JIBERISH_CREDIT .. ".")
     elseif jiberishState == "missing" then
-        addButton("Class icons", "Get JiberishUI Icons", function() addon.ShowJiberishLink() end,
-            "More looks come with the JiberishUI Fabled Icons addon:\n\n"
+        addButton("Class icons", "Get Jiberish Fabled Icons", function() addon.ShowJiberishLink() end,
+            "More looks come with the Jiberish Fabled Icons addon:\n\n"
             .. "• 11 class icon styles\n"
             .. "• 16 crosshair shapes\n\n"
             .. "Once it's installed and you've reloaded, they're offered here.")
     else
-        addButton("Class icons", "Enable JiberishUI Icons", function() addon.TellToEnableJiberish() end,
-            "JiberishUI Fabled Icons is installed but turned off.\n\n"
+        addButton("Class icons", "Enable Jiberish Fabled Icons", function() addon.TellToEnableJiberish() end,
+            "Jiberish Fabled Icons is installed but turned off.\n\n"
             .. "Turn it on to get its class icon styles and crosshair shapes here.")
     end
     Settings.CreateSlider(category, addSetting("iconSize", Settings.VarType.Number, "Icon size"),

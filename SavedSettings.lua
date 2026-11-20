@@ -3,7 +3,7 @@
 --
 -- The other files, one job each:
 --   Color.lua         colors as "RRGGBBAA" text, the dot's and the border's
---   Icons.lua         the crosshair's shapes (the game's dot, JiberishUI's crosshair
+--   Icons.lua         the crosshair's shapes (the game's dot, Jiberish Fabled Icons' crosshair
 --                     shapes when installed) and the icons on a target (its class,
 --                     the game's raid markers, a hand-picked set of the game's icons)
 --   Target.lua        what's targeted now: whether there's a target, a player's class
@@ -17,7 +17,7 @@ _G.GamepadCrosshairCustomizer = addon
 
 --   enabled:       draw the customized crosshair (off: the game's own dot back).
 --   icon:          the crosshair's shape, always shown (Icons.lua): "dot", the game's
---                  own, or a JiberishUI crosshair shape.
+--                  own, or a Jiberish Fabled Icons crosshair shape.
 --   color:         the crosshair's color, 32 bits as "RRGGBBAA" (hex, alpha last).
 --   size:          its width and height, in the crosshair's own units (the game's dot is 4).
 --   dotSize, shapeSize: the size each kind had when last left (the dot's, a shape's),
@@ -25,7 +25,7 @@ _G.GamepadCrosshairCustomizer = addon
 --   targetIcon:    what shows instead while you have a target: "none" (the crosshair
 --                  stays), "class" (a player's class; others keep the crosshair), a raid
 --                  marker or one of the game's icons. Icons keep their own colors.
---   classStyle:    the class icon's style (Icons.lua): "game" or a JiberishUI class sheet.
+--   classStyle:    the class icon's style (Icons.lua): "game" or a Jiberish Fabled Icons class sheet.
 --   iconSize:      the icon's width and height.
 --   borderSize:    how far the border reaches out around either (0: no border).
 --   borderColor:   the border's color, "RRGGBBAA".

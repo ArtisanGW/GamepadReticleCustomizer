@@ -2,7 +2,7 @@
 --
 -- The crosshair's shapes, always shown (setting "icon"):
 --   "dot"             the game's own dot (its texture, GamepadReticle.xml:94)
---   "jiberish:<name>" JiberishUI Fabled Icons' crosshair shapes, offered only when
+--   "jiberish:<name>" Jiberish Fabled Icons' crosshair shapes, offered only when
 --                     that addon is installed (enabled or not: the game reads the
 --                     files from its folder either way). Named here only as text:
 --                     nothing calls it or depends on it, nothing is copied, and
@@ -11,7 +11,7 @@
 --   "none"            none: the crosshair stays
 --   "class"           a player target's class, in a class icon style (setting
 --                     "classStyle"): "game" (the game's classicon-<class> atlases), or
---                     "jiberish:<style>", a JiberishUI class sheet when installed
+--                     "jiberish:<style>", a Jiberish Fabled Icons class sheet when installed
 --   "marker1".."8"    the game's raid target markers: star, circle, diamond,
 --                     triangle, moon, square, cross, skull
 --   "icon:<key>"      one of GAME_ICONS, a hand-picked set of the game's own icons
@@ -50,7 +50,7 @@ local Icons = {
     LABEL_MAX_LENGTH = 22,
     JIBERISH_WEIGHTS = { "bold", "thin" },
     JIBERISH_FILE_SIZE = 128,   -- each shape comes in 32, 64, 128 and 256 px
-    JIBERISH_CREDIT = "Shapes from JiberishUI Fabled Icons",
+    JIBERISH_CREDIT = "Shapes from Jiberish Fabled Icons",
     JIBERISH_CLASS_FOLDER = "Interface\\AddOns\\JiberishIcons\\Media\\Class\\",
     -- Its class sheets (files and names as it lists them).
     JIBERISH_CLASS_STYLES = {
@@ -73,7 +73,7 @@ local Icons = {
 }
 addon.Icons = Icons
 
--- JiberishUI Fabled Icons for this character: "missing" (not installed),
+-- Jiberish Fabled Icons for this character: "missing" (not installed),
 -- "disabled" (installed, turned off in the AddOns list) or "enabled". Its shapes
 -- and styles are offered only when enabled. Not whether it's loaded: this addon
 -- loads before it. First whether it can load and why not (GetAddOnInfo: loadable,
@@ -198,7 +198,7 @@ function Icons.ClassLook(classFile, style)
     local atlas = Icons.ClassAtlas(classFile)
     if not atlas then return nil end
     -- The game's atlas as its file and cell (C_Texture.GetAtlasInfo,
-    -- TextureUtilsDocumentation.lua:207, forever branch), drawn as a JiberishUI cell is:
+    -- TextureUtilsDocumentation.lua:207, forever branch), drawn as a Jiberish Fabled Icons cell is:
     -- switching from a Jiberish style with SetAtlas kept that style's cell (seen in game).
     local succeeded, info = pcall(C_Texture.GetAtlasInfo, atlas)
     local file = succeeded and info and (info.file or info.filename)

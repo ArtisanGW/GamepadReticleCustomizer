@@ -346,7 +346,7 @@ test("its page under Options > AddOns, in order, with the defaults; /gcc opens i
     eq(controlList(), "checkbox:Enable, slider:Size, swatch:Color, button:(Reset color), slider:Border, "
         .. "swatch:Border color, button:(Reset border color), "
         .. "slider:On a target, button:Class icons, slider:Icon size, button:Gamepad Camera Offset",
-        "without JiberishUI: no one-choice Crosshair or Class icons slider; its button in the Class icons row")
+        "without Jiberish Fabled Icons: no one-choice Crosshair or Class icons slider; its button in the Class icons row")
     boot({ jiberish = true })
     eq(controlList(), "checkbox:Enable, slider:Crosshair, slider:Size, swatch:Color, button:(Reset color), slider:Border, "
         .. "swatch:Border color, button:(Reset border color), "
@@ -502,7 +502,7 @@ test("the crosshair: the game's dot, no Jiberish shapes without it; a Jiberish i
     eq(GamepadCrosshairCustomizer.Crosshair.Drawn().icon, "dot")
 end)
 
-test("with JiberishUI Fabled Icons installed: its 16 crosshairs listed and drawn from its folder, credited, no install button", function()
+test("with Jiberish Fabled Icons installed: its 16 crosshairs listed and drawn from its folder, credited, no install button", function()
     boot({ jiberish = true })
     local labels = choiceLabels("Crosshair")
     eq(#labels, 17, "the dot and 16 Jiberish shapes")
@@ -511,7 +511,7 @@ test("with JiberishUI Fabled Icons installed: its 16 crosshairs listed and drawn
     eq(GamepadCrosshairCustomizerDB.icon, "jiberish:splitplus-thin", "the slider's step saved as the shape's id")
     eq(layer().shape.texture, "Interface\\AddOns\\JiberishIcons\\Media\\Crosshair\\splitplus-thin-128")
     eq(control("button", "Class icons"), nil, "no install button when it's there")
-    eq(control("slider", "Crosshair").extra.tooltip:find("Shapes from JiberishUI Fabled Icons", 1, true) ~= nil, true,
+    eq(control("slider", "Crosshair").extra.tooltip:find("Shapes from Jiberish Fabled Icons", 1, true) ~= nil, true,
         "credited, as its license asks")
 end)
 
@@ -604,7 +604,7 @@ test("old settings: a marker in the single Shape becomes the icon on a target; a
     eq(GamepadCrosshairCustomizerDB.icon, "jiberish:x-bold", "a crosshair shape stays"); eq(GamepadCrosshairCustomizerDB.targetIcon, "none")
 end)
 
-test("JiberishUI installed but turned off: not offered, its choices fall back, a button tells how to turn it on", function()
+test("Jiberish Fabled Icons installed but turned off: not offered, its choices fall back, a button tells how to turn it on", function()
     boot({ jiberishOff = true, saved = { icon = "jiberish:x-bold", size = 24, targetIcon = "class", classStyle = "jiberish:fabled" } })
     eq(control("slider", "Crosshair"), nil, "its shapes aren't offered")
     eq(control("slider", "Class icons"), nil, "nor its styles")
@@ -613,7 +613,7 @@ test("JiberishUI installed but turned off: not offered, its choices fall back, a
     eq(GamepadCrosshairCustomizer.Crosshair.Drawn().atlas, "classicon-mage", "and a Jiberish class style to the game's")
     eq(GamepadCrosshairCustomizerDB.icon, "jiberish:x-bold", "your choice kept for when it's on again")
     local button = control("button", "Class icons")
-    eq(button.extra.buttonText, "Enable JiberishUI Icons", "not Get: it's installed")
+    eq(button.extra.buttonText, "Enable Jiberish Fabled Icons", "not Get: it's installed")
     button.extra.onClick()
     eq(popup():IsShown(), true, "the game-style popup")
     eq(popup().Border.template, "DialogBorderTemplate", "the game's dialog border")
@@ -629,7 +629,7 @@ end)
 
 test("without it: the install button shows the link to copy", function()
     boot()
-    eq(control("button", "Class icons").extra.buttonText, "Get JiberishUI Icons", "in the Class icons row")
+    eq(control("button", "Class icons").extra.buttonText, "Get Jiberish Fabled Icons", "in the Class icons row")
     control("button", "Class icons").extra.onClick()
     eq(popup():IsShown(), true)
     eq(popup().editBox:GetText(), "https://www.curseforge.com/wow/addons/jiberish-fabled-icons")
@@ -706,9 +706,9 @@ test("each color has its own reset: the crosshair's to white, the border's to bl
     eq(GamepadCrosshairCustomizerDB.borderColor, "000000FF"); eq(colorOf(layer().border), "0.00 0.00 0.00 1.00")
 end)
 
-test("class icon styles: the game's, or a JiberishUI class sheet's cell for the class; without it, the game's", function()
+test("class icon styles: the game's, or a Jiberish Fabled Icons class sheet's cell for the class; without it, the game's", function()
     boot()
-    eq(control("slider", "Class icons"), nil, "without JiberishUI: no slider, the game's icons only")
+    eq(control("slider", "Class icons"), nil, "without Jiberish Fabled Icons: no slider, the game's icons only")
     boot({ jiberish = true, saved = { targetIcon = "class" } })
     local labels = choiceLabels("Class icons")
     eq(#labels, 12, "the game's and 11 Jiberish styles")
@@ -742,7 +742,7 @@ end)
 
 test("on the controller: A clicks the popup's first button, B the last, a hint says so; closing gives them back", function()
     boot()
-    control("button", "Class icons").extra.onClick()   -- Get JiberishUI Icons: Reload, Close
+    control("button", "Class icons").extra.onClick()   -- Get Jiberish Fabled Icons: Reload, Close
     eq(game.bindings.PAD1, "GamepadCrosshairCustomizerPopupReload", "A: the first button, Reload")
     eq(game.bindings.PAD2, "GamepadCrosshairCustomizerPopupButton1", "B: the last, Close")
     eq(popup().hint.text, "A: Reload      B: Close")

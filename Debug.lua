@@ -139,7 +139,7 @@ local function expectedLook(step, settings)
     end
     if step.shows == "targetIcon" then
         if settings.targetIcon == "class" then
-            -- In its style: the game's atlas, or a JiberishUI sheet's cell (the game's without it).
+            -- In its style: the game's atlas, or a Jiberish Fabled Icons sheet's cell (the game's without it).
             local classLook = addon.Icons.ClassLook(target.classFile, settings.classStyle) or {}
             return { icon = "class", atlas = classLook.atlas, texture = classLook.texture, texCoord = classLook.texCoord,
                 size = settings.iconSize, tinted = false }
@@ -571,7 +571,7 @@ Debug.eventFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
 Debug.eventFrame:SetScript("OnEvent", function(self, event)
     if event == "PLAYER_LOGIN" then
         bindKeys()
-        -- What the game says about JiberishUI's switch, at login and when the settings were built.
+        -- What the game says about Jiberish Fabled Icons' switch, at login and when the settings were built.
         getDebugStore().jiberishAtLogin = addon.Icons.JiberishRawState()
         getDebugStore().jiberishAtSettings = addon.jiberishAtSettings
         local debugStore = getDebugStore()
