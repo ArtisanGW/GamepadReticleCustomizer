@@ -193,7 +193,7 @@ function addon.RegisterSettings()
     addon.targetIconSlider = addChoice("targetIcon", "On a target", addon.Icons.TargetList,
         "What shows instead of the crosshair while your target's nameplate is on screen (vendors, guards "
         .. "and minions keep the crosshair unless their nameplates are on in Options > Nameplates): None (the "
-        .. "crosshair stays), Player Class (a player's class icon; any other target keeps the crosshair), one of the game's raid markers, "
+        .. "crosshair stays), Target Class (a player's class icon; any other target keeps the crosshair), one of the game's raid markers, "
         .. "or one of a set of the game's icons; the preview shows it big. Icons keep their own colors.")
     if jiberishInstalled then
         addChoice("classStyle", "Class icons", addon.Icons.ClassStyleList,

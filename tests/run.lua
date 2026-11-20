@@ -475,7 +475,7 @@ test("choices are sliders (a dropdown's menu broke on the controller): on a targ
     boot()
     local labels = choiceLabels("On a target")
     eq(#labels, 10 + 12)
-    eq(labels[1], "None"); eq(labels[2], "Player Class")
+    eq(labels[1], "None"); eq(labels[2], "Target Class")
     eq(labels[10], "Raid marker: Skull"); eq(labels[11], "Icon: Sniper scope"); eq(labels[22], "Icon: Holy")
     choose("targetIcon", "marker8")
     eq(GamepadCrosshairCustomizerDB.targetIcon, "marker8")

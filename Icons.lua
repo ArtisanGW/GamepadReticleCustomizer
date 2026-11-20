@@ -140,7 +140,7 @@ end
 
 -- The icons for a target, in order: { id, label }.
 function Icons.TargetList()
-    local list = { { id = "none", label = "None" }, { id = "class", label = "Player Class" } }
+    local list = { { id = "none", label = "None" }, { id = "class", label = "Target Class" } }
     for index = 1, 8 do
         list[#list + 1] = { id = "marker" .. index,
             label = "Raid marker: " .. (_G["RAID_TARGET_" .. index] or Icons.RAID_MARKER_NAMES[index]) }
