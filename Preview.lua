@@ -1,8 +1,10 @@
 -- A live preview of the crosshair beside the settings page: the game's crosshair
--- is behind the settings window while you change it. Two cells: the crosshair as
--- it's drawn, and the icon shown on a target (for a player's class, your own
--- class as the example). Painted as the crosshair is (Crosshair.Paint), redrawn on
--- every change.
+-- is behind the settings window while you change it. Two cells: the crosshair, and
+-- the icon shown on a target (for a player's class, your own class as the
+-- example). Each cell shows its picture zoomed to fill it, so a small icon (a
+-- JiberishUI class icon at 24) can be seen properly, with a copy at its real size
+-- in the corner. The window keeps one size whatever is chosen. Painted as the
+-- crosshair is (Crosshair.Paint), redrawn on every change.
 --
 -- Its own frame on the settings window, not part of the game's settings list:
 -- nothing of the game's runs our code for it, and it has no buttons, so the
@@ -11,7 +13,7 @@
 -- branch), checked a few times a second while the window is open.
 local _, addon = ...
 
-local Preview = { CHECK_SECONDS = 0.25, CELL_SIZE = 84 }
+local Preview = { CHECK_SECONDS = 0.25, CELL_SIZE = 120, ZOOMED_FILL = 0.8, REAL_SIZE_CORNER = 40 }
 addon.Preview = Preview
 
 local frame, watcher
@@ -23,10 +25,22 @@ local function newCell(label, column)
     local background = cell:CreateTexture(nil, "BACKGROUND")
     background:SetAllPoints()
     background:SetColorTexture(0.22, 0.24, 0.2, 1)   -- a dull ground color, as behind the real crosshair
+    -- The zoomed view, in the middle.
     cell.border = cell:CreateTexture(nil, "BORDER")
     cell.border:SetPoint("CENTER", cell, "CENTER")
     cell.shape = cell:CreateTexture(nil, "ARTWORK")
     cell.shape:SetPoint("CENTER", cell, "CENTER")
+    -- The real size, in the bottom-right corner, on its own darker square.
+    local corner = CreateFrame("Frame", nil, cell)
+    corner:SetSize(Preview.REAL_SIZE_CORNER, Preview.REAL_SIZE_CORNER)
+    corner:SetPoint("BOTTOMRIGHT", cell, "BOTTOMRIGHT", 0, 0)
+    local cornerBackground = corner:CreateTexture(nil, "BACKGROUND")
+    cornerBackground:SetAllPoints()
+    cornerBackground:SetColorTexture(0.12, 0.13, 0.11, 1)
+    cell.realBorder = corner:CreateTexture(nil, "BORDER")
+    cell.realBorder:SetPoint("CENTER", corner, "CENTER")
+    cell.realShape = corner:CreateTexture(nil, "ARTWORK")
+    cell.realShape:SetPoint("CENTER", corner, "CENTER")
     cell.label = cell:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     cell.label:SetPoint("TOP", cell, "BOTTOM", 0, -4)
     cell.label:SetWidth(Preview.CELL_SIZE + 10)
@@ -36,7 +50,7 @@ end
 
 local function build(settingsPanel)
     frame = CreateFrame("Frame", "GamepadCrosshairCustomizerPreview", settingsPanel)
-    frame:SetSize(12 + 2 * (Preview.CELL_SIZE + 12), 160)
+    frame:SetSize(12 + 2 * (Preview.CELL_SIZE + 12), 34 + Preview.CELL_SIZE + 44)
     frame:SetPoint("TOPLEFT", settingsPanel, "TOPRIGHT", 6, 0)
     frame:SetClampedToScreen(true)
     frame:SetFrameStrata(settingsPanel:GetFrameStrata())
@@ -59,13 +73,25 @@ local function exampleTarget()
     return { exists = true, hasNameplate = true, isPlayer = true, classFile = classFile }
 end
 
+-- A look's full width, border included, at its real size.
+local function fullWidth(look)
+    return look.size + 2 * addon.Clamp(addon.Settings().borderSize, addon.BORDER_MIN, addon.BORDER_MAX, 0)
+end
+
+-- A cell: the look zoomed to fill ZOOMED_FILL of the cell in the middle, and at its
+-- real size in the corner (shrunk only when it's bigger than the corner).
+local function paintCell(cell, look)
+    local width = fullWidth(look)
+    addon.Crosshair.Paint(cell.shape, cell.border, look, Preview.CELL_SIZE * Preview.ZOOMED_FILL / width)
+    local cornerRoom = Preview.REAL_SIZE_CORNER * Preview.ZOOMED_FILL
+    addon.Crosshair.Paint(cell.realShape, cell.realBorder, look, math.min(1, cornerRoom / width))
+end
+
 function Preview.Refresh()
     if not (frame and frame:IsShown()) then return end
     local settings = addon.Settings()
-    local noTarget = { exists = false }
-    addon.Crosshair.Paint(frame.crosshair.shape, frame.crosshair.border, addon.Crosshair.Choose(settings, noTarget))
-    local onTarget = addon.Crosshair.Choose(settings, exampleTarget())
-    addon.Crosshair.Paint(frame.onTarget.shape, frame.onTarget.border, onTarget)
+    paintCell(frame.crosshair, addon.Crosshair.Choose(settings, { exists = false }))
+    paintCell(frame.onTarget, addon.Crosshair.Choose(settings, exampleTarget()))
     frame.onTarget.label:SetText(settings.targetIcon == "none" and "On a target: the crosshair stays" or "On a target")
     -- The addon off: the game's own dot; shown dimmed so the page still previews your choices.
     frame:SetAlpha(settings.enabled and 1 or 0.5)

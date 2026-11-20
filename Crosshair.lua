@@ -82,11 +82,13 @@ end
 
 -- Paints a look (from Choose) on a shape texture and the border texture behind it,
 -- in the saved colors and border size (also the settings page's preview).
--- Returns the border size used.
-function Crosshair.Paint(shape, border, look)
+-- zoom (optional, 1 by default): the preview's magnified view, size and border alike.
+-- Returns the border size used (unzoomed).
+function Crosshair.Paint(shape, border, look, zoom)
+    zoom = zoom or 1
     local borderSize = addon.Clamp(addon.Settings().borderSize, addon.BORDER_MIN, addon.BORDER_MAX, 0)
     setPicture(shape, look)
-    shape:SetSize(look.size, look.size)
+    shape:SetSize(look.size * zoom, look.size * zoom)
     if look.tinted then
         shape:SetVertexColor(addon.ParseColor(addon.Color("color")))
     else
@@ -94,7 +96,7 @@ function Crosshair.Paint(shape, border, look)
     end
     if borderSize > 0 then
         setPicture(border, look)
-        border:SetSize(look.size + 2 * borderSize, look.size + 2 * borderSize)
+        border:SetSize((look.size + 2 * borderSize) * zoom, (look.size + 2 * borderSize) * zoom)
         border:SetVertexColor(addon.ParseColor(addon.Color("borderColor")))
         border:Show()
     else
