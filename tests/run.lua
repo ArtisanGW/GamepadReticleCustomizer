@@ -136,11 +136,10 @@ local function boot(options)
             return setting
         end,
         CreateCheckbox = function(_, setting) addControl("checkbox", setting) end,
-        CreateSlider = function(_, setting, sliderOptions) addControl("slider", setting, sliderOptions) end,
+        CreateSlider = function(_, setting, sliderOptions, tooltip) sliderOptions.tooltip = tooltip; addControl("slider", setting, sliderOptions) end,
         CreateSliderOptions = function(minimum, maximum, step)
             return { minimum = minimum, maximum = maximum, step = step, SetLabelFormatter = function(self, _, fn) self.format = fn end }
         end,
-        CreateDropdown = function(_, setting, getOptions, tooltip) addControl("dropdown", setting, { getOptions = getOptions, tooltip = tooltip }) end,
         CreateControlTextContainer = function()
             local container = { data = {} }
             function container:Add(value, label) self.data[#self.data + 1] = { value = value, label = label } end
@@ -232,10 +231,16 @@ local function controlList()
     end
     return table.concat(labels, ", ")
 end
-local function dropdownIds(label)
-    local ids = {}
-    for _, option in ipairs(control("dropdown", label).extra.getOptions()) do ids[#ids + 1] = option.value end
-    return ids
+-- A choice slider's labels, one per step (what the controller steps through).
+local function choiceLabels(label)
+    local options, labels = control("slider", label).extra, {}
+    for value = options.minimum, options.maximum do labels[#labels + 1] = options.format(value) end
+    return labels
+end
+-- Picks a shape as the slider does: by its step.
+local function choose(key, id)
+    local list = key == "icon" and GamepadCrosshairCustomizer.Icons.CrosshairList() or GamepadCrosshairCustomizer.Icons.TargetList()
+    setting(key .. "Choice"):SetValue(GamepadCrosshairCustomizer.ChoiceIndex(list, id))
 end
 
 -- The settings page
@@ -243,7 +248,7 @@ end
 test("its page under Options > AddOns, in order, with the defaults; /gcc opens it", function()
     boot()
     eq(game.category.name, "Gamepad Crosshair Customizer")
-    eq(controlList(), "checkbox:Enable, dropdown:Crosshair, slider:Size, swatch:Color, dropdown:On a target, "
+    eq(controlList(), "checkbox:Enable, slider:Crosshair, slider:Size, swatch:Color, slider:On a target, "
         .. "slider:Icon size, slider:Border, swatch:Border color, button:Custom texture, button:More shapes")
     local saved = GamepadCrosshairCustomizerDB
     eq(saved.enabled, true); eq(saved.color, "FFFFFFFF"); eq(saved.size, 4); eq(saved.borderSize, 0)
@@ -389,27 +394,35 @@ end)
 
 test("the crosshair: the game's dot, no Jiberish shapes without it; a Jiberish id without it falls back to the dot", function()
     boot()
-    eq(table.concat(dropdownIds("Crosshair"), ","), "dot")
-    setting("icon"):SetValue("jiberish:x-bold")
+    eq(table.concat(choiceLabels("Crosshair"), ","), "The game's dot")
+    GamepadCrosshairCustomizerDB.icon = "jiberish:x-bold"; GamepadCrosshairCustomizer.UpdateCrosshair()
     eq(GamepadCrosshairCustomizer.Crosshair.Drawn().icon, "dot")
 end)
 
 test("with JiberishUI Fabled Icons installed: its 16 crosshairs listed and drawn from its folder, credited, no install button", function()
     boot({ jiberish = true })
-    local ids = dropdownIds("Crosshair")
-    eq(#ids, 17, "the dot and 16 Jiberish shapes")
-    eq(ids[2], "jiberish:circle-bold"); eq(ids[17], "jiberish:x-thin")
-    setting("icon"):SetValue("jiberish:splitplus-thin")
+    local labels = choiceLabels("Crosshair")
+    eq(#labels, 17, "the dot and 16 Jiberish shapes")
+    eq(labels[2], "Jiberish: Circle, bold"); eq(labels[17], "Jiberish: X, thin")
+    choose("icon", "jiberish:splitplus-thin")
+    eq(GamepadCrosshairCustomizerDB.icon, "jiberish:splitplus-thin", "the slider's step saved as the shape's id")
     eq(layer().shape.texture, "Interface\\AddOns\\JiberishIcons\\Media\\Crosshair\\splitplus-thin-128")
     eq(control("button", "More shapes"), nil, "no install button when it's there")
-    eq(control("dropdown", "Crosshair").extra.tooltip:find("Shapes from JiberishUI Fabled Icons", 1, true) ~= nil, true,
+    eq(control("slider", "Crosshair").extra.tooltip:find("Shapes from JiberishUI Fabled Icons", 1, true) ~= nil, true,
         "credited, as its license asks")
 end)
 
-test("on a target: none, a player's class, the 8 raid markers or a custom texture", function()
+test("choices are sliders (a dropdown's menu broke on the controller): on a target, none, a player's class, the 8 raid markers or a custom texture", function()
     boot()
-    eq(table.concat(dropdownIds("On a target"), ","),
-        "none,class,marker1,marker2,marker3,marker4,marker5,marker6,marker7,marker8,custom")
+    local labels = choiceLabels("On a target")
+    eq(#labels, 11)
+    eq(labels[1], "None: keep the crosshair"); eq(labels[2], "A player's class (others: the crosshair)")
+    eq(labels[10], "Raid marker: Skull"); eq(labels[11], "Your own texture (Custom texture... button)")
+    choose("targetIcon", "marker8")
+    eq(GamepadCrosshairCustomizerDB.targetIcon, "marker8")
+
+    boot({ saved = { targetIcon = "class", icon = "dot" } })
+    eq(GamepadCrosshairCustomizer.choices.targetIcon, 2, "the slider starts at your saved choice")
 end)
 
 test("icons show only while you have a target, at the icon size, in their own colors; the crosshair comes back", function()

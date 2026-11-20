@@ -50,7 +50,8 @@ function addon.SetCustomTexture(text)
     text = tostring(text or ""):match("^%s*(.-)%s*$")
     if text == "" then return false end
     addon.Settings().customTexture = text
-    if addon.targetIconSetting then addon.targetIconSetting:SetValue("custom") else addon.Settings().targetIcon = "custom" end
+    addon.Settings().targetIcon = "custom"
+    if addon.targetIconSlider then addon.targetIconSlider:SetValue(addon.ChoiceIndex(addon.Icons.TargetList(), "custom")) end
     addon.UpdateCrosshair()
     return true
 end
@@ -70,12 +71,19 @@ local function sliderOptions(minimum, maximum, step, formatLabel)
     return options
 end
 
-local function dropdownOptions(list)
-    return function()
-        local container = Settings.CreateControlTextContainer()
-        for _, icon in ipairs(list()) do container:Add(icon.id, icon.label) end
-        return container:GetData()
+-- The shape choices are sliders, not dropdowns: a settings dropdown's menu is
+-- built from the addon's own list, and steered by the controller (SmartNavigation)
+-- that list taints the menu's code: picking failed, and closing the page then made
+-- the game refuse SetPreferredGamepadInteractTarget, blaming this addon (seen in
+-- game, 2026-11-20). A slider holds a plain number, as the game's own sliders do.
+-- Its position (in addon.choices, not saved) picks the id saved under its key.
+addon.choices = {}
+
+function addon.ChoiceIndex(list, id)
+    for index, entry in ipairs(list) do
+        if entry.id == id then return index end
     end
+    return 1
 end
 
 function addon.RegisterSettings()
@@ -102,9 +110,27 @@ function addon.RegisterSettings()
     Settings.CreateCheckbox(category, addSetting("enabled", Settings.VarType.Boolean, "Enable"),
         "Draws the controller's aiming dot (the controller UI's crosshair) your way. Turned off, the game's own dot comes back.")
 
+    -- A choice slider: steps through a list, its label the chosen name; saves the id under key.
+    local function addChoice(key, label, list, tooltip)
+        local entries = list()
+        addon.choices[key] = addon.ChoiceIndex(entries, settings[key])
+        local variableName = "GamepadCrosshairCustomizer_" .. key .. "Choice"
+        local setting = Settings.RegisterAddOnSetting(category, variableName, key, addon.choices,
+            Settings.VarType.Number, label, 1)
+        Settings.SetOnValueChangedCallback(variableName, function(_, _, value)
+            local entry = entries[math.floor((tonumber(value) or 1) + 0.5)] or entries[1]
+            settings[key] = entry.id
+            addon.UpdateCrosshair()
+        end)
+        Settings.CreateSlider(category, setting, sliderOptions(1, #entries, 1, function(value)
+            local entry = entries[math.floor(value + 0.5)] or entries[1]
+            return entry.label
+        end), tooltip)
+        return setting
+    end
+
     local jiberishInstalled = addon.Icons.JiberishInstalled()
-    Settings.CreateDropdown(category, addSetting("icon", Settings.VarType.String, "Crosshair"),
-        dropdownOptions(addon.Icons.CrosshairList),
+    addChoice("icon", "Crosshair", addon.Icons.CrosshairList,
         "The crosshair's shape, always shown: the game's dot"
         .. (jiberishInstalled and (", or one of JiberishUI's crosshairs. " .. addon.Icons.JIBERISH_CREDIT
             .. " (" .. addon.Icons.JIBERISH_LINK .. ").") or ". More shapes come with JiberishUI Fabled Icons (Get JiberishUI Icons... below)."))
@@ -124,8 +150,7 @@ function addon.RegisterSettings()
             .. "Also from chat: /gcc RRGGBBAA (hex, alpha last), e.g. /gcc FF3030FF.")
     end
 
-    addon.targetIconSetting = addSetting("targetIcon", Settings.VarType.String, "On a target")
-    Settings.CreateDropdown(category, addon.targetIconSetting, dropdownOptions(addon.Icons.TargetList),
+    addon.targetIconSlider = addChoice("targetIcon", "On a target", addon.Icons.TargetList,
         "What shows instead of the crosshair while you have a target: nothing (the crosshair stays), "
         .. "a player's class icon (any other target keeps the crosshair), one of the game's raid markers, "
         .. "or a texture of your own (Custom texture...). Icons keep their own colors.")
