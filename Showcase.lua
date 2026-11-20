@@ -14,7 +14,8 @@
 -- (the script waits, or presses again to look for the next target), red when a
 -- target wasn't found (no shot), gone when the screen is ready for a shot.
 -- Your settings are saved at the first step and put back after the last (and at
--- the next login, should a reload cut the tour short).
+-- the next login, should a reload cut the tour short). Your own frame and personal
+-- nameplate are hidden meanwhile, for clean shots.
 local addon = _G.GamepadReticleCustomizer
 local Showcase = { KEY = "ALT-CTRL-SHIFT-B", CHECK_DELAY_SECONDS = 0.4, TRIES = 15 }
 addon.Showcase = Showcase
@@ -74,7 +75,22 @@ local function applyLook(look)
     addon.UpdateReticle()
 end
 
+-- Your player frame (alpha) and personal nameplate (the game's nameplateShowSelf)
+-- hidden for the tour, and shown again after.
+local function hideYourself()
+    if _G.PlayerFrame then store().showcasePlayerFrameAlpha = PlayerFrame:GetAlpha(); PlayerFrame:SetAlpha(0) end
+    store().showcaseShowSelf = C_CVar.GetCVar("nameplateShowSelf")
+    C_CVar.SetCVar("nameplateShowSelf", "0")
+end
+local function showYourself()
+    local saved = store()
+    if _G.PlayerFrame and saved.showcasePlayerFrameAlpha then PlayerFrame:SetAlpha(saved.showcasePlayerFrameAlpha) end
+    if saved.showcaseShowSelf then C_CVar.SetCVar("nameplateShowSelf", saved.showcaseShowSelf) end
+    saved.showcasePlayerFrameAlpha, saved.showcaseShowSelf = nil, nil
+end
+
 local function restore()
+    showYourself()
     local saved = store().showcaseRestore
     if not saved then return end
     local settings = addon.Settings()
@@ -155,6 +171,7 @@ local function onClick()
         for key in pairs(addon.DEFAULTS) do copy[key] = settings[key] end
         store().showcaseRestore = copy
         applyLook(Showcase.LOOK)
+        hideYourself()
     end
     setMarker(1, 0, 1)
     C_Timer.After(Showcase.CHECK_DELAY_SECONDS, check)
