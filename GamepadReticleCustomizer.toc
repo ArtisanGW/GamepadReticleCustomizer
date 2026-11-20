@@ -5,6 +5,7 @@
 ## Version: @project-version@
 ## SavedVariables: GamepadReticleCustomizerDB, GamepadReticleCustomizerDebugDB
 ## Category: Gamepad
+## IconTexture: Interface\AddOns\GamepadReticleCustomizer\Media\icon-64.png
 
 SavedSettings.lua
 Color.lua
