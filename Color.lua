@@ -1,29 +1,7 @@
--- GamepadCrosshairCustomizer customizes the controller's aiming dot. This file is
--- its color and opacity.
---
--- The dot is the controller UI's GamepadReticle (Blizzard_Gamepad, loaded with the
--- game, not on demand): its Icons.StandardIcon, a small white circle that Blizzard
--- never tints itself (forever branch, Blizzard_Gamepad/UI/Reticle/GamepadReticle.xml:94).
--- So it's tinted once at login and again only when the color changes. The dot's
--- own color is kept first and put back when the addon is switched off.
---
--- This file: the saved settings, the color and the tint. PickerSticks.lua: the color picker on a
--- controller. GamepadCrosshairCustomizer.lua: the settings page, /gcc and the events.
+-- Colors as "RRGGBBAA" text (hex, alpha last): the crosshair's ("color") and its
+-- border's ("borderColor"). Each is saved under its key in the settings; a change
+-- redraws the crosshair (Crosshair.lua).
 local _, addon = ...
-_G.GamepadCrosshairCustomizer = addon
-
---   enabled: tint the dot (off: the dot's own color back).
---   color:   the dot's color, 32 bits as "RRGGBBAA" (hex, alpha last).
-addon.DEFAULTS = { enabled = true, color = "FFFFFFFF" }
-
-function addon.Settings()
-    if type(GamepadCrosshairCustomizerDB) ~= "table" then GamepadCrosshairCustomizerDB = {} end
-    local settings = GamepadCrosshairCustomizerDB
-    for key, defaultValue in pairs(addon.DEFAULTS) do
-        if settings[key] == nil then settings[key] = defaultValue end
-    end
-    return settings
-end
 
 -- "RRGGBBAA" (or "RRGGBB", opaque; a leading # is fine) as 0-1 red, green, blue,
 -- alpha and the upper-case "RRGGBBAA", or nil.
@@ -42,53 +20,29 @@ function addon.FormatColor(red, green, blue, alpha)
     return string.format("%02X%02X%02X%02X", byte(red), byte(green), byte(blue), byte(alpha))
 end
 
--- The saved color, "RRGGBBAA" (white if the saved text is broken).
-function addon.Color()
-    local _, _, _, _, hex = addon.ParseColor(addon.Settings().color)
-    return hex or addon.DEFAULTS.color
-end
-
-local function crosshairDot()
-    local crosshairFrame = _G.GamepadReticle
-    local dot = type(crosshairFrame) == "table" and crosshairFrame.Icons and crosshairFrame.Icons.StandardIcon
-    if type(dot) ~= "table" or type(dot.SetVertexColor) ~= "function" then return nil end
-    return dot
-end
-
-local originalColor   -- the dot's own color, read before the first tint: { red, green, blue, alpha }
-
--- Tints the dot with the saved color, or puts its own color back when switched off.
-function addon.ColorCrosshair()
-    local dot = crosshairDot()
-    if not dot then return end
-    if not originalColor then
-        local red, green, blue, alpha = 1, 1, 1, 1
-        if type(dot.GetVertexColor) == "function" then red, green, blue, alpha = dot:GetVertexColor() end
-        originalColor = { red or 1, green or 1, blue or 1, alpha or 1 }
-    end
-    if addon.Settings().enabled then
-        dot:SetVertexColor(addon.ParseColor(addon.Color()))
-    else
-        dot:SetVertexColor(originalColor[1], originalColor[2], originalColor[3], originalColor[4])
-    end
+-- The saved color under a key ("color" by default), "RRGGBBAA"; its default if broken.
+function addon.Color(key)
+    key = key or "color"
+    local _, _, _, _, hex = addon.ParseColor(addon.Settings()[key])
+    return hex or addon.DEFAULTS[key]
 end
 
 -- Saves and shows a new color. False (and nothing changed) if the text isn't a color.
-function addon.SetColor(text)
+function addon.SetColor(text, key)
     local red, _, _, _, hex = addon.ParseColor(text)
     if not red then return false end
-    addon.Settings().color = hex
-    addon.ColorCrosshair()
+    addon.Settings()[key or "color"] = hex
+    addon.UpdateCrosshair()
     return true
 end
 
--- The opacity alone, 0 to 1: the color kept.
-function addon.Opacity()
-    local _, _, _, alpha = addon.ParseColor(addon.Color())
+-- The opacity alone, 0 to 1, the color kept.
+function addon.Opacity(key)
+    local _, _, _, alpha = addon.ParseColor(addon.Color(key))
     return alpha
 end
 
-function addon.SetOpacity(alpha)
-    local red, green, blue = addon.ParseColor(addon.Color())
-    addon.SetColor(addon.FormatColor(red, green, blue, math.max(0, math.min(1, tonumber(alpha) or 1))))
+function addon.SetOpacity(alpha, key)
+    local red, green, blue = addon.ParseColor(addon.Color(key))
+    addon.SetColor(addon.FormatColor(red, green, blue, math.max(0, math.min(1, tonumber(alpha) or 1))), key)
 end

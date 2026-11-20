@@ -1,11 +1,19 @@
 ## Interface: 16001
 ## Title: Gamepad Crosshair Customizer
-## Notes: Customizes the controller's aiming dot: its color and opacity. Settings in Options > AddOns > Gamepad Crosshair Customizer, or /gcc.
+## Notes: Customizes the controller's aiming dot: its shape, size, color, opacity and border. Settings in Options > AddOns > Gamepad Crosshair Customizer, or /gcc.
 ## Author: Artisan
 ## Version: @project-version@
-## SavedVariables: GamepadCrosshairCustomizerDB
+## SavedVariables: GamepadCrosshairCustomizerDB, GamepadCrosshairCustomizerDebugDB
 ## Category: Gamepad
 
+SavedSettings.lua
 Color.lua
+Icons.lua
+Crosshair.lua
 PickerSticks.lua
+TextBox.lua
 GamepadCrosshairCustomizer.lua
+#@do-not-package@
+# /gcc debug, the in-game test suite: not in the release zip (.pkgmeta)
+Debug.lua
+#@end-do-not-package@
