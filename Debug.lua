@@ -599,6 +599,39 @@ local function jiberishRawState()
     return raw
 end
 
+-- What the game answers for each target's interaction icon, saved for reading
+-- outside the game (the last INTERACTION_RECORDS_KEPT targets, newest last):
+-- whether it has one, its atlas and texture, and whether it's tied to a quest you have.
+Debug.INTERACTION_RECORDS_KEPT = 20
+local interactionProbe
+local function recordInteractionIcon()
+    if type(SetUnitCursorTexture) ~= "function" or not UnitExists("target") then return end
+    if not interactionProbe then
+        local holder = CreateFrame("Frame")
+        holder:Hide()
+        interactionProbe = holder:CreateTexture()
+    end
+    local succeeded, hasIcon = pcall(SetUnitCursorTexture, interactionProbe, "target", nil, nil, false)
+    local relatedSucceeded, related = false, nil
+    if C_QuestLog and type(C_QuestLog.UnitIsRelatedToActiveQuest) == "function" then
+        relatedSucceeded, related = pcall(C_QuestLog.UnitIsRelatedToActiveQuest, "target")
+    end
+    local record = {
+        name = tostring(UnitName("target")),
+        hasIcon = tostring(succeeded and hasIcon),
+        atlas = tostring(interactionProbe:GetAtlas()),
+        texture = tostring(interactionProbe:GetTexture()),
+        relatedToActiveQuest = tostring(relatedSucceeded and related),
+    }
+    local store = getDebugStore()
+    store.interactionIcons = store.interactionIcons or {}
+    table.insert(store.interactionIcons, record)
+    while #store.interactionIcons > Debug.INTERACTION_RECORDS_KEPT do table.remove(store.interactionIcons, 1) end
+end
+Debug.recorder = CreateFrame("Frame")
+Debug.recorder:RegisterEvent("PLAYER_TARGET_CHANGED")
+Debug.recorder:SetScript("OnEvent", function() C_Timer.After(0.2, recordInteractionIcon) end)
+
 Debug.eventFrame = CreateFrame("Frame")
 Debug.eventFrame:RegisterEvent("PLAYER_LOGIN")
 Debug.eventFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
