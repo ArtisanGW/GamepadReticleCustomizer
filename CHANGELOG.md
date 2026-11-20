@@ -1,5 +1,18 @@
 # Gamepad Reticle Customizer
 
+## 1.1.0
+
+- On a target: a choice for each kind of target, each starting at None
+  - Horde players and Alliance players (your faction first): their faction badge or their class
+  - Friendly NPCs: their job, with the game's own icon (vendor, trainer, quest, flight master...); the reticle when there's nothing to interact with
+  - Neutral NPCs: the game's gray dots
+  - Enemy NPCs: crossed swords
+  - Any of them: a raid marker or one of the game's icons
+- A class icon style for each faction, so friend and foe are easy to tell apart
+- Icon size now leads the On a target section
+- While an icon is on your target, the game's own interaction icon there is hidden, so only one shows
+- Your earlier "On a target" choice and class icon style carry over
+
 ## 1.0.0
 
 First release.
