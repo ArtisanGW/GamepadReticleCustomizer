@@ -168,7 +168,7 @@ local function boot(options)
     _G.C_AddOns = {
         DoesAddOnExist = function(name)
             return (name == "JiberishIcons" and (options.jiberish == true or options.jiberishOff == true))
-                or (name == "GamepadReticleOnTarget" and options.reticleOnTargetInstalled == true)
+                or (name == "GamepadReticleOnTarget" and (options.reticleOnTargetInstalled == true or options.reticleOnTargetOff == true))
         end,
         -- As the game: GetAddOnInfo's loadable and reason; the switch reports "some
         -- characters" (1) for all, as when other characters still have it on.
@@ -182,6 +182,7 @@ local function boot(options)
                 if character == "Player-93-0A1B2C3D" or character == nil then return 0 end
                 return 2
             end
+            if name == "GamepadReticleOnTarget" and options.reticleOnTargetOff and character == "Player-93-0A1B2C3D" then return 0 end
             return 2
         end,
         EnableAddOn = function(name, character) game.enabledAddOn = { name = name, character = character, saved = false } end,
@@ -1101,6 +1102,16 @@ test("its icon in the AddOns list: Media/icon-64.png, shipped", function()
     eq(toc:match("## IconTexture: ([^\n]+)"), "Interface\\AddOns\\GamepadReticleCustomizer\\Media\\icon-64.png")
     eq(readBytes("Media/icon-64.png"):sub(2, 4), "PNG", "a PNG file")
     eq(readBytes(".pkgmeta"):find("- Media/icon-64.png", 1, true), nil, "not left out of the release")
+end)
+
+test("debug build: Gamepad Reticle On Target turned off counts as missing, to see its button; the release doesn't", function()
+    boot({ reticleOnTargetOff = true })
+    eq(control("button", "Gamepad Reticle On Target").extra.buttonText, "Get Gamepad Reticle On Target",
+        "turned off for this character: the button, as players without it see it")
+    boot({ reticleOnTargetOff = true, releaseBuild = true })
+    eq(control("button", "Gamepad Reticle On Target"), nil, "the release: installed is installed")
+    boot({ reticleOnTargetInstalled = true })
+    eq(control("button", "Gamepad Reticle On Target"), nil, "debug build, turned on: no button")
 end)
 
 reportLine(passed .. " passed, " .. failed .. " failed")
