@@ -152,7 +152,9 @@ local function check()
         return advance()
     end
     tries = tries + 1
-    if step.wanted(addon.TargetInfo()) then
+    local target = addon.TargetInfo()
+    -- On screen, with the reticle on its nameplate: else nothing shows on it.
+    if target.hasNameplate and target.reticleOnNameplate and step.wanted(target) then
         setMarker(nil)
         return advance()
     end
