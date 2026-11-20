@@ -1,0 +1,11 @@
+## Interface: 16001
+## Title: Gamepad Crosshair Color
+## Notes: Colors the controller's aiming dot, with its opacity. Settings in Options > AddOns > Gamepad Crosshair Color, or /gcc.
+## Author: Artisan
+## Version: @project-version@
+## SavedVariables: GamepadCrosshairColorDB
+## Category: Controller
+
+Color.lua
+PickerSticks.lua
+GamepadCrosshairColor.lua
