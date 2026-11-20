@@ -68,15 +68,17 @@ function Crosshair.Choose(settings, target)
         addon.DEFAULTS.size), tinted = true }
 end
 
--- A texture's picture: an atlas, or a file shown whole or in part (a cell of a
--- sheet); after an atlas, the texture coordinates are reset.
+-- A texture's picture: a file shown whole or in part (a cell of a sheet, an
+-- atlas's cell), its coordinates always set; or, with no file, an atlas, after
+-- resetting the coordinates a previous cell left.
 local function setPicture(texture, look)
-    if look.atlas then
-        texture:SetAtlas(look.atlas)
-    else
+    if look.texture then
         texture:SetTexture(look.texture)
         local coords = look.texCoord or { 0, 1, 0, 1 }
         texture:SetTexCoord(coords[1], coords[2], coords[3], coords[4])
+    else
+        texture:SetTexCoord(0, 1, 0, 1)
+        texture:SetAtlas(look.atlas)
     end
 end
 

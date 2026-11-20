@@ -172,7 +172,7 @@ local function checkLook(label, step)
     end
     local expected = expectedLook(step, settings)
     expectEqual(label .. ": what's drawn", expected.icon, drawn and drawn.icon)
-    if expected.atlas then
+    if expected.atlas and not expected.texture then
         expectEqual(label .. ": its atlas", expected.atlas, type(layer.shape.GetAtlas) == "function" and layer.shape:GetAtlas() or drawn.atlas)
         Debug.CheckNameplateClassColor(label, addon.TargetInfo().classFile)
     elseif expected.icon == "class" and expected.texture then
@@ -276,6 +276,9 @@ addLook("target: its class icon, Jiberish Fabled Pixels, size 40", { targetIcon 
     iconSize = 40 }, { shows = "targetIcon", needsJiberish = true })
 addLook("target: its class icon, Jiberish Fabled Class, size 40", { targetIcon = "class", classStyle = "jiberish:fabledclass",
     iconSize = 40 }, { shows = "targetIcon", needsJiberish = true })
+-- Right after a Jiberish style: the game's icon must not keep its cell (seen in game).
+addLook("target: its class icon, the game's again after a Jiberish style", { targetIcon = "class", classStyle = "game",
+    iconSize = 40 }, { shows = "targetIcon" })
 for index = 1, 8 do
     addLook("target: raid marker " .. index .. ", size 32", { targetIcon = "marker" .. index, iconSize = 32 },
         { shows = "targetIcon" })

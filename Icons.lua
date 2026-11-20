@@ -151,7 +151,17 @@ function Icons.ClassLook(classFile, style)
             texCoord = { cell[1] / cells, (cell[1] + 1) / cells, cell[2] / cells, (cell[2] + 1) / cells } }
     end
     local atlas = Icons.ClassAtlas(classFile)
-    return atlas and { atlas = atlas } or nil
+    if not atlas then return nil end
+    -- The game's atlas as its file and cell (C_Texture.GetAtlasInfo,
+    -- TextureUtilsDocumentation.lua:207, forever branch), drawn as a JiberishUI cell is:
+    -- switching from a Jiberish style with SetAtlas kept that style's cell (seen in game).
+    local succeeded, info = pcall(C_Texture.GetAtlasInfo, atlas)
+    local file = succeeded and info and (info.file or info.filename)
+    if file then
+        return { atlas = atlas, texture = file,
+            texCoord = { info.leftTexCoord, info.rightTexCoord, info.topTexCoord, info.bottomTexCoord } }
+    end
+    return { atlas = atlas }
 end
 
 -- The game's atlas for a class ("WARRIOR" -> "classicon-warrior"), or nil if

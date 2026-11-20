@@ -101,7 +101,12 @@ local function boot(options)
     end
     _G.UnitReaction = function(unit) return targetField(unit, "reaction") end
     _G.UnitIsUnit = function(unit, other) return other == "target" and game.target ~= nil and unit == game.target.plateUnit end
-    _G.C_Texture = { GetAtlasInfo = function(atlas) if atlas:find("^classicon%-") and options.classAtlases ~= false then return {} end end }
+    -- The game's class atlases: each a cell of one file (as GetAtlasInfo reports them).
+    _G.C_Texture = { GetAtlasInfo = function(atlas)
+        if atlas:find("^classicon%-") and options.classAtlases ~= false then
+            return { file = "classicons-file", leftTexCoord = 0.5, rightTexCoord = 0.75, topTexCoord = 0.25, bottomTexCoord = 0.5 }
+        end
+    end }
     game.classColors = { WARRIOR = { r = 0.78, g = 0.61, b = 0.43 }, MAGE = { r = 0.25, g = 0.78, b = 0.92 },
         PRIEST = { r = 1, g = 1, b = 1 }, DRUID = { r = 1, g = 0.49, b = 0.04 } }
     _G.C_ClassColor = { GetClassColor = function(classFile) return game.classColors[classFile] end }
@@ -479,14 +484,17 @@ end)
 test("a player's class icon: the game's classicon atlas for players; NPCs, an unknown class or a missing atlas keep the crosshair", function()
     boot({ saved = { targetIcon = "class" } })
     setTarget({ isPlayer = true, classFile = "MAGE", reaction = 5 })
-    eq(layer().shape.atlas, "classicon-mage")
+    eq(GamepadCrosshairCustomizer.Crosshair.Drawn().atlas, "classicon-mage")
+    eq(layer().shape.texture, "classicons-file", "drawn as the atlas's file")
+    eq(table.concat(layer().shape.texCoord, ","), "0.5,0.75,0.25,0.5", "and its cell")
     eq(GamepadCrosshairCustomizer.Crosshair.Drawn().icon, "class")
     eq(layer().shape:GetWidth(), 24)
     setTarget({ isPlayer = true, classFile = "DRUID", reaction = 2 })
-    eq(layer().shape.atlas, "classicon-druid", "an enemy player too")
+    eq(GamepadCrosshairCustomizer.Crosshair.Drawn().atlas, "classicon-druid", "an enemy player too")
     setTarget({ isPlayer = false, reaction = 4 })
     eq(GamepadCrosshairCustomizer.Crosshair.Drawn().icon, "dot", "an NPC: the crosshair")
-    eq(layer().shape.atlas, nil, "the atlas gone")
+    eq(layer().shape.texture, "Interface\\CharacterFrame\\TempPortraitAlphaMask", "the dot's texture")
+    eq(table.concat(layer().shape.texCoord, ","), "0,1,0,1", "shown whole again")
     setTarget({ isPlayer = true, classFile = nil, reaction = 5 })
     eq(GamepadCrosshairCustomizer.Crosshair.Drawn().icon, "dot", "class unknown (hidden): the crosshair")
     boot({ saved = { targetIcon = "class" }, classAtlases = false })
@@ -508,6 +516,16 @@ test("a target without a nameplate on screen (a vendor, a minion, off screen) ke
     eq(GamepadCrosshairCustomizer.Crosshair.Drawn().icon, "dot", "the target off screen: the crosshair back")
     setTarget({ isPlayer = true, classFile = "MAGE", reaction = 5, nameplate = false })
     eq(GamepadCrosshairCustomizer.Crosshair.Drawn().icon, "dot", "a player with friendly nameplates off: the crosshair")
+end)
+
+test("a client without an atlas file: SetAtlas, after resetting the cell a Jiberish style left", function()
+    boot({ jiberish = true, saved = { targetIcon = "class", classStyle = "jiberish:fabled" } })
+    _G.C_Texture.GetAtlasInfo = function(atlas) if atlas:find("^classicon%-") then return {} end end
+    setTarget({ isPlayer = true, classFile = "PRIEST", reaction = 5 })
+    eq(table.concat(layer().shape.texCoord, ","), "0.25,0.375,0.125,0.25", "the Jiberish cell")
+    choose("classStyle", "game")
+    eq(layer().shape.atlas, "classicon-priest")
+    eq(table.concat(layer().shape.texCoord, ","), "0,1,0,1", "reset before SetAtlas")
 end)
 
 test("old settings: a marker in the single Shape becomes the icon on a target; a custom texture becomes none", function()
@@ -584,10 +602,13 @@ test("class icon styles: the game's, or a JiberishUI class sheet's cell for the 
     setTarget({ isPlayer = true, classFile = "DEMONHUNTER", reaction = 2 })
     eq(table.concat(layer().shape.texCoord, ","), "0.375,0.5,0.25,0.375")
     choose("classStyle", "game")
-    eq(layer().shape.atlas, "classicon-demonhunter", "the game's again")
+    eq(GamepadCrosshairCustomizer.Crosshair.Drawn().atlas, "classicon-demonhunter", "the game's again")
+    eq(layer().shape.texture, "classicons-file")
+    eq(table.concat(layer().shape.texCoord, ","), "0.5,0.75,0.25,0.5",
+        "the game's cell, not the Jiberish one left behind (seen in game)")
     boot({ saved = { targetIcon = "class", classStyle = "jiberish:fabled" } })
     setTarget({ isPlayer = true, classFile = "MAGE", reaction = 5 })
-    eq(layer().shape.atlas, "classicon-mage", "a Jiberish style without the addon: the game's icon")
+    eq(GamepadCrosshairCustomizer.Crosshair.Drawn().atlas, "classicon-mage", "a Jiberish style without the addon: the game's icon")
 end)
 
 test("without Gamepad Camera Offset: a button shows its CurseForge link to copy; with it, no button", function()
@@ -638,7 +659,7 @@ test("the preview shows beside our settings page only, with the crosshair and th
     near(preview.crosshair.border:GetWidth(), 96, "the zoomed view still fills the cell")
     eq(preview:GetWidth(), width); eq(preview:GetHeight(), height, "the window keeps its size")
     choose("targetIcon", "class")
-    eq(preview.onTarget.shape.atlas, "classicon-shaman", "a player's class: your own as the example")
+    eq(preview.onTarget.shape.texture, "classicons-file", "a player's class: your own as the example")
     choose("targetIcon", "none")
     eq(preview.onTarget.label.text, "On a target: the crosshair stays")
     eq(preview.onTarget.shape.texture, "Interface\\CharacterFrame\\TempPortraitAlphaMask")
