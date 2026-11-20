@@ -29,7 +29,7 @@ _G.GamepadReticleCustomizer = addon
 --                  own colors.
 --   friendlyClassStyle, otherClassStyle: the class icons' style for your faction's
 --                  players and the other's (Icons.lua): "game" or a Jiberish Fabled
---                  Icons class sheet. Class trainers use your faction's.
+--                  Icons class sheet.
 --   iconSize:      the icon's width and height.
 --   borderSize:    how far the border reaches out around either (0: no border).
 --   borderColor:   the border's color, "RRGGBBAA".

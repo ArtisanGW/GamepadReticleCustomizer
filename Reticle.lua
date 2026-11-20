@@ -59,7 +59,7 @@ function Reticle.Choose(settings, target)
         if look then
             local iconSize = addon.Clamp(settings.iconSize, addon.SIZE_MIN, addon.SIZE_MAX, addon.DEFAULTS.iconSize)
             return { icon = choice, atlas = look.atlas, texture = look.texture, texCoord = look.texCoord,
-                size = iconSize, tinted = false }
+                cursorUnit = look.cursorUnit, size = iconSize, tinted = false }
         end
     end
     -- The reticle: a shape that can't be drawn now (a Jiberish one without the
@@ -75,7 +75,12 @@ end
 -- atlas's cell), its coordinates always set; or, with no file, an atlas, after
 -- resetting the coordinates a previous cell left.
 local function setPicture(texture, look)
-    if look.texture then
+    if look.cursorUnit then
+        -- A unit's own interaction icon, as the game sets it on its nameplates
+        -- (Blizzard_NamePlates.lua:201, forever branch).
+        texture:SetTexCoord(0, 1, 0, 1)
+        SetUnitCursorTexture(texture, look.cursorUnit, nil, nil, true)
+    elseif look.texture then
         texture:SetTexture(look.texture)
         local coords = look.texCoord or { 0, 1, 0, 1 }
         texture:SetTexCoord(coords[1], coords[2], coords[3], coords[4])
@@ -132,6 +137,7 @@ function addon.UpdateReticle()
     layer:Show()
     dot:SetAlpha(0)
     drawn = { icon = look.icon, texture = look.texture, atlas = look.atlas, texCoord = look.texCoord, size = look.size,
+        cursorUnit = look.cursorUnit,
         borderSize = borderSize }
     if addon.Preview then addon.Preview.Refresh() end
 end

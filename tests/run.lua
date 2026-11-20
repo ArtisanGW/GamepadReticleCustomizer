@@ -151,26 +151,13 @@ local function boot(options)
         return game.target and unit == "target" and game.target.faction or nil
     end
     _G.UnitPlayerControlled = function(unit) return game.target ~= nil and unit == "target" and (game.target.controlled or game.target.isPlayer) == true end
-    _G.C_TooltipInfo = { GetUnit = function(unit)
-        if not (game.target and unit == "target") then return nil end
-        return { lines = { { leftText = "Someone" }, { leftText = game.target.title or "Level 30" } } }
-    end }
-    _G.LEVEL, _G.TRAINER = "Level", "Trainer"
-    _G.LOCALIZED_CLASS_NAMES_MALE = { WARRIOR = "Warrior", MAGE = "Mage", PRIEST = "Priest" }
-    -- The game's minimap tracking list: names in the client's language, icons, types.
-    _G.Enum = _G.Enum or {}
-    Enum.MinimapTrackingFilter = { StableMaster = 4096, TrainerProfession = 256, VenderFood = 32, Innkeeper = 64 }
-    local tracking = {
-        { name = "Stable Master", texture = 136466, filterID = 4096 },
-        { name = "Food & Drink", texture = 136459, filterID = 32 },
-        { name = "Innkeeper", texture = 136458, filterID = 64 },
-        { name = "Profession Trainers", texture = 136463, filterID = 256 },
-    }
-    _G.C_Minimap = {
-        GetNumTrackingTypes = function() return #tracking end,
-        GetTrackingInfo = function(index) local entry = tracking[index]; return { name = entry.name, texture = entry.texture, active = false, type = "other", subType = 0 } end,
-        GetTrackingFilter = function(index) return { filterID = tracking[index].filterID } end,
-    }
+    -- The game's interaction icon for a unit (game.target.interaction: "buy", "train"...), put on a texture.
+    _G.SetUnitCursorTexture = function(texture, unit)
+        local interaction = game.target and unit == "target" and game.target.interaction
+        if not interaction then return false end
+        texture.cursorIcon = interaction
+        return true
+    end
     game.classColors = { WARRIOR = { r = 0.78, g = 0.61, b = 0.43 }, MAGE = { r = 0.25, g = 0.78, b = 0.92 },
         PRIEST = { r = 1, g = 1, b = 1 }, DRUID = { r = 1, g = 0.49, b = 0.04 } }
     _G.C_ClassColor = { GetClassColor = function(classFile) return game.classColors[classFile] end }
@@ -1104,7 +1091,7 @@ end)
 test("the release leaves Debug.lua out: ignored by .pkgmeta, and gone from the release .toc", function()
     assert(readFile(".pkgmeta"):find("\n  %- Debug%.lua\n"), ".pkgmeta ignores Debug.lua, alone on its line")
     eq(table.concat(tocFiles(true), ","),
-        "SavedSettings.lua,Color.lua,Icons.lua,NpcJobs.lua,Target.lua,Reticle.lua,PickerSticks.lua,Popup.lua,Preview.lua,RelatedAddons.lua,GamepadReticleCustomizer.lua")
+        "SavedSettings.lua,Color.lua,Icons.lua,Target.lua,Reticle.lua,PickerSticks.lua,Popup.lua,Preview.lua,RelatedAddons.lua,GamepadReticleCustomizer.lua")
     eq(tocFiles()[#tocFiles()], "Debug.lua", "the repo's .toc loads it last")
 end)
 
@@ -1206,20 +1193,15 @@ test("each kind its own icon: your faction their class, the other faction theirs
     eq(GamepadReticleCustomizer.Reticle.Drawn().icon, "dot", "enemy NPCs still None: the reticle")
 end)
 
-test("friendly NPCs, Their job: its tracking icon, a class trainer's class, other trainers the profession one, else a speech bubble", function()
+test("friendly NPCs, Their job: the game's own interaction icon for them, else a speech bubble", function()
     boot({ saved = ownIcons() })
-    setTarget({ isPlayer = false, reaction = 5, title = "Stable Master" })
-    eq(drawnLook(), 136466, "the game's Stable Master tracking icon")
-    setTarget({ isPlayer = false, reaction = 5, title = "Food & Drink" })
-    eq(drawnLook(), 136459)
-    setTarget({ isPlayer = false, reaction = 5, title = "Warrior Trainer" })
-    eq(GamepadReticleCustomizer.Reticle.Drawn().atlas, "classicon-warrior", "a class trainer: its class")
-    setTarget({ isPlayer = false, reaction = 5, title = "Cooking Trainer" })
-    eq(drawnLook(), 136463, "another trainer: the profession trainers' icon")
+    setTarget({ isPlayer = false, reaction = 5, interaction = "buy" })
+    eq(GamepadReticleCustomizer.Reticle.Drawn().cursorUnit, "target", "the game's icon for the target")
+    eq(layer().shape.cursorIcon, "buy", "set on our texture by the game")
+    setTarget({ isPlayer = false, reaction = 5, interaction = "trainer" })
+    eq(layer().shape.cursorIcon, "trainer")
     setTarget({ isPlayer = false, reaction = 5 })
-    eq(drawnLook(), "Crosshair_Speak_128", "no title (its second line is its level): a speech bubble")
-    setTarget({ isPlayer = false, reaction = 5, title = "Bluffwatcher Captain" })
-    eq(drawnLook(), "Crosshair_Speak_128", "a title with no known job: a speech bubble")
+    eq(drawnLook(), "Crosshair_Speak_128", "no interaction icon: a speech bubble")
     setTarget({ isPlayer = false, reaction = 5, controlled = true })
     eq(GamepadReticleCustomizer.Reticle.Drawn().icon, "dot", "another player's pet: the reticle")
 end)

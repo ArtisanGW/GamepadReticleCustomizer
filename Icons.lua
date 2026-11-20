@@ -13,7 +13,8 @@
 --                     "friendlyClassStyle" or "otherClassStyle"): "game" (the game's classicon-<class> atlases), or
 --                     "jiberish:<style>", a Jiberish Fabled Icons class sheet when installed
 --   "faction"         a player's faction badge
---   "job"             a friendly NPC's job (NpcJobs.lua), else a speech bubble
+--   "job"             a friendly NPC's own interaction icon (buy, train, repair, flight...),
+--                     as the game shows it, else a speech bubble
 --   "dots"            the game's gray "..." bubble (neutral NPCs)
 --   "swords"          crossed swords (enemy NPCs)
 --   "marker1".."8"    the game's raid target markers: star, circle, diamond,
@@ -222,6 +223,21 @@ function Icons.AtlasLook(atlas)
     return { atlas = atlas }
 end
 
+-- Whether the game has an interaction icon for a unit (what it shows over it on
+-- a controller: buy, train, repair, flight...): SetUnitCursorTexture answers on a
+-- hidden texture of ours (UnitDocumentation.lua:595, forever branch).
+local probe
+function Icons.HasInteractionIcon(unit)
+    if type(SetUnitCursorTexture) ~= "function" then return false end
+    if not probe then
+        local holder = CreateFrame("Frame")
+        holder:Hide()
+        probe = holder:CreateTexture()
+    end
+    local succeeded, hasIcon = pcall(SetUnitCursorTexture, probe, unit, nil, nil, true)
+    return succeeded and hasIcon == true
+end
+
 -- One of KIND_ICONS: its atlas, else its file.
 local function kindIcon(key)
     local entry = Icons.KIND_ICONS[key]
@@ -234,10 +250,7 @@ end
 function Icons.TargetLook(choice, target, classStyle)
     if choice == "class" then return target.isPlayer and Icons.ClassLook(target.classFile, classStyle) or nil end
     if choice == "faction" then return Icons.AtlasLook(Icons.FACTION_ATLASES[target.faction or ""]) end
-    if choice == "job" then
-        local jobLook = addon.NpcJobs and addon.NpcJobs.Look("target", classStyle)   -- NpcJobs.lua
-        return jobLook or kindIcon("talk")
-    end
+    if choice == "job" then return Icons.HasInteractionIcon("target") and { cursorUnit = "target" } or kindIcon("talk") end
     if choice == "dots" or choice == "swords" then return kindIcon(choice) end
     local texture = Icons.Texture(choice)
     return texture and { texture = texture } or nil
