@@ -226,7 +226,8 @@ end
 
 -- The game's interaction icon for a unit (what it shows over it on a controller):
 -- "icon" (buy, train, repair, flight...), "nothing" (its plain pointer,
--- "Crosshair_Point_64": nothing to interact with) or "unknown" (no answer).
+-- "Crosshair_Point_64": nothing to interact with) or "unknown" (no answer); then
+-- the icon's name ("Cursor Crosshair_Quest_64").
 -- SetUnitCursorTexture answers on a hidden texture of ours (UnitDocumentation.lua:595,
 -- forever branch).
 local probe
@@ -240,8 +241,8 @@ function Icons.InteractionIcon(unit)
     local succeeded, hasIcon = pcall(SetUnitCursorTexture, probe, unit, nil, nil, false)
     if not (succeeded and hasIcon == true) then return "unknown" end
     local name = type(probe.GetTexture) == "function" and tostring(probe:GetTexture()) or ""
-    if name:find("Crosshair_Point", 1, true) then return "nothing" end
-    return "icon"
+    if name:find("Crosshair_Point", 1, true) then return "nothing", name end
+    return "icon", name
 end
 
 -- One of KIND_ICONS: its atlas, else its file.

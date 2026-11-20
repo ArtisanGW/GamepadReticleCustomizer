@@ -1272,5 +1272,11 @@ test("our icon on the target hides the game's interaction icon on its nameplate;
     eq(iconSpot.alpha, 0.9, "our reticle's shape: the game's icon back, at its own alpha")
 end)
 
+test("the screenshot tour stays out of the release: ignored by .pkgmeta, in the .toc's development block", function()
+    assert(readFile(".pkgmeta"):find("\n  %- Showcase%.lua\n"), ".pkgmeta ignores Showcase.lua, alone on its line")
+    eq(table.concat(tocFiles(true), ","):find("Showcase.lua", 1, true), nil, "not in the release .toc")
+    eq(table.concat(tocFiles(false), ","):find("Showcase.lua", 1, true) ~= nil, true, "in the development one")
+end)
+
 reportLine(passed .. " passed, " .. failed .. " failed")
 os.exit(failed == 0 and 0 or 1)
