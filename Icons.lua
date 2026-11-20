@@ -228,7 +228,10 @@ function Icons.ByTargetLook(target, classStyle)
     if target.controlledByPlayer then return nil end
     if target.reaction == "enemy" then return byTargetIcon("enemyNpc") end
     if target.reaction == "neutral" then return byTargetIcon("neutralNpc") end
-    if target.reaction == "friendly" then return addon.NpcJobs.Look("target", classStyle) or byTargetIcon("talk") end
+    if target.reaction == "friendly" then
+        local jobLook = addon.NpcJobs and addon.NpcJobs.Look("target", classStyle)   -- NpcJobs.lua
+        return jobLook or byTargetIcon("talk")
+    end
     return nil
 end
 
