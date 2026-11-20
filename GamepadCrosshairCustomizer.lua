@@ -147,11 +147,15 @@ function addon.RegisterSettings()
         local size = isDot and settings.dotSize or settings.shapeSize
         if addon.sizeSetting then addon.sizeSetting:SetValue(size) else settings.size = size end
     end
-    addChoice("icon", "Crosshair", addon.Icons.CrosshairList,
-        "The crosshair's shape, always shown: the game's own dot (Default dot)"
-        .. (jiberishInstalled and (", or one of JiberishUI's crosshairs. " .. addon.Icons.JIBERISH_CREDIT
-            .. " (" .. addon.Icons.JIBERISH_LINK .. ").") or ". More shapes come with JiberishUI Fabled Icons (Get JiberishUI Icons... below)."),
-        keepSizePerKind)
+    -- Without JiberishUI (missing or turned off) the Crosshair and Class icons
+    -- choices would have one entry each: they're left out, and its button takes the
+    -- Class icons row (seen in game: an empty slider).
+    if jiberishInstalled then
+        addChoice("icon", "Crosshair", addon.Icons.CrosshairList,
+            "The crosshair's shape, always shown: the game's own dot (Default dot), or one of JiberishUI's crosshairs. "
+            .. addon.Icons.JIBERISH_CREDIT .. " (" .. addon.Icons.JIBERISH_LINK .. ").",
+            keepSizePerKind)
+    end
 
     addon.sizeSetting = addSetting("size", Settings.VarType.Number, "Size")
     Settings.CreateSlider(category, addon.sizeSetting,
@@ -191,23 +195,22 @@ function addon.RegisterSettings()
         .. "and minions keep the crosshair unless their nameplates are on in Options > Nameplates): None (the "
         .. "crosshair stays), Player Class (a player's class icon; any other target keeps the crosshair), one of the game's raid markers, "
         .. "or one of a set of the game's icons; the preview shows it big. Icons keep their own colors.")
-    addChoice("classStyle", "Class icons", addon.Icons.ClassStyleList,
-        "How a player's class icon looks: the game's own (Default)"
-        .. (jiberishInstalled and ", or one of JiberishUI's class icon styles (Fabled, Fabled Pixels, Fabled Class...)." or
-            ". More styles come with JiberishUI Fabled Icons (Get JiberishUI Icons... below)."))
+    if jiberishInstalled then
+        addChoice("classStyle", "Class icons", addon.Icons.ClassStyleList,
+            "How a player's class icon looks: the game's own (Default), or one of JiberishUI's class icon styles "
+            .. "(Fabled, Fabled Pixels, Fabled Class...).")
+    elseif jiberishState == "missing" then
+        addButton("Class icons", "Get JiberishUI Icons...", function() addon.ShowJiberishLink() end,
+            "11 class icon styles and 16 more crosshair shapes come with the JiberishUI Fabled Icons addon. "
+            .. "Once it's installed (and after /reload), they're offered here.")
+    else
+        addButton("Class icons", "Enable JiberishUI Icons...", function() addon.TellToEnableJiberish() end,
+            "JiberishUI Fabled Icons is installed but turned off, so its class icon styles and crosshair shapes "
+            .. "aren't offered. Turn it on in the AddOns list, then reload.")
+    end
     Settings.CreateSlider(category, addSetting("iconSize", Settings.VarType.Number, "Icon size"),
         sliderOptions(addon.SIZE_MIN, addon.SIZE_MAX, addon.SIZE_STEP, function(value) return tostring(math.floor(value + 0.5)) end),
         "The icon's width and height on a target.")
-
-    if jiberishState == "missing" then
-        addButton("More shapes", "Get JiberishUI Icons...", function() addon.ShowJiberishLink() end,
-            "16 more crosshair shapes and 11 class icon styles come with the JiberishUI Fabled Icons addon. "
-            .. "Once it's installed (and after /reload), they're in the Crosshair and Class icons choices.")
-    elseif jiberishState == "disabled" then
-        addButton("More shapes", "Enable JiberishUI Icons...", function() addon.TellToEnableJiberish() end,
-            "JiberishUI Fabled Icons is installed but turned off, so its shapes and class icons aren't offered. "
-            .. "Turn it on in the AddOns list, then reload.")
-    end
 
     addon.RelatedAddon.AddButton(addButton)
 
