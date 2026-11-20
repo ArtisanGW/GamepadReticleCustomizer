@@ -459,6 +459,30 @@ test("/gcc debug: every look checked, each step marked in the corner, your setti
     end
 end)
 
+test("/gcc debug: waits for the crosshair on screen before its first step (the cursor hides it)", function()
+    boot()
+    GamepadReticle.Icons:Hide()   -- the cursor shows, as just after a reload
+    SlashCmdList.GAMEPADCROSSHAIRCUSTOMIZER("debug")
+    local debugSuite = GamepadCrosshairCustomizer.Debug
+    eq(colorOf(debugSuite.marker.texture), "1.00 1.00 0.00 1.00", "yellow: waiting")
+    frame(); frame(); frame()
+    eq(colorOf(debugSuite.marker.texture), "1.00 1.00 0.00 1.00", "still waiting, no step yet")
+    GamepadReticle.Icons:Show()
+    frame()
+    eq(math.floor(debugSuite.marker.texture.color[3] * 255 + 0.5), 8, "step 1 once it shows")
+    runUntilNoTimersLeft()
+    local run = GamepadCrosshairCustomizerDebugDB.runs[1]
+    eq(run.environment.crosshairWaitSeconds, 2, "waited 2 s (4 polls)")
+    eq(run.environment.crosshairOnScreenAtStart, true)
+
+    boot()
+    GamepadCrosshairCustomizer.Debug.CROSSHAIR_WAIT_SECONDS = 1
+    GamepadReticle.Icons:Hide()
+    SlashCmdList.GAMEPADCROSSHAIRCUSTOMIZER("debug")
+    runUntilNoTimersLeft()
+    eq(GamepadCrosshairCustomizerDebugDB.runs[1].environment.crosshairOnScreenAtStart, false, "never showed: runs anyway, says so")
+end)
+
 test("/gcc debug: Alt+Ctrl+Shift+C starts it too (for the screenshot script)", function()
     boot()
     eq(game.bindings["ALT-CTRL-SHIFT-C"], "GamepadCrosshairCustomizerDebugStart")

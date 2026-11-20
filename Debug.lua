@@ -17,7 +17,13 @@ local addon = _G.GamepadCrosshairCustomizer
 local Debug = { SECONDS_PER_STEP = 2.5, RUNS_KEPT = 10, MARKER_BLUE_PER_STEP = 8,
     -- Starts a run like /gcc debug, for tests/screenshot_debug.sh (keys from outside
     -- reach the game; typing in its chat isn't tried). Free among the dev tools' keys.
-    START_KEY = "ALT-CTRL-SHIFT-C" }
+    START_KEY = "ALT-CTRL-SHIFT-C",
+    -- The game hides its crosshair while the cursor shows, and after a reload the
+    -- controller UI only comes back with the controller's first input: the run
+    -- waits for the crosshair, up to this long, so the shots show it. (It doesn't
+    -- switch the controller UI on itself: InputDeviceInterfaceStyle switches the
+    -- whole interface, and from addon code that would run the game's switch tainted.)
+    CROSSHAIR_WAIT_SECONDS = 60, CROSSHAIR_POLL_SECONDS = 0.5 }
 addon.Debug = Debug
 
 local function say(text) print("|cff88ccffgcc debug|r " .. text) end
@@ -299,7 +305,25 @@ function Debug.Start()
         say("the crosshair isn't on screen (controller UI off, or the cursor shows): checks run, screenshots won't show it")
     end
     say(string.format("running %d steps, about %d s. Stay still.", #STEPS, math.ceil(#STEPS * Debug.SECONDS_PER_STEP)))
-    runNextStep()
+    Debug.WaitForCrosshair(0)
+end
+
+local function crosshairOnScreenNow()
+    local crosshairFrame = _G.GamepadReticle
+    return type(crosshairFrame) == "table" and crosshairFrame.Icons ~= nil and crosshairFrame.Icons:IsVisible() == true
+end
+
+-- Before the first step: waits until the game shows its crosshair (the square
+-- yellow meanwhile, which the screenshot script reads as "not started").
+function Debug.WaitForCrosshair(secondsWaited)
+    if not currentRun then return end
+    if crosshairOnScreenNow() or secondsWaited >= Debug.CROSSHAIR_WAIT_SECONDS then
+        currentRun.environment.crosshairWaitSeconds = secondsWaited
+        currentRun.environment.crosshairOnScreenAtStart = crosshairOnScreenNow()
+        return runNextStep()
+    end
+    showMarker(1, 1, 0, "gcc debug: waiting for the crosshair: touch the controller (the controller UI comes back with its first input)")
+    C_Timer.After(Debug.CROSSHAIR_POLL_SECONDS, function() Debug.WaitForCrosshair(secondsWaited + Debug.CROSSHAIR_POLL_SECONDS) end)
 end
 
 function Debug.Command(arguments)

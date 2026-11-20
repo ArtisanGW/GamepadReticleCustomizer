@@ -40,7 +40,7 @@ STEP_COUNT=$(cd "$SCRIPT_FOLDER/.." && luajit -e '
     dofile("Debug.lua")
     print(#GamepadCrosshairCustomizer.Debug.STEPS)')
 RELOAD_WAIT="${RELOAD_WAIT:-120}"
-TIME_LIMIT=$((STEP_COUNT * 3 + 60))
+TIME_LIMIT=$((STEP_COUNT * 3 + 90))
 mkdir -p "$OUTPUT_FOLDER"
 
 # Prints the corner square's state in a screenshot: "stopped", "step <n>" or "none".
@@ -70,7 +70,7 @@ if [ "${COMPARE_ONLY:-0}" != 1 ]; then
     focus_game_with_kwin "$window"
     sleep 0.5
     xdotool key --clearmodifiers "$START_KEYS"
-    echo "/gcc debug: $STEP_COUNT steps. Stay still; don't touch the controller."
+    echo "/gcc debug: $STEP_COUNT steps. After a reload, touch the controller once so its UI (and the crosshair) comes back; then stay still."
     started=$SECONDS; last_step=0; probe="$OUTPUT_FOLDER/.probe.png"
     while :; do
         shoot "$probe"
@@ -86,7 +86,8 @@ if [ "${COMPARE_ONLY:-0}" != 1 ]; then
             stopped) echo "The run stopped in the game (a fight?). Shots so far are in $OUTPUT_FOLDER." >&2; exit 6 ;;
             none)
                 if [ "$last_step" -ge "$STEP_COUNT" ]; then break; fi
-                if [ "$last_step" -eq 0 ] && [ $((SECONDS - started)) -ge 15 ]; then
+                # Debug.lua first waits up to 60 s for the crosshair (its square yellow).
+                if [ "$last_step" -eq 0 ] && [ $((SECONDS - started)) -ge 70 ]; then
                     echo "The run didn't start (is Debug.lua loaded? a chat box holding the cursor?)." >&2; exit 7
                 fi ;;
         esac
@@ -127,7 +128,7 @@ if not shots:
 steps = [line.rstrip("\n").split("\t") for line in open(positions_path) if line.strip()]
 TILE, CROP = 260, 130   # each tile shows CROP x CROP screen pixels around the crosshair, 2x
 try:
-    font = ImageFont.truetype("DejaVuSans.ttf", 15)
+    font = ImageFont.truetype(os.popen("fc-match -f '%{file}' sans").read().strip() or "DejaVuSans.ttf", 15)
 except OSError:
     font = ImageFont.load_default()
 columns = 6
