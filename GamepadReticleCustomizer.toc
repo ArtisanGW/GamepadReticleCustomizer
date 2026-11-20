@@ -3,7 +3,12 @@
 ## Notes: Customizes the controller's reticle: its shape, size, color and border, and an icon on a target (a player's class, a raid marker). Settings in Options > AddOns > Gamepad Reticle Customizer, or /grc.
 ## Author: Artisan
 ## Version: @project-version@
+#@debug@
 ## SavedVariables: GamepadReticleCustomizerDB, GamepadReticleCustomizerDebugDB
+#@end-debug@
+#@non-debug@
+# ## SavedVariables: GamepadReticleCustomizerDB
+#@end-non-debug@
 ## Category: Gamepad
 ## IconTexture: Interface\AddOns\GamepadReticleCustomizer\Media\icon-64.png
 
