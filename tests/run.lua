@@ -1196,14 +1196,14 @@ end)
 
 test("friendly NPCs, Their job: the game's own interaction icon for them, else a speech bubble", function()
     boot({ saved = ownIcons() })
-    setTarget({ isPlayer = false, reaction = 5, interaction = "buy" })
+    setTarget({ isPlayer = false, reaction = 5, interaction = "buy" }); runUntilNoTimersLeft()
     eq(GamepadReticleCustomizer.Reticle.Drawn().cursorUnit, "target", "the game's icon for the target")
     eq(layer().shape.cursorIcon, "buy", "set on our texture by the game")
-    setTarget({ isPlayer = false, reaction = 5, interaction = "trainer", inRange = true })
+    setTarget({ isPlayer = false, reaction = 5, interaction = "trainer", inRange = true }); runUntilNoTimersLeft()
     eq(layer().shape.cursorIcon, "trainer", "close enough to interact: still the job, not the controller's button")
-    setTarget({ isPlayer = false, reaction = 5 })
+    setTarget({ isPlayer = false, reaction = 5 }); runUntilNoTimersLeft()
     eq(drawnLook(), "Crosshair_Speak_128", "no interaction icon: a speech bubble")
-    setTarget({ isPlayer = false, reaction = 5, controlled = true })
+    setTarget({ isPlayer = false, reaction = 5, controlled = true }); runUntilNoTimersLeft()
     eq(GamepadReticleCustomizer.Reticle.Drawn().icon, "dot", "another player's pet: the reticle")
 end)
 
@@ -1213,7 +1213,7 @@ test("on a client without those atlases: the game's icon files instead", functio
     eq(drawnLook(), "Interface\\Icons\\Ability_DualWield")
     setTarget({ isPlayer = false, reaction = 4 })
     eq(drawnLook(), "Interface\\GossipFrame\\IncompleteQuestIcon")
-    setTarget({ isPlayer = false, reaction = 5 })
+    setTarget({ isPlayer = false, reaction = 5 }); runUntilNoTimersLeft()
     eq(drawnLook(), "Interface\\GossipFrame\\GossipGossipIcon")
     setTarget({ isPlayer = true, classFile = "MAGE", reaction = 2, faction = "Alliance" })
     eq(GamepadReticleCustomizer.Reticle.Drawn().icon, "dot", "no faction atlas: the reticle")
@@ -1241,16 +1241,32 @@ test("each faction its own class icon style, so friend and foe look different; o
     eq(GamepadReticleCustomizerDB.classStyle, nil)
 end)
 
-test("Their job: drawn again a moment after selecting, and when what you can interact with changes", function()
+test("Their job: drawn once, a short beat after selecting, and again when what you can interact with changes", function()
     boot({ saved = ownIcons() })
-    setTarget({ isPlayer = false, reaction = 5 })
-    eq(drawnLook(), "Crosshair_Speak_128", "the game has no icon yet")
-    game.target.interaction = "buy"   -- the game settles it a moment later
+    setTarget({ isPlayer = false, reaction = 5, interaction = "buy" })
+    eq(#game.timers, 1, "one draw, a beat later: no wrong icon first")
+    eq(GamepadReticleCustomizer.Reticle.Drawn().cursorUnit, nil, "the reticle moving onto the nameplate meanwhile draws nothing")
     runUntilNoTimersLeft()
-    eq(layer().shape.cursorIcon, "buy", "drawn again: the job's icon")
+    eq(layer().shape.cursorIcon, "buy")
     game.target.interaction = "repair"
     game.fire("PLAYER_SOFT_INTERACT_CHANGED")
-    eq(layer().shape.cursorIcon, "repair", "and when the interaction changes")
+    eq(layer().shape.cursorIcon, "repair", "drawn again when the interaction changes")
+    setTarget({ isPlayer = false, reaction = 2 })
+    eq(drawnLook(), "Crosshair_PVP_128", "another kind: drawn at once")
+end)
+
+test("our icon on the target hides the game's interaction icon on its nameplate; the reticle's shape doesn't", function()
+    boot({ saved = { enemyNpcIcon = "swords" } })
+    local iconSpot = { alpha = 0.9 }
+    function iconSpot:SetAlpha(alpha) self.alpha = alpha end
+    function iconSpot:GetAlpha() return self.alpha end
+    local plate = { UnitFrame = { SoftTargetFrame = iconSpot } }
+    C_NamePlate.GetNamePlateForUnit = function(unit) if unit == "target" and game.target then return plate end end
+    setTarget({ isPlayer = false, reaction = 2 })
+    eq(iconSpot.alpha, 0, "only our icon shows")
+    setTarget({ isPlayer = false, reaction = 5 })
+    eq(GamepadReticleCustomizer.Reticle.Drawn().icon, "dot")
+    eq(iconSpot.alpha, 0.9, "our reticle's shape: the game's icon back, at its own alpha")
 end)
 
 reportLine(passed .. " passed, " .. failed .. " failed")

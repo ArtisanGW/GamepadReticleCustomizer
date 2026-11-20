@@ -280,7 +280,9 @@ eventFrame:RegisterEvent("NAME_PLATE_UNIT_REMOVED")
 -- The game's interaction icon for an NPC can settle a moment after it's selected,
 -- and changes with what you can interact with: drawn again then too.
 eventFrame:RegisterEvent("PLAYER_SOFT_INTERACT_CHANGED")
-addon.REDRAW_AFTER_TARGET_SECONDS = { 0.2, 0.6 }
+-- A friendly NPC whose icon is its job: drawn once, this short beat after it's
+-- selected, when the game's icon for it is ready (no wrong icon first).
+addon.JOB_ICON_DELAY_SECONDS = 0.1
 eventFrame:SetScript("OnEvent", function(_, event, name)
     if event == "ADDON_LOADED" then
         if name ~= ADDON_NAME then return end
@@ -290,8 +292,19 @@ eventFrame:SetScript("OnEvent", function(_, event, name)
     elseif event == "PLAYER_ENTERING_WORLD" or event == "PLAYER_SOFT_INTERACT_CHANGED" then
         addon.UpdateReticle()
     elseif event == "PLAYER_TARGET_CHANGED" then
-        addon.UpdateReticle()
-        for _, seconds in ipairs(addon.REDRAW_AFTER_TARGET_SECONDS) do C_Timer.After(seconds, addon.UpdateReticle) end
+        local settings = addon.Settings()
+        local kindKey = addon.TargetKindKey(addon.TargetInfo())
+        if kindKey and settings[kindKey] == "job" then
+            -- Until then, other redraws (the reticle moving onto the nameplate) wait.
+            addon.jobIconPending = true
+            C_Timer.After(addon.JOB_ICON_DELAY_SECONDS, function()
+                addon.jobIconPending = nil
+                addon.UpdateReticle()
+            end)
+        else
+            addon.jobIconPending = nil
+            addon.UpdateReticle()
+        end
     elseif event == "NAME_PLATE_UNIT_ADDED" or event == "NAME_PLATE_UNIT_REMOVED" then
         -- Only the target's own nameplate matters (name is the unit, "nameplate3").
         local succeeded, isTarget = pcall(UnitIsUnit, name, "target")

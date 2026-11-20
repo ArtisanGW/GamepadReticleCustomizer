@@ -116,9 +116,36 @@ function Reticle.Paint(shape, border, look, zoom)
     return borderSize
 end
 
+-- The game's own interaction icon on the target's nameplate (its SoftTargetFrame,
+-- Blizzard_NamePlates.xml:261, forever branch: a quest's "!", a vendor's bag, the
+-- controller's button) sits where the reticle goes on a target: while our icon is
+-- drawn there, the game's is made see-through (its alpha, kept and put back), so
+-- only one shows. The reticle's own shape leaves it as it is.
+local hiddenIconSpot, hiddenIconSpotAlpha
+local function showGameIcon()
+    if hiddenIconSpot then hiddenIconSpot:SetAlpha(hiddenIconSpotAlpha or 1) end
+    hiddenIconSpot, hiddenIconSpotAlpha = nil, nil
+end
+local function hideTargetsGameIcon()
+    local namePlates = _G.C_NamePlate
+    local succeeded, nameplate = false, nil
+    if type(namePlates) == "table" and type(namePlates.GetNamePlateForUnit) == "function" then
+        succeeded, nameplate = pcall(namePlates.GetNamePlateForUnit, "target")
+    end
+    local unitFrame = succeeded and type(nameplate) == "table" and nameplate.UnitFrame
+    local iconSpot = type(unitFrame) == "table" and unitFrame.SoftTargetFrame
+    if type(iconSpot) ~= "table" or type(iconSpot.SetAlpha) ~= "function"
+        or (type(iconSpot.IsForbidden) == "function" and iconSpot:IsForbidden()) then return showGameIcon() end
+    if iconSpot == hiddenIconSpot then return end
+    showGameIcon()
+    hiddenIconSpot, hiddenIconSpotAlpha = iconSpot, iconSpot:GetAlpha()
+    iconSpot:SetAlpha(0)
+end
+
 -- Draws the reticle from the settings and the target, or puts the game's dot
 -- back when off. Runs on login, on each setting change and when the target changes.
 function addon.UpdateReticle()
+    if addon.jobIconPending then return end   -- a job icon's draw is on its way (GamepadReticleCustomizer.lua)
     local dot = gameDot()
     if not dot then return end
     if not layer then buildLayer(dot) end
@@ -128,12 +155,14 @@ function addon.UpdateReticle()
     if not settings.enabled then
         layer:Hide()
         dot:SetAlpha(gameDotAlpha)
+        showGameIcon()
         drawn = nil
         if addon.Preview then addon.Preview.Refresh() end
         return
     end
 
     local look = Reticle.Choose(settings, addon.TargetInfo())
+    if look.tinted then showGameIcon() else hideTargetsGameIcon() end   -- an icon on the target: one at a time
     local borderSize = Reticle.Paint(layer.shape, layer.border, look)
     layer:Show()
     dot:SetAlpha(0)
