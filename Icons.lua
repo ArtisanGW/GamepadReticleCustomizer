@@ -43,6 +43,11 @@ local Icons = {
     JIBERISH_ADDON = "JiberishIcons",
     JIBERISH_FOLDER = "Interface\\AddOns\\JiberishIcons\\Media\\Crosshair\\",
     JIBERISH_SHAPES = { "circle", "diamond", "plus", "splitplus", "splitx", "square", "triangle", "x" },
+    JIBERISH_SHAPE_NAMES = { circle = "Circle", diamond = "Diamond", plus = "Plus", splitplus = "Split plus",
+        splitx = "Split X", square = "Square", triangle = "Triangle", x = "X" },
+    -- The slider shows the chosen name on its right, about this many characters
+    -- before it's cut (seen in game): every label fits.
+    LABEL_MAX_LENGTH = 22,
     JIBERISH_WEIGHTS = { "bold", "thin" },
     JIBERISH_FILE_SIZE = 128,   -- each shape comes in 32, 64, 128 and 256 px
     JIBERISH_CREDIT = "Shapes from JiberishUI Fabled Icons",
@@ -76,8 +81,6 @@ function Icons.JiberishInstalled()
     return succeeded and exists == true
 end
 
-local function capitalized(text) return (text:gsub("^%l", string.upper)) end
-
 -- Whether an id is one of the crosshair's shapes (not an icon for a target).
 function Icons.IsCrosshairShape(iconId)
     return iconId == "dot" or tostring(iconId):match("^jiberish:%l+%-%l+$") ~= nil
@@ -85,12 +88,12 @@ end
 
 -- The crosshair's shapes on offer now, in order: { id, label }.
 function Icons.CrosshairList()
-    local list = { { id = "dot", label = "The game's dot" } }
+    local list = { { id = "dot", label = "Default dot" } }
     if Icons.JiberishInstalled() then
         for _, shape in ipairs(Icons.JIBERISH_SHAPES) do
             for _, weight in ipairs(Icons.JIBERISH_WEIGHTS) do
                 list[#list + 1] = { id = "jiberish:" .. shape .. "-" .. weight,
-                    label = "Jiberish: " .. capitalized(shape) .. ", " .. weight }
+                    label = Icons.JIBERISH_SHAPE_NAMES[shape] .. " (" .. weight .. ")" }
             end
         end
     end
@@ -99,8 +102,7 @@ end
 
 -- The icons for a target, in order: { id, label }.
 function Icons.TargetList()
-    local list = { { id = "none", label = "None: keep the crosshair" },
-        { id = "class", label = "A player's class (others: the crosshair)" } }
+    local list = { { id = "none", label = "None" }, { id = "class", label = "Player Class" } }
     for index = 1, 8 do
         list[#list + 1] = { id = "marker" .. index,
             label = "Raid marker: " .. (_G["RAID_TARGET_" .. index] or Icons.RAID_MARKER_NAMES[index]) }
@@ -130,10 +132,10 @@ end
 
 -- The class icon styles on offer now, in order: { id, label }.
 function Icons.ClassStyleList()
-    local list = { { id = "game", label = "The game's class icons" } }
+    local list = { { id = "game", label = "Default" } }
     if Icons.JiberishInstalled() then
         for _, style in ipairs(Icons.JIBERISH_CLASS_STYLES) do
-            list[#list + 1] = { id = "jiberish:" .. style.file, label = "Jiberish: " .. style.name }
+            list[#list + 1] = { id = "jiberish:" .. style.file, label = style.name }
         end
     end
     return list

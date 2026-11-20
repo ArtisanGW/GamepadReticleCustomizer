@@ -141,7 +141,7 @@ function addon.RegisterSettings()
         if addon.sizeSetting then addon.sizeSetting:SetValue(size) else settings.size = size end
     end
     addChoice("icon", "Crosshair", addon.Icons.CrosshairList,
-        "The crosshair's shape, always shown: the game's dot"
+        "The crosshair's shape, always shown: the game's own dot (Default dot)"
         .. (jiberishInstalled and (", or one of JiberishUI's crosshairs. " .. addon.Icons.JIBERISH_CREDIT
             .. " (" .. addon.Icons.JIBERISH_LINK .. ").") or ". More shapes come with JiberishUI Fabled Icons (Get JiberishUI Icons... below)."),
         keepSizePerKind)
@@ -181,11 +181,11 @@ function addon.RegisterSettings()
     -- On a target: the icon instead of the crosshair.
     addon.targetIconSlider = addChoice("targetIcon", "On a target", addon.Icons.TargetList,
         "What shows instead of the crosshair while your target's nameplate is on screen (vendors, guards "
-        .. "and minions keep the crosshair unless their nameplates are on in Options > Nameplates): nothing, "
-        .. "a player's class icon (any other target keeps the crosshair), one of the game's raid markers, "
+        .. "and minions keep the crosshair unless their nameplates are on in Options > Nameplates): None (the "
+        .. "crosshair stays), Player Class (a player's class icon; any other target keeps the crosshair), one of the game's raid markers, "
         .. "or one of a set of the game's icons; the preview shows it big. Icons keep their own colors.")
     addChoice("classStyle", "Class icons", addon.Icons.ClassStyleList,
-        "How a player's class icon looks: the game's own"
+        "How a player's class icon looks: the game's own (Default)"
         .. (jiberishInstalled and ", or one of JiberishUI's class icon styles (Fabled, Fabled Pixels, Fabled Class...)." or
             ". More styles come with JiberishUI Fabled Icons (Get JiberishUI Icons... below)."))
     Settings.CreateSlider(category, addSetting("iconSize", Settings.VarType.Number, "Icon size"),

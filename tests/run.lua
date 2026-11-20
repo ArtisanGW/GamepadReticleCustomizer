@@ -432,7 +432,7 @@ end)
 
 test("the crosshair: the game's dot, no Jiberish shapes without it; a Jiberish id without it falls back to the dot", function()
     boot()
-    eq(table.concat(choiceLabels("Crosshair"), ","), "The game's dot")
+    eq(table.concat(choiceLabels("Crosshair"), ","), "Default dot")
     GamepadCrosshairCustomizerDB.icon = "jiberish:x-bold"; GamepadCrosshairCustomizer.UpdateCrosshair()
     eq(GamepadCrosshairCustomizer.Crosshair.Drawn().icon, "dot")
 end)
@@ -441,7 +441,7 @@ test("with JiberishUI Fabled Icons installed: its 16 crosshairs listed and drawn
     boot({ jiberish = true })
     local labels = choiceLabels("Crosshair")
     eq(#labels, 17, "the dot and 16 Jiberish shapes")
-    eq(labels[2], "Jiberish: Circle, bold"); eq(labels[17], "Jiberish: X, thin")
+    eq(labels[2], "Circle (bold)"); eq(labels[8], "Split plus (bold)"); eq(labels[17], "X (thin)")
     choose("icon", "jiberish:splitplus-thin")
     eq(GamepadCrosshairCustomizerDB.icon, "jiberish:splitplus-thin", "the slider's step saved as the shape's id")
     eq(layer().shape.texture, "Interface\\AddOns\\JiberishIcons\\Media\\Crosshair\\splitplus-thin-128")
@@ -454,7 +454,7 @@ test("choices are sliders (a dropdown's menu broke on the controller): on a targ
     boot()
     local labels = choiceLabels("On a target")
     eq(#labels, 10 + 12)
-    eq(labels[1], "None: keep the crosshair"); eq(labels[2], "A player's class (others: the crosshair)")
+    eq(labels[1], "None"); eq(labels[2], "Player Class")
     eq(labels[10], "Raid marker: Skull"); eq(labels[11], "Icon: Sniper scope"); eq(labels[22], "Icon: Holy")
     choose("targetIcon", "marker8")
     eq(GamepadCrosshairCustomizerDB.targetIcon, "marker8")
@@ -559,6 +559,16 @@ test("no icon picker and no texture paths: no Choose icon button, /gcc texture i
     eq(GamepadCrosshairCustomizer.IconPicker, nil)
 end)
 
+test("every choice slider's label fits the slider (22 characters, seen cut in game beyond)", function()
+    boot({ jiberish = true })
+    local maxLength = GamepadCrosshairCustomizer.Icons.LABEL_MAX_LENGTH
+    for _, slider in ipairs({ "Crosshair", "On a target", "Class icons" }) do
+        for _, label in ipairs(choiceLabels(slider)) do
+            eq(#label <= maxLength, true, slider .. ": \"" .. label .. "\" is " .. #label .. " characters")
+        end
+    end
+end)
+
 test("the dot and the shapes keep their own sizes: a shape starts at 24, the dot gets its own back", function()
     boot({ jiberish = true, saved = { size = 6 } })
     choose("icon", "jiberish:x-bold")
@@ -590,11 +600,11 @@ end)
 
 test("class icon styles: the game's, or a JiberishUI class sheet's cell for the class; without it, the game's", function()
     boot()
-    eq(table.concat(choiceLabels("Class icons"), ","), "The game's class icons", "without JiberishUI: the game's only")
+    eq(table.concat(choiceLabels("Class icons"), ","), "Default", "without JiberishUI: the game's only")
     boot({ jiberish = true, saved = { targetIcon = "class" } })
     local labels = choiceLabels("Class icons")
     eq(#labels, 12, "the game's and 11 Jiberish styles")
-    eq(labels[2], "Jiberish: Fabled"); eq(labels[3], "Jiberish: Fabled Class"); eq(labels[4], "Jiberish: Fabled Pixels")
+    eq(labels[2], "Fabled"); eq(labels[3], "Fabled Class"); eq(labels[4], "Fabled Pixels")
     choose("classStyle", "jiberish:fabledpixels")
     setTarget({ isPlayer = true, classFile = "PRIEST", reaction = 5 })
     eq(layer().shape.texture, "Interface\\AddOns\\JiberishIcons\\Media\\Class\\fabledpixels")
