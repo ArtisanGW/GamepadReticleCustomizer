@@ -15,7 +15,7 @@ local function now() return type(GetTime) == "function" and GetTime() or nil end
 -- opacity bar PickerSticks adds sets the alpha. (Opening the picker from addon
 -- code instead put its controller bindings on the game's binding stack tainted:
 -- the right stick did nothing and the game refused its own
--- SetPreferredGamepadInteractTarget, blaming the addon. Seen in game, 2026-11-19.)
+-- SetPreferredGamepadInteractTarget, blaming the addon.)
 local pickerAskedAt    -- when a swatch last read its color: it's about to open the picker
 local pickerColorKey   -- which color that swatch is for: "color" or "borderColor"
 
@@ -51,7 +51,7 @@ end
 -- the game's AddOns list does it (AddonList.lua:12-24, :578-585, :829, forever
 -- branch): EnableAddOn with the player's GUID as the character, then SaveAddOns,
 -- then the popup's secure Reload. (With the character's name instead of the GUID,
--- and no SaveAddOns, the reload left it off: seen in game, 2026-11-20.)
+-- or without SaveAddOns, the reload leaves it off.)
 function addon.TellToEnableJiberish()
     addon.Popup.Show({
         text = "Jiberish Fabled Icons is installed but turned off.\nTurn it on and reload to use its reticles and class icons?",
@@ -90,8 +90,7 @@ end
 -- The shape choices are sliders, not dropdowns: a settings dropdown's menu is
 -- built from the addon's own list, and steered by the controller (SmartNavigation)
 -- that list taints the menu's code: picking failed, and closing the page then made
--- the game refuse SetPreferredGamepadInteractTarget, blaming this addon (seen in
--- game, 2026-11-20). A slider holds a plain number, as the game's own sliders do.
+-- the game refuse SetPreferredGamepadInteractTarget, blaming this addon. A slider holds a plain number, as the game's own sliders do.
 -- Its position (in addon.choices, not saved) picks the id saved under its key.
 addon.choices = {}
 
@@ -169,7 +168,7 @@ function addon.RegisterSettings()
     end
     -- Without Jiberish Fabled Icons (missing or turned off) the Reticle and Class icons
     -- choices would have one entry each: they're left out, and its button takes the
-    -- Class icons row (seen in game: an empty slider).
+    -- Class icons row.
     if jiberishInstalled then
         addChoice("icon", "Reticle", addon.Icons.ReticleList,
             "The reticle's shape, always shown.\n\n"

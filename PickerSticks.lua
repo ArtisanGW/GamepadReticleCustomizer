@@ -2,8 +2,7 @@
 -- this addon's color.
 --
 -- Opened for an addon's setting, the picker's own stick bindings never work (the
--- game refuses them: seen in game, while the same picker opened from the chat
--- settings works). So while it's open for our color, as the game's own bindings would:
+-- game refuses them, while the same picker opened from the chat settings works). So while it's open for our color, as the game's own bindings would:
 --   the left stick moves the point on the color wheel (direction = hue, distance
 --   from the middle = saturation; ColorPickerSoftCursor_OnUpdate's mapping);
 --   the right stick's up and down change the brightness;

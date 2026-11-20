@@ -16,7 +16,7 @@
 --                     triangle, moon, square, cross, skull
 --   "icon:<key>"      one of GAME_ICONS, a hand-picked set of the game's own icons
 -- (No icon picker and no texture path: the game's picker, created by addon code,
--- broke the controller's navigation; a path is too technical. Seen 2026-11-20.)
+-- broke the controller's navigation; a path is too technical.)
 local _, addon = ...
 
 local Icons = {
@@ -46,7 +46,7 @@ local Icons = {
     JIBERISH_SHAPE_NAMES = { circle = "Circle", diamond = "Diamond", plus = "Plus", splitplus = "Split plus",
         splitx = "Split X", square = "Square", triangle = "Triangle", x = "X" },
     -- The slider shows the chosen name on its right, about this many characters
-    -- before it's cut (seen in game): every label fits.
+    -- before it's cut: every label fits.
     LABEL_MAX_LENGTH = 22,
     JIBERISH_WEIGHTS = { "bold", "thin" },
     JIBERISH_FILE_SIZE = 128,   -- each shape comes in 32, 64, 128 and 256 px
@@ -79,10 +79,10 @@ addon.Icons = Icons
 -- loads before it. First whether it can load and why not (GetAddOnInfo: loadable,
 -- reason "DISABLED"); then its switch for this character (GetAddOnEnableState, 0
 -- is off; AddOnsDocumentation.lua:98-130, forever branch). The switch alone, with
--- UnitName, didn't see it turned off in game (2026-11-20).
+-- UnitName, doesn't see it turned off.
 -- The key the game's AddOns list uses for this character: the player's GUID, not
 -- the name (Blizzard_AddOnList/AddonList.lua:12-24, forever branch). With the name,
--- EnableAddOn switched on a "character" the game never reads (seen in game).
+-- EnableAddOn switches on a "character" the game never reads.
 function Icons.CharacterKey()
     return type(UnitGUID) == "function" and UnitGUID("player") or nil
 end
@@ -199,7 +199,7 @@ function Icons.ClassLook(classFile, style)
     if not atlas then return nil end
     -- The game's atlas as its file and cell (C_Texture.GetAtlasInfo,
     -- TextureUtilsDocumentation.lua:207, forever branch), drawn as a Jiberish Fabled Icons cell is:
-    -- switching from a Jiberish style with SetAtlas kept that style's cell (seen in game).
+    -- switching from a Jiberish style with SetAtlas keeps that style's cell.
     local succeeded, info = pcall(C_Texture.GetAtlasInfo, atlas)
     local file = succeeded and info and (info.file or info.filename)
     if file then

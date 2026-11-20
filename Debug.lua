@@ -282,7 +282,7 @@ addLook("target: its class icon, Jiberish Fabled Pixels, size 40", { targetIcon 
     iconSize = 40 }, { shows = "targetIcon", needsJiberish = true })
 addLook("target: its class icon, Jiberish Fabled Class, size 40", { targetIcon = "class", classStyle = "jiberish:fabledclass",
     iconSize = 40 }, { shows = "targetIcon", needsJiberish = true })
--- Right after a Jiberish style: the game's icon must not keep its cell (seen in game).
+-- Right after a Jiberish style: the game's icon must not keep its cell.
 addLook("target: its class icon, the game's again after a Jiberish style", { targetIcon = "class", classStyle = "game",
     iconSize = 40 }, { shows = "targetIcon" })
 for index = 1, 8 do

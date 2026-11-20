@@ -23,7 +23,7 @@ end
 -- the game puts it (the middle of the screen). Read from the reticle itself, not
 -- from whatever moved it. A nameplate is a restricted region: a frame anchored to
 -- it can't be measured, so GetPoint failing means just that ("Can't measure
--- restricted regions", seen in game). Should GetPoint answer, its anchor is
+-- restricted regions"). Should GetPoint answer, its anchor is
 -- checked against the target's nameplate and what's in it.
 function addon.ReticleOnNameplate()
     local reticle = _G.GamepadReticle
