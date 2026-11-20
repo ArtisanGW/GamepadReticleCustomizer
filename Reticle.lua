@@ -55,7 +55,7 @@ function Reticle.Choose(settings, target)
     local kindKey = addon.TargetKindKey(target)
     local choice = kindKey and settings[kindKey] or "none"
     if target.hasNameplate and target.reticleOnNameplate and choice ~= "none" then
-        local look = addon.Icons.TargetLook(choice, target, settings.classStyle)
+        local look = addon.Icons.TargetLook(choice, target, addon.ClassStyleFor(settings, kindKey))
         if look then
             local iconSize = addon.Clamp(settings.iconSize, addon.SIZE_MIN, addon.SIZE_MAX, addon.DEFAULTS.iconSize)
             return { icon = choice, atlas = look.atlas, texture = look.texture, texCoord = look.texCoord,

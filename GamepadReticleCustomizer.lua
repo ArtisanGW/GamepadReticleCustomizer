@@ -234,17 +234,17 @@ function addon.RegisterSettings()
             .. "• Icon: one of a set of the game's icons\n\n"
             .. "Shown only while the reticle sits on the target's nameplate, as Gamepad Reticle On Target puts it; "
             .. "the game keeps it in the middle of the screen. Icons keep their own colors.")
+        -- Under each player row: its class icons' style, so friend and foe can look
+        -- different. Only with Jiberish Fabled Icons: without it, the game's is the one style.
+        if kind.classStyleKey and jiberishInstalled then
+            addChoice(kind.classStyleKey, addon.ClassStyleLabel(kind), addon.Icons.ClassStyleList,
+                "How these players' class icons look, when their row is on Class.\n\n"
+                .. "• Default: the game's own\n"
+                .. "• The others: Jiberish Fabled Icons' class icon styles\n\n"
+                .. addon.Icons.JIBERISH_CREDIT .. ".")
+        end
     end
-    -- The class icon style: only when a player row shows their class (decided as
-    -- the page is built: after choosing Class, it's here from the next reload).
-    local classShown = settings.friendlyPlayerIcon == "class" or settings.otherFactionIcon == "class"
-    if jiberishInstalled and classShown then
-        addChoice("classStyle", "Class icons", addon.Icons.ClassStyleList,
-            "How a player's class icon looks.\n\n"
-            .. "• Default: the game's own\n"
-            .. "• The others: Jiberish Fabled Icons' class icon styles\n\n"
-            .. addon.Icons.JIBERISH_CREDIT .. ".")
-    elseif jiberishState == "missing" then
+    if jiberishState == "missing" then
         addButton("More looks", "Get Jiberish Fabled Icons", function() addon.ShowJiberishLink() end,
             "More looks come with the Jiberish Fabled Icons addon:\n\n"
             .. "• 11 class icon styles\n"

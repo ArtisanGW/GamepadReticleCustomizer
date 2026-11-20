@@ -391,7 +391,7 @@ end
 -- Picks a shape as the slider does: by its step.
 local function choose(key, id)
     local icons = GamepadReticleCustomizer.Icons
-    local lists = { icon = icons.ReticleList, classStyle = icons.ClassStyleList }
+    local lists = { icon = icons.ReticleList, friendlyClassStyle = icons.ClassStyleList, otherClassStyle = icons.ClassStyleList }
     local list = lists[key] and lists[key]() or icons.TargetList(key)   -- else a kind of target's choices
     setting(key .. "Choice"):SetValue(GamepadReticleCustomizer.ChoiceIndex(list, id))
 end
@@ -408,10 +408,9 @@ test("its page under Options > AddOns, in order, with the defaults; /grc opens i
     boot({ jiberish = true })
     eq(controlList(), "checkbox:Enable, slider:Reticle, slider:Size, swatch:Color, button:(Reset color), slider:Border, "
         .. "swatch:Border color, button:(Reset border color), "
-        .. "slider:Icon size, slider:Horde players, slider:Alliance players, slider:Friendly NPCs, slider:Neutral NPCs, slider:Enemy NPCs, button:Camera over shoulder, button:Reticle on your target",
-        "with it: the shapes; no class style while no player row shows their class")
-    boot({ jiberish = true, saved = { otherFactionIcon = "class" } })
-    eq(controlList():find("slider:Enemy NPCs, slider:Class icons", 1, true) ~= nil, true, "a player row on Class: its style row")
+        .. "slider:Icon size, slider:Horde players, slider:Horde class icons, slider:Alliance players, slider:Alliance class icons, "
+        .. "slider:Friendly NPCs, slider:Neutral NPCs, slider:Enemy NPCs, button:Camera over shoulder, button:Reticle on your target",
+        "with it: the shapes, and each player row's class style right under it, always")
     boot()
     local saved = GamepadReticleCustomizerDB
     eq(saved.enabled, true); eq(saved.color, "FFFFFFFF"); eq(saved.size, 4); eq(saved.borderSize, 0)
@@ -656,7 +655,7 @@ test("a client without an atlas file: SetAtlas, after resetting the cell a Jiber
     _G.C_Texture.GetAtlasInfo = function(atlas) if atlas:find("^classicon%-") then return {} end end
     setTarget({ isPlayer = true, classFile = "PRIEST", reaction = 5 })
     eq(table.concat(layer().shape.texCoord, ","), "0.25,0.375,0.125,0.25", "the Jiberish cell")
-    choose("classStyle", "game")
+    choose("friendlyClassStyle", "game")
     eq(layer().shape.atlas, "classicon-priest")
     eq(table.concat(layer().shape.texCoord, ","), "0,1,0,1", "reset before SetAtlas")
 end)
@@ -685,7 +684,7 @@ end)
 test("Jiberish Fabled Icons installed but turned off: not offered, its choices fall back, a button tells how to turn it on", function()
     boot({ jiberishOff = true, saved = { icon = "jiberish:x-bold", size = 24, targetIcon = "class", classStyle = "jiberish:fabled" } })
     eq(control("slider", "Reticle"), nil, "its shapes aren't offered")
-    eq(control("slider", "Class icons"), nil, "nor its styles")
+    eq(control("slider", "Horde class icons"), nil, "nor its styles")
     eq(GamepadReticleCustomizer.Reticle.Drawn().icon, "dot", "a saved Jiberish shape falls back to the dot")
     setTarget({ isPlayer = true, classFile = "MAGE", reaction = 5 })
     eq(GamepadReticleCustomizer.Reticle.Drawn().atlas, "classicon-mage", "and a Jiberish class style to the game's")
@@ -746,9 +745,9 @@ test("tooltips: text after a colon is a list (each line after \":\" a \"•\" li
 end)
 
 test("every choice slider's label fits the slider (22 characters, seen cut in game beyond)", function()
-    boot({ jiberish = true, saved = { friendlyPlayerIcon = "class" } })
+    boot({ jiberish = true })
     local maxLength = GamepadReticleCustomizer.Icons.LABEL_MAX_LENGTH
-    for _, slider in ipairs({ "Reticle", "Horde players", "Alliance players", "Friendly NPCs", "Neutral NPCs", "Enemy NPCs", "Class icons" }) do
+    for _, slider in ipairs({ "Reticle", "Horde players", "Alliance players", "Friendly NPCs", "Neutral NPCs", "Enemy NPCs", "Horde class icons" }) do
         for _, label in ipairs(choiceLabels(slider)) do
             eq(#label <= maxLength, true, slider .. ": \"" .. label .. "\" is " .. #label .. " characters")
         end
@@ -786,18 +785,18 @@ end)
 
 test("class icon styles: the game's, or a Jiberish Fabled Icons class sheet's cell for the class; without it, the game's", function()
     boot()
-    eq(control("slider", "Class icons"), nil, "without Jiberish Fabled Icons: no slider, the game's icons only")
+    eq(control("slider", "Horde class icons"), nil, "without Jiberish Fabled Icons: no slider, the game's icons only")
     boot({ jiberish = true, saved = { targetIcon = "class" } })
-    local labels = choiceLabels("Class icons")
+    local labels = choiceLabels("Horde class icons")
     eq(#labels, 12, "the game's and 11 Jiberish styles")
     eq(labels[2], "Fabled"); eq(labels[3], "Fabled Class"); eq(labels[4], "Fabled Pixels")
-    choose("classStyle", "jiberish:fabledpixels")
+    choose("friendlyClassStyle", "jiberish:fabledpixels")
     setTarget({ isPlayer = true, classFile = "PRIEST", reaction = 5 })
     eq(layer().shape.texture, "Interface\\AddOns\\JiberishIcons\\Media\\Class\\fabledpixels")
     eq(table.concat(layer().shape.texCoord, ","), "0.25,0.375,0.125,0.25", "the Priest's cell: column 3, row 2 of 8")
     setTarget({ isPlayer = true, classFile = "DEMONHUNTER", reaction = 2 })
     eq(table.concat(layer().shape.texCoord, ","), "0.375,0.5,0.25,0.375")
-    choose("classStyle", "game")
+    choose("friendlyClassStyle", "game")
     eq(GamepadReticleCustomizer.Reticle.Drawn().atlas, "classicon-demonhunter", "the game's again")
     eq(layer().shape.texture, "classicons-file")
     eq(table.concat(layer().shape.texCoord, ","), "0.5,0.75,0.25,0.5",
@@ -1242,6 +1241,18 @@ test("the player rows are named after the factions, yours first; without a facti
     eq(GamepadReticleCustomizer.KindLabel(GamepadReticleCustomizer.TARGET_KINDS[2]), "Horde players")
     _G.UnitFactionGroup = function(unit) if unit == "player" then return "Neutral" end end
     eq(GamepadReticleCustomizer.KindLabel(GamepadReticleCustomizer.TARGET_KINDS[1]), "Your faction")
+end)
+
+test("each faction its own class icon style, so friend and foe look different; one older style is copied to both", function()
+    boot({ jiberish = true, saved = { friendlyPlayerIcon = "class", otherFactionIcon = "class",
+        friendlyClassStyle = "game", otherClassStyle = "jiberish:fabled" } })
+    setTarget({ isPlayer = true, classFile = "PRIEST", reaction = 5, faction = "Horde" })
+    eq(layer().shape.texture, "classicons-file", "your faction: the game's style (its atlas's file)")
+    setTarget({ isPlayer = true, classFile = "PRIEST", reaction = 2, faction = "Alliance" })
+    eq(layer().shape.texture, "Interface\\AddOns\\JiberishIcons\\Media\\Class\\fabled", "the other faction: its own style")
+    boot({ saved = { classStyle = "jiberish:fabledpixels" } })
+    eq(GamepadReticleCustomizerDB.friendlyClassStyle, "jiberish:fabledpixels"); eq(GamepadReticleCustomizerDB.otherClassStyle, "jiberish:fabledpixels")
+    eq(GamepadReticleCustomizerDB.classStyle, nil)
 end)
 
 reportLine(passed .. " passed, " .. failed .. " failed")

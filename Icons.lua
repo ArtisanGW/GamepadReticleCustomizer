@@ -10,7 +10,7 @@
 -- The icons shown instead on a target (a setting per kind of target, addon.TARGET_KINDS):
 --   "none"            none: the reticle stays
 --   "class"           a player target's class, in a class icon style (setting
---                     "classStyle"): "game" (the game's classicon-<class> atlases), or
+--                     "friendlyClassStyle" or "otherClassStyle"): "game" (the game's classicon-<class> atlases), or
 --                     "jiberish:<style>", a Jiberish Fabled Icons class sheet when installed
 --   "faction"         a player's faction (the other faction's players)
 --   "job"             a friendly NPC's job (NpcJobs.lua), else a speech bubble

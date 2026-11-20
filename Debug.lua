@@ -147,7 +147,8 @@ local function expectedLook(step, settings)
         local choice = settings[addon.TargetKindKey(target) or ""] or "none"
         if choice == "class" then
             -- In its style: the game's atlas, or a Jiberish Fabled Icons sheet's cell (the game's without it).
-            local classLook = addon.Icons.ClassLook(target.classFile, settings.classStyle) or {}
+            local classLook = addon.Icons.ClassLook(target.classFile,
+                addon.ClassStyleFor(settings, addon.TargetKindKey(target))) or {}
             return { icon = "class", atlas = classLook.atlas, texture = classLook.texture, texCoord = classLook.texCoord,
                 size = settings.iconSize, tinted = false }
         end
@@ -163,6 +164,11 @@ local function checkLook(label, step)
     local settings = addon.Settings()
     for key, value in pairs(addon.DEFAULTS) do settings[key] = value end
     for key, value in pairs(step.look) do settings[key] = value end
+    -- A step's classStyle is both factions' style.
+    if settings.classStyle ~= nil then
+        settings.friendlyClassStyle, settings.otherClassStyle = settings.classStyle, settings.classStyle
+        settings.classStyle = nil
+    end
     -- A step's targetIcon is its choice for every kind of target.
     if settings.targetIcon ~= nil then
         for _, kind in ipairs(addon.TARGET_KINDS) do settings[kind.key] = settings.targetIcon end

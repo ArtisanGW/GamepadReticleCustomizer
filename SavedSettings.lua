@@ -27,33 +27,54 @@ _G.GamepadReticleCustomizer = addon
 --                  reticle stays), its own icon ("class", "faction", "job", "question",
 --                  "swords"), a raid marker or one of the game's icons. Icons keep their
 --                  own colors.
---   classStyle:    the class icon's style (Icons.lua): "game" or a Jiberish Fabled Icons class sheet.
+--   friendlyClassStyle, otherClassStyle: the class icons' style for your faction's
+--                  players and the other's (Icons.lua): "game" or a Jiberish Fabled
+--                  Icons class sheet. Class trainers use your faction's.
 --   iconSize:      the icon's width and height.
 --   borderSize:    how far the border reaches out around either (0: no border).
 --   borderColor:   the border's color, "RRGGBBAA".
-addon.DEFAULTS = { enabled = true, icon = "dot", color = "FFFFFFFF", size = 4, dotSize = 4, shapeSize = 32, classStyle = "game", iconSize = 32,
+addon.DEFAULTS = { enabled = true, icon = "dot", color = "FFFFFFFF", size = 4, dotSize = 4, shapeSize = 32, friendlyClassStyle = "game", otherClassStyle = "game", iconSize = 32,
     friendlyPlayerIcon = "none", otherFactionIcon = "none", friendlyNpcIcon = "none", neutralNpcIcon = "none",
     enemyNpcIcon = "none",
     borderSize = 0, borderColor = "000000FF" }
 -- The kinds of target, in the settings page's order: { key (its setting), label, tooltip }.
 addon.TARGET_KINDS = {
-    { key = "friendlyPlayerIcon", label = "Your faction", tooltip = "Players of your faction." },
-    { key = "otherFactionIcon", label = "Other faction", tooltip = "Players of the other faction, PvP flagged or not." },
+    { key = "friendlyPlayerIcon", label = "Your faction", tooltip = "Players of your faction.", classStyleKey = "friendlyClassStyle" },
+    { key = "otherFactionIcon", label = "Other faction", tooltip = "Players of the other faction, PvP flagged or not.",
+        classStyleKey = "otherClassStyle" },
     { key = "friendlyNpcIcon", label = "Friendly NPCs", tooltip = "Friendly NPCs, like vendors, trainers and guards." },
     { key = "neutralNpcIcon", label = "Neutral NPCs", tooltip = "Neutral NPCs and critters." },
     { key = "enemyNpcIcon", label = "Enemy NPCs", tooltip = "The NPCs you fight." },
 }
+-- The class icon style for a kind of target: the other faction's for theirs, else yours.
+function addon.ClassStyleFor(settings, kindKey)
+    if kindKey == "otherFactionIcon" then return settings.otherClassStyle end
+    return settings.friendlyClassStyle
+end
+
+-- A player row's faction name ("Horde"), or nil without a faction.
+local function rowFactionName(kind)
+    local playerFaction = type(UnitFactionGroup) == "function" and UnitFactionGroup("player") or nil
+    local other = { Horde = "Alliance", Alliance = "Horde" }
+    if not other[playerFaction] then return nil end
+    local faction = kind.key == "friendlyPlayerIcon" and playerFaction or other[playerFaction]
+    return _G["FACTION_" .. faction:upper()] or faction
+end
+
+-- A player row's class icon style label ("Horde class icons"; without a faction,
+-- "Your class icons" and "Other class icons").
+function addon.ClassStyleLabel(kind)
+    local factionName = rowFactionName(kind)
+    if factionName then return factionName .. " class icons" end
+    return kind.key == "friendlyPlayerIcon" and "Your class icons" or "Other class icons"
+end
+
 -- A kind's row label: the player rows say whose players, by faction ("Horde
 -- players" for yours when you're Horde); without a faction, "Your faction" and
 -- "Other faction".
 function addon.KindLabel(kind)
-    local isPlayerRow = kind.key == "friendlyPlayerIcon" or kind.key == "otherFactionIcon"
-    local playerFaction = type(UnitFactionGroup) == "function" and UnitFactionGroup("player") or nil
-    local other = { Horde = "Alliance", Alliance = "Horde" }
-    if not (isPlayerRow and other[playerFaction]) then return kind.label end
-    local faction = kind.key == "friendlyPlayerIcon" and playerFaction or other[playerFaction]
-    local factionName = _G["FACTION_" .. faction:upper()] or faction
-    return factionName .. " players"
+    local factionName = kind.classStyleKey and rowFactionName(kind)
+    return factionName and (factionName .. " players") or kind.label
 end
 addon.SIZE_MIN, addon.SIZE_MAX, addon.SIZE_STEP = 2, 64, 1
 addon.BORDER_MIN, addon.BORDER_MAX, addon.BORDER_STEP = 0, 10, 1
@@ -69,6 +90,11 @@ function addon.Settings()
     -- A custom texture path: none.
     if settings.targetIcon == "custom" then settings.targetIcon = "none" end
     settings.customTexture = nil
+    -- One class icon style for both factions: copied to each.
+    if settings.classStyle ~= nil then
+        settings.friendlyClassStyle, settings.otherClassStyle = settings.classStyle, settings.classStyle
+        settings.classStyle = nil
+    end
     -- One choice for every target ("targetIcon"): copied to each kind it fits.
     if settings.targetIcon ~= nil then
         local choice = settings.targetIcon
