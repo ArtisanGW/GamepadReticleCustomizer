@@ -1,5 +1,5 @@
--- GamepadCrosshairColor against a fake game: the controller's crosshair, the
--- Settings API, the color picker and a controller. From GamepadCrosshairColor:
+-- GamepadCrosshairCustomizer against a fake game: the controller's crosshair, the
+-- Settings API, the color picker and a controller. From GamepadCrosshairCustomizer:
 --   luajit tests/run.lua
 local reportLine = print   -- the tests replace print to read what the addon says
 local failed, passed = 0, 0
@@ -14,7 +14,7 @@ local function readFile(path) local file = assert(io.open(path)); local text = f
 -- The files the .toc loads, in its order.
 local function tocFiles()
     local files = {}
-    for line in readFile("GamepadCrosshairColor.toc"):gsub("\r", ""):gmatch("[^\n]+") do
+    for line in readFile("GamepadCrosshairCustomizer.toc"):gsub("\r", ""):gmatch("[^\n]+") do
         if not line:find("^#") then files[#files + 1] = line end
     end
     return files
@@ -99,11 +99,11 @@ local function boot(gamepad, saved)
         ButtonIndexToConfigName = function(index) return ({ [0] = "PAD1", [1] = "PADDUP", [2] = "PADDDOWN" })[index] end,
         StickIndexToConfigName = function(index) return index == 0 and "Movement" or "Camera" end,
     }
-    _G.GamepadCrosshairColorDB = saved
+    _G.GamepadCrosshairCustomizerDB = saved
     _G.print = function(t) game.printed[#game.printed + 1] = t end
     local namespace = {}
-    for _, fileName in ipairs(tocFiles()) do assert(loadfile(fileName))("GamepadCrosshairColor", namespace) end
-    fire("ADDON_LOADED", "GamepadCrosshairColor")
+    for _, fileName in ipairs(tocFiles()) do assert(loadfile(fileName))("GamepadCrosshairCustomizer", namespace) end
+    fire("ADDON_LOADED", "GamepadCrosshairCustomizer")
     fire("PLAYER_ENTERING_WORLD")
 end
 
@@ -112,18 +112,18 @@ local function dotColor()
     return string.format("%.2f %.2f %.2f %.2f", color[1], color[2], color[3], color[4])
 end
 local function setEnabled(value)
-    local setting = game.settings.GamepadCrosshairColor_enabled
+    local setting = game.settings.GamepadCrosshairCustomizer_enabled
     setting.tbl[setting.key] = value
     game.callbacks[setting.variable](nil, setting, value)
 end
 
 test("registers its page under Options > AddOns, with the defaults; /gcc opens it", function()
     boot(true, nil)
-    eq(game.category.name, "Gamepad Crosshair Color")
-    eq(GamepadCrosshairColorDB.enabled, true); eq(GamepadCrosshairColorDB.color, "FFFFFFFF", "white by default")
-    eq(game.settings.GamepadCrosshairColor_enabled.label, "Enable")
+    eq(game.category.name, "Gamepad Crosshair Customizer")
+    eq(GamepadCrosshairCustomizerDB.enabled, true); eq(GamepadCrosshairCustomizerDB.color, "FFFFFFFF", "white by default")
+    eq(game.settings.GamepadCrosshairCustomizer_enabled.label, "Enable")
     eq(game.swatch.label, "Crosshair color", "the settings page's own swatch, which opens the picker itself")
-    SlashCmdList.GAMEPADCROSSHAIRCOLOR("")
+    SlashCmdList.GAMEPADCROSSHAIRCUSTOMIZER("")
     eq(game.opened, 42)
 end)
 
@@ -134,15 +134,15 @@ end)
 
 test("the color: 32 bits RRGGBBAA from /gcc, six digits opaque, a wrong one changes nothing", function()
     boot(true, nil)
-    SlashCmdList.GAMEPADCROSSHAIRCOLOR("FF3030CC")
-    eq(GamepadCrosshairColorDB.color, "FF3030CC")
+    SlashCmdList.GAMEPADCROSSHAIRCUSTOMIZER("FF3030CC")
+    eq(GamepadCrosshairCustomizerDB.color, "FF3030CC")
     eq(dotColor(), "1.00 0.19 0.19 0.80", "tinted at once")
     eq(game.printed[#game.printed]:find("FF3030CC", 1, true) ~= nil, true, "and says so")
-    SlashCmdList.GAMEPADCROSSHAIRCOLOR("nonsense")
-    eq(GamepadCrosshairColorDB.color, "FF3030CC", "a wrong color changes nothing")
+    SlashCmdList.GAMEPADCROSSHAIRCUSTOMIZER("nonsense")
+    eq(GamepadCrosshairCustomizerDB.color, "FF3030CC", "a wrong color changes nothing")
     eq(game.printed[#game.printed]:find("usage", 1, true) ~= nil, true, "and says how")
-    SlashCmdList.GAMEPADCROSSHAIRCOLOR("#00ff00")
-    eq(GamepadCrosshairColorDB.color, "00FF00FF", "six digits: opaque")
+    SlashCmdList.GAMEPADCROSSHAIRCUSTOMIZER("#00ff00")
+    eq(GamepadCrosshairCustomizerDB.color, "00FF00FF", "six digits: opaque")
 end)
 
 test("the swatch speaks AARRGGBB and sets the color only; the opacity is kept", function()
@@ -150,11 +150,11 @@ test("the swatch speaks AARRGGBB and sets the color only; the opacity is kept", 
     local swatch = game.swatch
     eq(swatch.getValue(), "FF00FF00", "alpha FF, the color")
     swatch.setValue("ff0000ff")
-    eq(GamepadCrosshairColorDB.color, "0000FF66", "the picked color, the opacity kept")
+    eq(GamepadCrosshairCustomizerDB.color, "0000FF66", "the picked color, the opacity kept")
     swatch.setValue("nonsense")
-    eq(GamepadCrosshairColorDB.color, "0000FF66", "a wrong value changes nothing")
-    GamepadCrosshairColor.SetOpacity(0.4)
-    eq(GamepadCrosshairColorDB.color, "0000FF66", "40% opacity")
+    eq(GamepadCrosshairCustomizerDB.color, "0000FF66", "a wrong value changes nothing")
+    GamepadCrosshairCustomizer.SetOpacity(0.4)
+    eq(GamepadCrosshairCustomizerDB.color, "0000FF66", "40% opacity")
     eq(dotColor(), "0.00 0.00 1.00 0.40")
 end)
 
@@ -165,21 +165,21 @@ test("Enable off puts the dot's own color back, on brings yours back", function(
     eq(dotColor(), "1.00 1.00 1.00 1.00", "the color the dot had before the first tint")
     setEnabled(true)
     eq(dotColor(), "0.00 1.00 0.00 1.00", "and back")
-    SlashCmdList.GAMEPADCROSSHAIRCOLOR("FF0000FF")
+    SlashCmdList.GAMEPADCROSSHAIRCUSTOMIZER("FF0000FF")
     setEnabled(false)
-    eq(GamepadCrosshairColorDB.color, "FF0000FF", "off keeps your color for later")
+    eq(GamepadCrosshairCustomizerDB.color, "FF0000FF", "off keeps your color for later")
     eq(dotColor(), "1.00 1.00 1.00 1.00", "and doesn't tint")
 end)
 
 test("controller: while the picker is open for the crosshair color, the sticks and D-pad drive it", function()
     boot(true, nil)
-    local driver = GamepadCrosshairColor.PickerSticks.driver
+    local driver = GamepadCrosshairCustomizer.PickerSticks.driver
     local function step(seconds) driver.update(driver, seconds) end
     ColorPickerFrame:Show()
     eq(driver.shown, false, "a picker opened by something else (the chat settings): left to the game")
     eq(ColorPickerFrame.hasOpacity, nil, "and no opacity bar put on it")
     ColorPickerFrame:Hide()
-    SlashCmdList.GAMEPADCROSSHAIRCOLOR("FFFFFF80")
+    SlashCmdList.GAMEPADCROSSHAIRCUSTOMIZER("FFFFFF80")
     game.swatch.getValue()   -- the swatch reads the color as it opens the picker
     game.time = game.time + 0.1
     ColorPickerFrame:Show()
@@ -189,13 +189,13 @@ test("controller: while the picker is open for the crosshair color, the sticks a
     near(game.picker.alpha, 128 / 255, "at the crosshair's opacity")
     game.padUp = true; step(0.5)
     near(game.picker.alpha, 128 / 255 + 0.25, "D-pad up: more solid (0.5 a second)")
-    eq(GamepadCrosshairColorDB.color:sub(7, 8), string.format("%02X", math.floor((128 / 255 + 0.25) * 255 + 0.5)),
+    eq(GamepadCrosshairCustomizerDB.color:sub(7, 8), string.format("%02X", math.floor((128 / 255 + 0.25) * 255 + 0.5)),
         "and the crosshair with it")
     game.padUp, game.padDown = false, true; step(10)
     near(game.picker.alpha, 0, "D-pad down: see-through, not past 0")
     game.padDown = false
     ColorPickerFrame.opacityFunc()   -- the mouse on the bar: the picker's own callback
-    eq(GamepadCrosshairColorDB.color:sub(7, 8), "00")
+    eq(GamepadCrosshairCustomizerDB.color:sub(7, 8), "00")
     game.cameraStickY = 1; step(0.5)
     near(game.picker.hsv[3], 0.8, "right stick up: brighter (0.6 a second)")
     eq(game.picker.hsv[1], 120, "the hue kept")
@@ -211,7 +211,7 @@ test("controller: while the picker is open for the crosshair color, the sticks a
     near(game.picker.hsv[2], 0.4, "left: out from the middle, saturation 0.4 (0.8 a second)")
     near(game.picker.hsv[1], 0, "toward hue 0")
     game.moveStickX, game.moveStickY = 0, -1; step(0.5)
-    local x, y = GamepadCrosshairColor.PickerSticks.WheelPoint(game.picker.hsv[1], game.picker.hsv[2])
+    local x, y = GamepadCrosshairCustomizer.PickerSticks.WheelPoint(game.picker.hsv[1], game.picker.hsv[2])
     near(x, -0.4, "down: the point moves down"); near(y, -0.4)
     game.moveStickX, game.moveStickY = -1, 0; step(10)
     near(game.picker.hsv[2], 1, "never past the wheel's edge")
@@ -228,13 +228,13 @@ test("keyboard: the picker gets the opacity bar but no stick driver", function()
     game.swatch.getValue()
     ColorPickerFrame:Show()
     eq(ColorPickerFrame.hasOpacity, true)
-    eq(GamepadCrosshairColor.PickerSticks.driver.shown, false)
+    eq(GamepadCrosshairCustomizer.PickerSticks.driver.shown, false)
 end)
 
 test("an addon of its own: needs no other addon, and the .toc loads its three files", function()
-    local toc = readFile("GamepadCrosshairColor.toc")
+    local toc = readFile("GamepadCrosshairCustomizer.toc")
     eq(toc:find("Dependencies", 1, true), nil); eq(toc:find("OptionalDeps", 1, true), nil)
-    eq(table.concat(tocFiles(), ","), "Color.lua,PickerSticks.lua,GamepadCrosshairColor.lua")
+    eq(table.concat(tocFiles(), ","), "Color.lua,PickerSticks.lua,GamepadCrosshairCustomizer.lua")
 end)
 
 reportLine(passed .. " passed, " .. failed .. " failed")

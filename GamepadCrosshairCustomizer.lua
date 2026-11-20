@@ -1,9 +1,10 @@
--- GamepadCrosshairColor: the settings page (Options > AddOns > Gamepad Crosshair
--- Color), /gcc and the events. The color itself is in Color.lua, the color
--- picker's controller sticks in PickerSticks.lua.
+-- GamepadCrosshairCustomizer: customizes the controller's aiming dot (the controller
+-- UI's crosshair). This file: the settings page (Options > AddOns > Gamepad
+-- Crosshair Customizer), /gcc and the events. The color is in Color.lua, the
+-- color picker's controller sticks in PickerSticks.lua.
 local ADDON_NAME, addon = ...
 
-local CHAT_PREFIX = "|cff88ccffGamepad Crosshair Color|r "
+local CHAT_PREFIX = "|cff88ccffGamepad Crosshair Customizer|r "
 addon.PICKER_OPENED_WITHIN = 0.5   -- seconds between the swatch reading the color and the picker showing
 
 -- The settings page's own color swatch opens the game's color picker from the
@@ -36,18 +37,18 @@ end
 
 function addon.RegisterSettings()
     if not (Settings and Settings.RegisterVerticalLayoutCategory and Settings.RegisterAddOnSetting) then return end
-    local category = Settings.RegisterVerticalLayoutCategory("Gamepad Crosshair Color")
+    local category = Settings.RegisterVerticalLayoutCategory("Gamepad Crosshair Customizer")
     addon.category = category
 
-    local enabledSetting = Settings.RegisterAddOnSetting(category, "GamepadCrosshairColor_enabled", "enabled",
+    local enabledSetting = Settings.RegisterAddOnSetting(category, "GamepadCrosshairCustomizer_enabled", "enabled",
         addon.Settings(), Settings.VarType.Boolean, "Enable", addon.DEFAULTS.enabled)
-    Settings.SetOnValueChangedCallback("GamepadCrosshairColor_enabled", function() addon.ColorCrosshair() end)
+    Settings.SetOnValueChangedCallback("GamepadCrosshairCustomizer_enabled", function() addon.ColorCrosshair() end)
     Settings.CreateCheckbox(category, enabledSetting,
         "Colors the controller's aiming dot (the controller UI's crosshair). Turned off, its own white comes back.")
 
     if type(Settings.RegisterProxySetting) == "function" and type(Settings.CreateColorSwatch) == "function" then
         addon.PickerSticks.Watch(addon)
-        local colorSetting = Settings.RegisterProxySetting(category, "GamepadCrosshairColor_color",
+        local colorSetting = Settings.RegisterProxySetting(category, "GamepadCrosshairCustomizer_color",
             Settings.VarType.String, "Crosshair color", "FFFFFFFF", addon.SwatchColor, addon.SetSwatchColor)
         Settings.CreateColorSwatch(category, colorSetting,
             "The controller's aiming dot's color and opacity, e.g. to see it better on the ground. "
@@ -81,8 +82,8 @@ eventFrame:SetScript("OnEvent", function(_, event, name)
 end)
 
 -- /gcc opens the settings; /gcc RRGGBBAA sets the color.
-SLASH_GAMEPADCROSSHAIRCOLOR1 = "/gcc"
-SlashCmdList.GAMEPADCROSSHAIRCOLOR = function(message)
+SLASH_GAMEPADCROSSHAIRCUSTOMIZER1 = "/gcc"
+SlashCmdList.GAMEPADCROSSHAIRCUSTOMIZER = function(message)
     local text = tostring(message or ""):match("^%s*(.-)%s*$")
     if text == "" then return addon.Open() end
     if addon.SetColor(text) then

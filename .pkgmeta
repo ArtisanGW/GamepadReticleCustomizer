@@ -1,6 +1,6 @@
 # What the BigWigs packager puts in the release zip (.github/workflows/release.yml).
 # Files starting with a dot (.github, .pkgmeta) are left out on their own.
-package-as: GamepadCrosshairColor
+package-as: GamepadCrosshairCustomizer
 
 # Comments only on their own line: the packager reads anything after an item as part of it.
 ignore:

@@ -59,7 +59,7 @@ jobs:
       - name: Keep the zip with the run
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9   # v7.0.2
         with:
-          name: GamepadCrosshairColor
+          name: GamepadCrosshairCustomizer
           path: .release/*.zip
           # The packager's folder starts with a dot, which upload-artifact skips unless told.
           include-hidden-files: true

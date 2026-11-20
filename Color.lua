@@ -1,4 +1,5 @@
--- GamepadCrosshairColor: the color and opacity of the controller's aiming dot.
+-- GamepadCrosshairCustomizer customizes the controller's aiming dot. This file is
+-- its color and opacity.
 --
 -- The dot is the controller UI's GamepadReticle (Blizzard_Gamepad, loaded with the
 -- game, not on demand): its Icons.StandardIcon, a small white circle that Blizzard
@@ -6,18 +7,18 @@
 -- So it's tinted once at login and again only when the color changes. The dot's
 -- own color is kept first and put back when the addon is switched off.
 --
--- This file: the saved color and the tint. PickerSticks.lua: the color picker on a
--- controller. GamepadCrosshairColor.lua: the settings page, /gcc and the events.
+-- This file: the saved settings, the color and the tint. PickerSticks.lua: the color picker on a
+-- controller. GamepadCrosshairCustomizer.lua: the settings page, /gcc and the events.
 local _, addon = ...
-_G.GamepadCrosshairColor = addon
+_G.GamepadCrosshairCustomizer = addon
 
 --   enabled: tint the dot (off: the dot's own color back).
 --   color:   the dot's color, 32 bits as "RRGGBBAA" (hex, alpha last).
 addon.DEFAULTS = { enabled = true, color = "FFFFFFFF" }
 
 function addon.Settings()
-    if type(GamepadCrosshairColorDB) ~= "table" then GamepadCrosshairColorDB = {} end
-    local settings = GamepadCrosshairColorDB
+    if type(GamepadCrosshairCustomizerDB) ~= "table" then GamepadCrosshairCustomizerDB = {} end
+    local settings = GamepadCrosshairCustomizerDB
     for key, defaultValue in pairs(addon.DEFAULTS) do
         if settings[key] == nil then settings[key] = defaultValue end
     end
