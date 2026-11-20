@@ -77,9 +77,10 @@ end
 local function setPicture(texture, look)
     if look.cursorUnit then
         -- A unit's own interaction icon, as the game sets it on its nameplates
-        -- (Blizzard_NamePlates.lua:201, forever branch).
+        -- (Blizzard_NamePlates.lua:201, forever branch), but never the controller's
+        -- interact button the game swaps in once you're in range (preferGamepadIcon).
         texture:SetTexCoord(0, 1, 0, 1)
-        SetUnitCursorTexture(texture, look.cursorUnit, nil, nil, true)
+        SetUnitCursorTexture(texture, look.cursorUnit, nil, nil, false)
     elseif look.texture then
         texture:SetTexture(look.texture)
         local coords = look.texCoord or { 0, 1, 0, 1 }

@@ -152,10 +152,11 @@ local function boot(options)
     end
     _G.UnitPlayerControlled = function(unit) return game.target ~= nil and unit == "target" and (game.target.controlled or game.target.isPlayer) == true end
     -- The game's interaction icon for a unit (game.target.interaction: "buy", "train"...), put on a texture.
-    _G.SetUnitCursorTexture = function(texture, unit)
+    _G.SetUnitCursorTexture = function(texture, unit, _, _, preferGamepadIcon)
         local interaction = game.target and unit == "target" and game.target.interaction
         if not interaction then return false end
-        texture.cursorIcon = interaction
+        -- As the game: in range, asked for the controller's icon, its interact button instead.
+        texture.cursorIcon = (preferGamepadIcon and game.target.inRange) and "gamepad-button" or interaction
         return true
     end
     game.classColors = { WARRIOR = { r = 0.78, g = 0.61, b = 0.43 }, MAGE = { r = 0.25, g = 0.78, b = 0.92 },
@@ -1198,8 +1199,8 @@ test("friendly NPCs, Their job: the game's own interaction icon for them, else a
     setTarget({ isPlayer = false, reaction = 5, interaction = "buy" })
     eq(GamepadReticleCustomizer.Reticle.Drawn().cursorUnit, "target", "the game's icon for the target")
     eq(layer().shape.cursorIcon, "buy", "set on our texture by the game")
-    setTarget({ isPlayer = false, reaction = 5, interaction = "trainer" })
-    eq(layer().shape.cursorIcon, "trainer")
+    setTarget({ isPlayer = false, reaction = 5, interaction = "trainer", inRange = true })
+    eq(layer().shape.cursorIcon, "trainer", "close enough to interact: still the job, not the controller's button")
     setTarget({ isPlayer = false, reaction = 5 })
     eq(drawnLook(), "Crosshair_Speak_128", "no interaction icon: a speech bubble")
     setTarget({ isPlayer = false, reaction = 5, controlled = true })

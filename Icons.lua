@@ -234,7 +234,7 @@ function Icons.HasInteractionIcon(unit)
         holder:Hide()
         probe = holder:CreateTexture()
     end
-    local succeeded, hasIcon = pcall(SetUnitCursorTexture, probe, unit, nil, nil, true)
+    local succeeded, hasIcon = pcall(SetUnitCursorTexture, probe, unit, nil, nil, false)
     return succeeded and hasIcon == true
 end
 
