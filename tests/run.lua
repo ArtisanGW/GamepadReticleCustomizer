@@ -239,16 +239,20 @@ local function colorOf(region)
     return string.format("%.2f %.2f %.2f %.2f", region.color[1], region.color[2], region.color[3], region.color[4])
 end
 local function setting(key) return game.settings["GamepadCrosshairCustomizer_" .. key] end
+-- A control by its label, or a button by its row's name or its button text.
 local function control(kind, labelOrName)
     for _, entry in ipairs(game.controls) do
         local label = entry.setting and entry.setting.label or (entry.extra and entry.extra.name)
-        if entry.kind == kind and label == labelOrName then return entry end
+        local buttonText = entry.extra and entry.extra.buttonText
+        if entry.kind == kind and (label == labelOrName or buttonText == labelOrName) then return entry end
     end
 end
 local function controlList()
     local labels = {}
     for _, entry in ipairs(game.controls) do
-        labels[#labels + 1] = entry.kind .. ":" .. (entry.setting and entry.setting.label or entry.extra.name)
+        local label = entry.setting and entry.setting.label or entry.extra.name
+        if label == "" then label = "(" .. entry.extra.buttonText .. ")" end   -- a button with no row label
+        labels[#labels + 1] = entry.kind .. ":" .. label
     end
     return table.concat(labels, ", ")
 end
@@ -271,8 +275,8 @@ end
 test("its page under Options > AddOns, in order, with the defaults; /gcc opens it", function()
     boot()
     eq(game.category.name, "Gamepad Crosshair Customizer")
-    eq(controlList(), "checkbox:Enable, slider:Crosshair, slider:Size, swatch:Color, button:Reset color, slider:Border, "
-        .. "swatch:Border color, button:Reset border color, "
+    eq(controlList(), "checkbox:Enable, slider:Crosshair, slider:Size, swatch:Color, button:(Reset color), slider:Border, "
+        .. "swatch:Border color, button:(Reset border color), "
         .. "slider:On a target, slider:Class icons, slider:Icon size, button:More shapes, button:Gamepad Camera Offset",
         "the crosshair with its border and colors, then what shows on a target")
     local saved = GamepadCrosshairCustomizerDB
