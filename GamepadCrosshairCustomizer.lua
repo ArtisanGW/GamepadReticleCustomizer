@@ -200,11 +200,11 @@ function addon.RegisterSettings()
             "How a player's class icon looks: the game's own (Default), or one of JiberishUI's class icon styles "
             .. "(Fabled, Fabled Pixels, Fabled Class...).")
     elseif jiberishState == "missing" then
-        addButton("Class icons", "Get JiberishUI Icons...", function() addon.ShowJiberishLink() end,
+        addButton("Class icons", "Get JiberishUI Icons", function() addon.ShowJiberishLink() end,
             "11 class icon styles and 16 more crosshair shapes come with the JiberishUI Fabled Icons addon. "
             .. "Once it's installed (and after /reload), they're offered here.")
     else
-        addButton("Class icons", "Enable JiberishUI Icons...", function() addon.TellToEnableJiberish() end,
+        addButton("Class icons", "Enable JiberishUI Icons", function() addon.TellToEnableJiberish() end,
             "JiberishUI Fabled Icons is installed but turned off, so its class icon styles and crosshair shapes "
             .. "aren't offered. Turn it on in the AddOns list, then reload.")
     end

@@ -569,7 +569,7 @@ test("JiberishUI installed but turned off: not offered, its choices fall back, a
     eq(GamepadCrosshairCustomizer.Crosshair.Drawn().atlas, "classicon-mage", "and a Jiberish class style to the game's")
     eq(GamepadCrosshairCustomizerDB.icon, "jiberish:x-bold", "your choice kept for when it's on again")
     local button = control("button", "Class icons")
-    eq(button.extra.buttonText, "Enable JiberishUI Icons...", "not Get: it's installed")
+    eq(button.extra.buttonText, "Enable JiberishUI Icons", "not Get: it's installed")
     button.extra.onClick()
     local box = GamepadCrosshairCustomizer.TextBox.box
     eq(box:IsShown(), true)
@@ -579,7 +579,7 @@ end)
 
 test("without it: the install button shows the link to copy", function()
     boot()
-    eq(control("button", "Class icons").extra.buttonText, "Get JiberishUI Icons...", "in the Class icons row")
+    eq(control("button", "Class icons").extra.buttonText, "Get JiberishUI Icons", "in the Class icons row")
     control("button", "Class icons").extra.onClick()
     local box = GamepadCrosshairCustomizer.TextBox.box
     eq(box:IsShown(), true)
@@ -664,7 +664,7 @@ test("without Gamepad Camera Offset: a button shows its CurseForge link to copy;
     boot()
     control("button", "Gamepad Camera Offset").extra.onClick()
     local box = GamepadCrosshairCustomizer.TextBox.box
-    eq(control("button", "Gamepad Camera Offset").extra.buttonText, "Get Gamepad Camera Offset...")
+    eq(control("button", "Gamepad Camera Offset").extra.buttonText, "Get Gamepad Camera Offset")
     eq(box.editBox:GetText(), "https://www.curseforge.com/projects/1818297")
     eq(box.editBox.highlighted, true, "selected, ready for Ctrl+C")
     boot({ cameraOffset = true })

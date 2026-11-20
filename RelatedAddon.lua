@@ -27,7 +27,7 @@ end
 -- The settings page's button, when it isn't installed.
 function RelatedAddon.AddButton(addButton)
     if RelatedAddon.Installed() then return end
-    addButton(RelatedAddon.TITLE, "Get " .. RelatedAddon.TITLE .. "...", function() RelatedAddon.ShowLink() end,
+    addButton(RelatedAddon.TITLE, "Get " .. RelatedAddon.TITLE, function() RelatedAddon.ShowLink() end,
         "To move the camera over your shoulder, with a controller too, and put this crosshair on your target. "
         .. "A separate addon; this one works without it.")
 end
