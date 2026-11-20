@@ -12,7 +12,7 @@
 --   "class"           a player target's class, in a class icon style (setting
 --                     "friendlyClassStyle" or "otherClassStyle"): "game" (the game's classicon-<class> atlases), or
 --                     "jiberish:<style>", a Jiberish Fabled Icons class sheet when installed
---   "faction"         a player's faction (the other faction's players)
+--   "faction"         a player's faction badge
 --   "job"             a friendly NPC's job (NpcJobs.lua), else a speech bubble
 --   "question"        the game's gray question mark (neutral NPCs)
 --   "swords"          crossed swords (enemy NPCs)
@@ -141,7 +141,7 @@ end
 
 -- Each kind of target's own choices, after None (addon.TARGET_KINDS' keys).
 Icons.KIND_CHOICES = {
-    friendlyPlayerIcon = { { id = "class", label = "Class" } },
+    friendlyPlayerIcon = { { id = "faction", label = "Faction" }, { id = "class", label = "Class" } },
     otherFactionIcon = { { id = "faction", label = "Faction" }, { id = "class", label = "Class" } },
     friendlyNpcIcon = { { id = "job", label = "Their job" } },
     neutralNpcIcon = { { id = "question", label = "Question mark" } },
