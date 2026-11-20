@@ -235,6 +235,7 @@ test("an addon of its own: needs no other addon, and the .toc loads its three fi
     local toc = readFile("GamepadCrosshairCustomizer.toc")
     eq(toc:find("Dependencies", 1, true), nil); eq(toc:find("OptionalDeps", 1, true), nil)
     eq(table.concat(tocFiles(), ","), "Color.lua,PickerSticks.lua,GamepadCrosshairCustomizer.lua")
+    eq(toc:match("## Category: ([^\r\n]+)"), "Gamepad", "under Gamepad in the AddOns list, the game's own word")
 end)
 
 reportLine(passed .. " passed, " .. failed .. " failed")

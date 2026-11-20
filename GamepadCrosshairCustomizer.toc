@@ -4,7 +4,7 @@
 ## Author: Artisan
 ## Version: @project-version@
 ## SavedVariables: GamepadCrosshairCustomizerDB
-## Category: Controller
+## Category: Gamepad
 
 Color.lua
 PickerSticks.lua
