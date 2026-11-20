@@ -1,0 +1,22 @@
+## Interface: 16001
+## Title: Gamepad Reticle Customizer
+## Notes: Customizes the controller's reticle: its shape, size, color and border, and an icon on a target (a player's class, a raid marker). Settings in Options > AddOns > Gamepad Reticle Customizer, or /grc.
+## Author: Artisan
+## Version: @project-version@
+## SavedVariables: GamepadReticleCustomizerDB, GamepadReticleCustomizerDebugDB
+## Category: Gamepad
+
+SavedSettings.lua
+Color.lua
+Icons.lua
+Target.lua
+Reticle.lua
+PickerSticks.lua
+Popup.lua
+Preview.lua
+RelatedAddon.lua
+GamepadReticleCustomizer.lua
+#@do-not-package@
+# /grc debug, the in-game test suite: not in the release zip (.pkgmeta)
+Debug.lua
+#@end-do-not-package@

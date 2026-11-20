@@ -1,6 +1,6 @@
--- Colors as "RRGGBBAA" text (hex, alpha last): the crosshair's ("color") and its
+-- Colors as "RRGGBBAA" text (hex, alpha last): the reticle's ("color") and its
 -- border's ("borderColor"). Each is saved under its key in the settings; a change
--- redraws the crosshair (Crosshair.lua).
+-- redraws the reticle (Reticle.lua).
 local _, addon = ...
 
 -- "RRGGBBAA" (or "RRGGBB", opaque; a leading # is fine) as 0-1 red, green, blue,
@@ -32,7 +32,7 @@ function addon.SetColor(text, key)
     local red, _, _, _, hex = addon.ParseColor(text)
     if not red then return false end
     addon.Settings()[key or "color"] = hex
-    addon.UpdateCrosshair()
+    addon.UpdateReticle()
     return true
 end
 

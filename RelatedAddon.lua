@@ -1,15 +1,16 @@
--- A hint on the settings page: Gamepad Camera Offset, a separate addon, moves the
--- camera over your shoulder (keyboard or controller) and puts the crosshair on
--- your target. Shown only when it isn't installed; its button opens the copy box
--- (Popup.lua) with its CurseForge page (the game can't open a web page). The
--- other addon is named here only as text: nothing calls it or depends on it.
+-- A hint on the settings page: Gamepad Reticle On Target, a separate addon, puts
+-- the reticle under your target's nameplate, which the icon on a target needs
+-- (the game keeps the reticle in the middle of the screen). Shown only when it
+-- isn't installed; its button opens the copy box (Popup.lua) with its page (the
+-- game can't open a web page). The other addon is named here only as text:
+-- nothing calls it or depends on it.
 local _, addon = ...
 
 local RelatedAddon = {
-    NAME = "GamepadCameraOffset",
-    TITLE = "Gamepad Camera Offset",
-    -- CurseForge's permanent short address for its project (redirects to its page).
-    LINK = "https://www.curseforge.com/projects/1818297",
+    NAME = "GamepadReticleOnTarget",
+    TITLE = "Gamepad Reticle On Target",
+    -- GitHub until it has a CurseForge project.
+    LINK = "https://github.com/ArtisanGW/GamepadReticleOnTarget",
 }
 addon.RelatedAddon = RelatedAddon
 
@@ -35,6 +36,6 @@ end
 function RelatedAddon.AddButton(addButton)
     if RelatedAddon.Installed() then return end
     addButton(RelatedAddon.TITLE, "Get " .. RelatedAddon.TITLE, function() RelatedAddon.ShowLink() end,
-        "To move the camera over your shoulder, with a controller too, and put this crosshair on your target. "
+        "Puts the reticle just below your target's nameplate, so the icon on a target shows there.\n\n"
         .. "A separate addon; this one works without it.")
 end

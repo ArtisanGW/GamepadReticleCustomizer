@@ -30,7 +30,7 @@ addon.Popup = Popup
 local frame, waitingForCombatEnd, pendingOptions
 
 local function build()
-    frame = CreateFrame("Frame", "GamepadCrosshairCustomizerPopup", UIParent)
+    frame = CreateFrame("Frame", "GamepadReticleCustomizerPopup", UIParent)
     frame:SetFrameStrata("DIALOG")
     frame:SetToplevel(true)
     frame:EnableMouse(true)
@@ -52,7 +52,7 @@ local function build()
     -- Plain buttons, and one secure Reload (created now, out of combat).
     frame.buttons = {}
     for index = 1, Popup.BUTTONS do
-        local button = CreateFrame("Button", "GamepadCrosshairCustomizerPopupButton" .. index, frame, "UIPanelButtonTemplate")
+        local button = CreateFrame("Button", "GamepadReticleCustomizerPopupButton" .. index, frame, "UIPanelButtonTemplate")
         button:SetSize(Popup.BUTTON_WIDTH, Popup.BUTTON_HEIGHT)
         button:RegisterForClicks("AnyUp")
         button:SetScript("OnClick", function(self)
@@ -62,7 +62,7 @@ local function build()
         end)
         frame.buttons[index] = button
     end
-    frame.reloadButton = CreateFrame("Button", "GamepadCrosshairCustomizerPopupReload", frame,
+    frame.reloadButton = CreateFrame("Button", "GamepadReticleCustomizerPopupReload", frame,
         "SecureActionButtonTemplate,UIPanelButtonTemplate")
     frame.reloadButton:SetSize(Popup.BUTTON_WIDTH, Popup.BUTTON_HEIGHT)
     frame.reloadButton:SetAttribute("type", "macro")

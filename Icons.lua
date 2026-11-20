@@ -1,14 +1,14 @@
--- What the crosshair can look like.
+-- What the reticle can look like.
 --
--- The crosshair's shapes, always shown (setting "icon"):
+-- The reticle's shapes, always shown (setting "icon"):
 --   "dot"             the game's own dot (its texture, GamepadReticle.xml:94)
---   "jiberish:<name>" Jiberish Fabled Icons' crosshair shapes, offered only when
+--   "jiberish:<name>" Jiberish Fabled Icons' reticle shapes, offered only when
 --                     that addon is installed (enabled or not: the game reads the
 --                     files from its folder either way). Named here only as text:
 --                     nothing calls it or depends on it, nothing is copied, and
 --                     its shapes are credited (its license asks for that).
 -- The icons shown instead while you have a target (setting "targetIcon"):
---   "none"            none: the crosshair stays
+--   "none"            none: the reticle stays
 --   "class"           a player target's class, in a class icon style (setting
 --                     "classStyle"): "game" (the game's classicon-<class> atlases), or
 --                     "jiberish:<style>", a Jiberish Fabled Icons class sheet when installed
@@ -25,7 +25,7 @@ local Icons = {
     RAID_MARKER_NAMES = { "Star", "Circle", "Diamond", "Triangle", "Moon", "Square", "Cross", "Skull" },
     CLASS_ATLAS_PREFIX = "classicon-",
     -- The game's own icons offered on a target: in the game since its first years.
-    -- /gcc debug checks each one exists on this client (GetFileIDFromPath).
+    -- /grc debug checks each one exists on this client (GetFileIDFromPath).
     GAME_ICONS = {
         { key = "scope", name = "Sniper scope", file = "Interface\\Icons\\Ability_Hunter_SniperShot" },
         { key = "mark", name = "Hunter's mark", file = "Interface\\Icons\\Ability_Hunter_MarkedForDeath" },
@@ -105,7 +105,7 @@ function Icons.JiberishState()
     return "enabled"
 end
 
--- The raw answers behind JiberishState, for /gcc debug's records.
+-- The raw answers behind JiberishState, for /grc debug's records.
 function Icons.JiberishRawState()
     local addOns, raw = _G.C_AddOns or {}, {}
     if type(addOns.GetAddOnInfo) == "function" then
@@ -124,13 +124,13 @@ end
 -- Whether its shapes and styles can be offered and drawn now.
 function Icons.JiberishEnabled() return Icons.JiberishState() == "enabled" end
 
--- Whether an id is one of the crosshair's shapes (not an icon for a target).
-function Icons.IsCrosshairShape(iconId)
+-- Whether an id is one of the reticle's shapes (not an icon for a target).
+function Icons.IsReticleShape(iconId)
     return iconId == "dot" or tostring(iconId):match("^jiberish:%l+%-%l+$") ~= nil
 end
 
--- The crosshair's shapes on offer now, in order: { id, label }.
-function Icons.CrosshairList()
+-- The reticle's shapes on offer now, in order: { id, label }.
+function Icons.ReticleList()
     local list = { { id = "dot", label = "Default dot" } }
     if Icons.JiberishEnabled() then
         for _, shape in ipairs(Icons.JIBERISH_SHAPES) do

@@ -1,25 +1,25 @@
 #!/usr/bin/env bash
-# Runs /gcc debug in the game (Debug.lua, the in-game test suite) and screenshots
-# each of its steps, then builds a comparison of the crosshair's looks.
+# Runs /grc debug in the game (Debug.lua, the in-game test suite) and screenshots
+# each of its steps, then builds a comparison of the reticle's looks.
 #
 #   tests/screenshot_debug.sh [output folder]
-#   default folder: ~/Documents/Coding/WoW/Reports/screenshots/<date> crosshair customizer
+#   default folder: ~/Documents/Coding/WoW/Reports/screenshots/<date> reticle customizer
 #
-# Needs WoW running with GamepadCrosshairCustomizer and its Debug.lua loaded, the
-# controller UI on (the crosshair only shows then), friendly players near you
+# Needs WoW running with GamepadReticleCustomizer and its Debug.lua loaded, the
+# controller UI on (the reticle only shows then), friendly players near you
 # (several classes if you can), and you standing still until the game asks you to
 # move near a neutral or enemy NPC. It presses Debug.lua's START_KEY
 # (Alt+Ctrl+Shift+C) in the game, then answers the corner square and screenshots
 # each step:
 #   green   a step, its number in the blue (step x MARKER_BLUE_PER_STEP): shot
-#   yellow  waiting for the crosshair: touch the controller
+#   yellow  waiting for the reticle: touch the controller
 #   blue    a friendly player wanted: presses TARGET_KEYS (/targetfriendplayer)
 #   violet  a neutral or enemy NPC wanted: presses TARGET_ENEMY_KEYS (/targetenemy)
 #           while you walk near one
 #   navy    no target wanted: presses CLEAR_TARGET_KEYS (/cleartarget)
 #   red     the run stopped; gone: done The game then opens the suite's reload box: its Reload writes
-# the run (with where the crosshair was on screen each step) to
-# GamepadCrosshairCustomizerDebugDB, and the crops follow those positions. With
+# the run (with where the reticle was on screen each step) to
+# GamepadReticleCustomizerDebugDB, and the crops follow those positions. With
 # Later, or no reload within RELOAD_WAIT seconds, it crops around the screen's
 # middle instead.
 #   RELOAD_WAIT=120   COMPARE_ONLY=1 (no run: only the comparison, from the shots there)
@@ -35,8 +35,8 @@ DEV_ADDONS="${DEV_ADDONS:-$SCRIPT_FOLDER/../../devAddons}"
 # shellcheck source=/dev/null
 . "$DEV_ADDONS/game_window.sh"
 GAME_FOLDER="${DAYLIGHT_GAME:-/var/mnt/data/Jeux - Installations/World of Warcraft/_forever_}"
-SAVED_VARIABLES="$GAME_FOLDER/WTF/Account/129527646#1/SavedVariables/GamepadCrosshairCustomizer.lua"
-OUTPUT_FOLDER="${1:-$HOME/Documents/Coding/WoW/Reports/screenshots/$(date +%Y-%m-%d) crosshair customizer}"
+SAVED_VARIABLES="$GAME_FOLDER/WTF/Account/129527646#1/SavedVariables/GamepadReticleCustomizer.lua"
+OUTPUT_FOLDER="${1:-$HOME/Documents/Coding/WoW/Reports/screenshots/$(date +%Y-%m-%d) reticle customizer}"
 START_KEYS="ctrl+alt+shift+c"          # Debug.lua's START_KEY
 TARGET_KEYS="ctrl+alt+shift+y"         # Debug.lua's TARGET_KEY
 TARGET_ENEMY_KEYS="ctrl+alt+shift+z"   # Debug.lua's TARGET_ENEMY_KEY
@@ -47,16 +47,16 @@ MARKER_BLUE_PER_STEP=8          # Debug.lua's MARKER_BLUE_PER_STEP
 STEP_COUNT=$(cd "$SCRIPT_FOLDER/.." && luajit -e '
     local stub = setmetatable({}, { __index = function() return function() end end })
     CreateFrame = function() return stub end
-    GamepadCrosshairCustomizer = {}
+    GamepadReticleCustomizer = {}
     dofile("Debug.lua")
-    print(#GamepadCrosshairCustomizer.Debug.STEPS)')
+    print(#GamepadReticleCustomizer.Debug.STEPS)')
 RELOAD_WAIT="${RELOAD_WAIT:-120}"
 START_RETRY_SECONDS=5
 TIME_LIMIT=$((STEP_COUNT * 3 + 150 + 180 + 5 * 15))   # + walking to an NPC + the optional searches
 mkdir -p "$OUTPUT_FOLDER"
 
 # Prints the corner square's state in a screenshot: "stopped", "waiting" (for the
-# crosshair to show), "friendly", "npc", "notarget", "step <n>" or "none".
+# reticle to show), "friendly", "npc", "notarget", "step <n>" or "none".
 read_marker() {
     python3 - "$1" "$MARKER_BLUE_PER_STEP" <<'PY'
 import sys
@@ -94,7 +94,7 @@ if [ "${COMPARE_ONLY:-0}" != 1 ]; then
     # binds its key at login: the key is pressed again every START_RETRY_SECONDS
     # until the square shows (seen: the first press after a reload went nowhere).
     xdotool key --clearmodifiers "$START_KEYS"; last_press=$SECONDS
-    echo "/gcc debug: $STEP_COUNT steps. After a reload, touch the controller once so its UI (and the crosshair) comes back; then stay still."
+    echo "/grc debug: $STEP_COUNT steps. After a reload, touch the controller once so its UI (and the reticle) comes back; then stay still."
     started=$SECONDS; last_step=0; last_target_press=0; none_since=0; probe="$OUTPUT_FOLDER/.probe.png"
     while :; do
         shoot "$probe"
@@ -107,7 +107,7 @@ if [ "${COMPARE_ONLY:-0}" != 1 ]; then
                     echo "  step $step/$STEP_COUNT"
                     last_step=$step
                 fi ;;
-            waiting) : ;;   # Debug.lua waits for the crosshair (a touch of the controller)
+            waiting) : ;;   # Debug.lua waits for the reticle (a touch of the controller)
             friendly|npc|notarget)
                 if [ $((SECONDS - last_target_press)) -ge "$TARGET_PRESS_SECONDS" ]; then
                     case "$marker" in
@@ -130,7 +130,7 @@ if [ "${COMPARE_ONLY:-0}" != 1 ]; then
                         break
                     fi
                 fi
-                # Debug.lua first waits up to 60 s for the crosshair (its square yellow).
+                # Debug.lua first waits up to 60 s for the reticle (its square yellow).
                 if [ "$last_step" -eq 0 ] && [ $((SECONDS - last_press)) -ge "$START_RETRY_SECONDS" ]; then
                     focus_game_with_kwin "$window"; sleep 0.3
                     xdotool key --clearmodifiers "$START_KEYS"; last_press=$SECONDS
@@ -152,13 +152,13 @@ if [ "${COMPARE_ONLY:-0}" != 1 ]; then
     done
 fi
 
-# Each step's label and crosshair position, from the saved run (newest), as
+# Each step's label and reticle position, from the saved run (newest), as
 # "label<TAB>x<TAB>y<TAB>width" lines; nothing if the run wasn't saved.
 positions="$OUTPUT_FOLDER/positions.tsv"
 luajit - "$SAVED_VARIABLES" > "$positions" 2>/dev/null <<'LUA' || : > "$positions"
 local chunk = loadfile(arg[1]); if not chunk then return end
 chunk()
-local store = GamepadCrosshairCustomizerDebugDB
+local store = GamepadReticleCustomizerDebugDB
 local run = store and store.runs and store.runs[#store.runs]
 if not run then return end
 for _, step in ipairs(run.steps or {}) do
@@ -176,7 +176,7 @@ shots = sorted(name for name in os.listdir(folder) if name.startswith("step-") a
 if not shots:
     sys.exit("no screenshots in " + folder)
 steps = [line.rstrip("\n").split("\t") for line in open(positions_path) if line.strip()]
-TILE, CROP = 260, 130   # each tile shows CROP x CROP screen pixels around the crosshair, 2x
+TILE, CROP = 260, 130   # each tile shows CROP x CROP screen pixels around the reticle, 2x
 try:
     font = ImageFont.truetype(os.popen("fc-match -f '%{file}' sans").read().strip() or "DejaVuSans.ttf", 15)
 except OSError:
@@ -200,7 +200,7 @@ for index, name in enumerate(shots):
     sheet.paste(crop, (left, top))
     draw.text((left + 6, top + TILE + 4), "%d. %s" % (step_number, label[:34]), fill=(235, 235, 235), font=font)
     draw.text((left + 6, top + TILE + 21), label[34:68], fill=(235, 235, 235), font=font)
-output = os.path.join(folder, "comparison crosshair looks.jpg")
+output = os.path.join(folder, "comparison reticle looks.jpg")
 sheet.save(output, quality=90)
 print("Comparison: " + output + ("" if steps else " (run not saved: crops around the screen's middle)"))
 PY

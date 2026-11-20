@@ -1,9 +1,9 @@
--- GamepadCrosshairCustomizer against a fake game: the controller's crosshair, frames
+-- GamepadReticleCustomizer against a fake game: the controller's reticle, frames
 -- and textures, the Settings API, the color picker, a controller, addons installed
--- or not. From GamepadCrosshairCustomizer:  luajit tests/run.lua
+-- or not. From GamepadReticleCustomizer:  luajit tests/run.lua
 local reportLine = print   -- the tests replace print to read what the addon says
 local failed, passed = 0, 0
-local only = os.getenv("GCC_TEST")   -- run only the tests whose name holds this
+local only = os.getenv("GRC_TEST")   -- run only the tests whose name holds this
 local function test(name, fn)
     if only and not name:find(only, 1, true) then return end
     local ok, err = xpcall(fn, debug.traceback)
@@ -16,7 +16,7 @@ local function readFile(path) local file = assert(io.open(path)); local text = f
 -- The files the .toc loads, in its order; releaseBuild: as the packager makes it
 -- (its do-not-package block deleted).
 local function tocFiles(releaseBuild)
-    local toc = readFile("GamepadCrosshairCustomizer.toc"):gsub("\r", "")
+    local toc = readFile("GamepadReticleCustomizer.toc"):gsub("\r", "")
     if releaseBuild then toc = toc:gsub("#@do%-not%-package@.-#@end%-do%-not%-package@\n?", "") end
     local files = {}
     for line in toc:gmatch("[^\n]+") do
@@ -30,6 +30,13 @@ local game
 local function newRegion(parent)
     local region = { parent = parent, shown = true, alpha = 1, width = 0, height = 0, color = { 1, 1, 1, 1 } }
     function region:SetPoint(_, relativeTo) self.relativeTo = relativeTo end
+    -- As the game: anchored to a restricted region (a nameplate), it can't be measured.
+    function region:GetPoint()
+        if type(self.relativeTo) == "table" and self.relativeTo.restricted then
+            error("GetPoint(): Action[FrameMeasurement] failed because[Can't measure restricted regions]")
+        end
+        if self.relativeTo then return "CENTER", self.relativeTo, "CENTER", 0, 0 end
+    end
     function region:SetAllPoints() end
     function region:SetSize(width, height) self.width, self.height = width, height end
     function region:GetWidth() return self.width end
@@ -89,12 +96,27 @@ end
 local function boot(options)
     options = options or {}
     game = { frames = {}, settings = {}, callbacks = {}, controls = {}, time = 100, printed = {}, timers = {} }
+    -- Something putting the reticle under the target's nameplate as the target or
+    -- the plates change (the game lets any addon move it), unless
+    -- options.reticleOnTarget == false: then it stays where the game puts it.
+    local reticleEvents = { PLAYER_TARGET_CHANGED = true, NAME_PLATE_UNIT_ADDED = true, NAME_PLATE_UNIT_REMOVED = true }
     local function fire(event, ...)
         for _, frame in ipairs(game.frames) do if frame.events[event] and frame.scripts.OnEvent then frame.scripts.OnEvent(frame, event, ...) end end
+        local unit = ...
+        local targetsPlate = event == "PLAYER_TARGET_CHANGED" or (game.target and unit == game.target.plateUnit)
+        if reticleEvents[event] and targetsPlate and options.reticleOnTarget ~= false and _G.GamepadReticle then
+            local onPlate = C_NamePlate.GetNamePlateForUnit("target") ~= nil
+            GamepadReticle:ClearAllPoints()
+            GamepadReticle:SetPoint("CENTER", onPlate and { restricted = true } or UIParent, "BOTTOM")
+        end
     end
     game.fire = fire
     _G.InputUtil = { IsGamepadUIEnabled = function() return options.keyboard ~= true end }
     _G.GetTime = function() return game.time end
+    _G.hooksecurefunc = function(object, method, hook)
+        local original = object[method]
+        object[method] = function(...) local result = original(...); hook(...); return result end
+    end
     _G.C_Timer = { After = function(_, fn) game.timers[#game.timers + 1] = fn end }
     _G.InCombatLockdown = function() return game.combat == true end
     _G.UIParent = newRegion(nil)
@@ -146,7 +168,7 @@ local function boot(options)
     _G.C_AddOns = {
         DoesAddOnExist = function(name)
             return (name == "JiberishIcons" and (options.jiberish == true or options.jiberishOff == true))
-                or (name == "GamepadCameraOffset" and options.cameraOffset == true)
+                or (name == "GamepadReticleOnTarget" and options.reticleOnTargetInstalled == true)
         end,
         -- As the game: GetAddOnInfo's loadable and reason; the switch reports "some
         -- characters" (1) for all, as when other characters still have it on.
@@ -227,7 +249,7 @@ local function boot(options)
             if keyOwner == owner then game.bindings[key], game.bindingOwners[key] = nil, nil end
         end
     end
-    -- The controller UI's crosshair: Blizzard's dot, white, never tinted by the game.
+    -- The controller UI's reticle: Blizzard's dot, white, never tinted by the game.
     local icons = newRegion(nil)
     icons.StandardIcon = newRegion(icons)
     icons.StandardIcon.texture = "Interface\\CharacterFrame\\TempPortraitAlphaMask"
@@ -265,13 +287,13 @@ local function boot(options)
         ButtonIndexToConfigName = function(index) return ({ [0] = "PAD1", [1] = "PADDUP", [2] = "PADDDOWN" })[index] end,
         StickIndexToConfigName = function(index) return index == 0 and "Movement" or "Camera" end,
     }
-    _G.GamepadCrosshairCustomizerDB = options.saved
-    _G.GamepadCrosshairCustomizerDebugDB = options.debugSaved
-    _G.GamepadCrosshairCustomizerPopup = nil
+    _G.GamepadReticleCustomizerDB = options.saved
+    _G.GamepadReticleCustomizerDebugDB = options.debugSaved
+    _G.GamepadReticleCustomizerPopup = nil
     _G.print = function(t) game.printed[#game.printed + 1] = t end
     local namespace = {}
-    for _, fileName in ipairs(tocFiles(options.releaseBuild)) do assert(loadfile(fileName))("GamepadCrosshairCustomizer", namespace) end
-    fire("ADDON_LOADED", "GamepadCrosshairCustomizer")
+    for _, fileName in ipairs(tocFiles(options.releaseBuild)) do assert(loadfile(fileName))("GamepadReticleCustomizer", namespace) end
+    fire("ADDON_LOADED", "GamepadReticleCustomizer")
     fire("PLAYER_LOGIN")
     fire("PLAYER_ENTERING_WORLD")
 end
@@ -283,11 +305,11 @@ local function runUntilNoTimersLeft()
     error("the timers never ended")
 end
 
-local function layer() return GamepadCrosshairCustomizer.Crosshair.Layer() end
+local function layer() return GamepadReticleCustomizer.Reticle.Layer() end
 local function colorOf(region)
     return string.format("%.2f %.2f %.2f %.2f", region.color[1], region.color[2], region.color[3], region.color[4])
 end
-local function setting(key) return game.settings["GamepadCrosshairCustomizer_" .. key] end
+local function setting(key) return game.settings["GamepadReticleCustomizer_" .. key] end
 -- A control by its label, or a button by its row's name or its button text.
 local function control(kind, labelOrName)
     for _, entry in ipairs(game.controls) do
@@ -306,7 +328,7 @@ local function controlList()
     return table.concat(labels, ", ")
 end
 -- The popup: shown, its text, its line to copy, and its buttons' texts in order.
-local function popup() return GamepadCrosshairCustomizer.Popup.frame end
+local function popup() return GamepadReticleCustomizer.Popup.frame end
 local function popupButtons()
     local frame, texts = popup(), {}
     local buttons = { frame.reloadButton }
@@ -335,40 +357,40 @@ local function choiceLabels(label)
 end
 -- Picks a shape as the slider does: by its step.
 local function choose(key, id)
-    local icons = GamepadCrosshairCustomizer.Icons
-    local lists = { icon = icons.CrosshairList, targetIcon = icons.TargetList, classStyle = icons.ClassStyleList }
+    local icons = GamepadReticleCustomizer.Icons
+    local lists = { icon = icons.ReticleList, targetIcon = icons.TargetList, classStyle = icons.ClassStyleList }
     local list = lists[key]()
-    setting(key .. "Choice"):SetValue(GamepadCrosshairCustomizer.ChoiceIndex(list, id))
+    setting(key .. "Choice"):SetValue(GamepadReticleCustomizer.ChoiceIndex(list, id))
 end
 
 -- The settings page
 
-test("its page under Options > AddOns, in order, with the defaults; /gcc opens it", function()
+test("its page under Options > AddOns, in order, with the defaults; /grc opens it", function()
     boot()
-    eq(game.category.name, "Gamepad Crosshair Customizer")
+    eq(game.category.name, "Gamepad Reticle Customizer")
     eq(controlList(), "checkbox:Enable, slider:Size, swatch:Color, button:(Reset color), slider:Border, "
         .. "swatch:Border color, button:(Reset border color), "
-        .. "slider:On a target, button:Class icons, slider:Icon size, button:Gamepad Camera Offset",
-        "without Jiberish Fabled Icons: no one-choice Crosshair or Class icons slider; its button in the Class icons row")
+        .. "slider:On a target, button:Class icons, slider:Icon size, button:Gamepad Reticle On Target",
+        "without Jiberish Fabled Icons: no one-choice Reticle or Class icons slider; its button in the Class icons row")
     boot({ jiberish = true })
-    eq(controlList(), "checkbox:Enable, slider:Crosshair, slider:Size, swatch:Color, button:(Reset color), slider:Border, "
+    eq(controlList(), "checkbox:Enable, slider:Reticle, slider:Size, swatch:Color, button:(Reset color), slider:Border, "
         .. "swatch:Border color, button:(Reset border color), "
-        .. "slider:On a target, slider:Class icons, slider:Icon size, button:Gamepad Camera Offset",
+        .. "slider:On a target, slider:Class icons, slider:Icon size, button:Gamepad Reticle On Target",
         "with it: both sliders, no button")
     boot()
-    local saved = GamepadCrosshairCustomizerDB
+    local saved = GamepadReticleCustomizerDB
     eq(saved.enabled, true); eq(saved.color, "FFFFFFFF"); eq(saved.size, 4); eq(saved.borderSize, 0)
     eq(saved.borderColor, "000000FF"); eq(saved.icon, "dot")
     eq(saved.targetIcon, "none", "nothing on a target by default"); eq(saved.iconSize, 24)
     eq(control("slider", "Size").extra.format(4), "4 (default)"); eq(control("slider", "Size").extra.format(24), "24")
     eq(control("slider", "Border").extra.format(0), "Off"); eq(control("slider", "Border").extra.format(3), "3")
-    SlashCmdList.GAMEPADCROSSHAIRCUSTOMIZER("")
+    SlashCmdList.GAMEPADRETICLECUSTOMIZER("")
     eq(game.opened, 42)
 end)
 
 -- Drawing
 
-test("at login: our crosshair drawn on the game's, the game's dot see-through, your settings on it", function()
+test("at login: our reticle drawn on the game's, the game's dot see-through, your settings on it", function()
     boot({ saved = { color = "C351B4E4", size = 10 } })
     eq(layer().parent, GamepadReticle.Icons, "a child of the game's Icons: shows, hides and fades with it")
     eq(layer().relativeTo, GamepadReticle.Icons.StandardIcon, "centered on the game's dot")
@@ -409,17 +431,17 @@ end)
 
 -- Colors
 
-test("the color: 32 bits RRGGBBAA from /gcc, six digits opaque, a wrong one changes nothing", function()
+test("the color: 32 bits RRGGBBAA from /grc, six digits opaque, a wrong one changes nothing", function()
     boot()
-    SlashCmdList.GAMEPADCROSSHAIRCUSTOMIZER("FF3030CC")
-    eq(GamepadCrosshairCustomizerDB.color, "FF3030CC")
+    SlashCmdList.GAMEPADRETICLECUSTOMIZER("FF3030CC")
+    eq(GamepadReticleCustomizerDB.color, "FF3030CC")
     eq(colorOf(layer().shape), "1.00 0.19 0.19 0.80", "drawn at once")
     eq(game.printed[#game.printed]:find("FF3030CC", 1, true) ~= nil, true, "and says so")
-    SlashCmdList.GAMEPADCROSSHAIRCUSTOMIZER("nonsense")
-    eq(GamepadCrosshairCustomizerDB.color, "FF3030CC", "a wrong color changes nothing")
+    SlashCmdList.GAMEPADRETICLECUSTOMIZER("nonsense")
+    eq(GamepadReticleCustomizerDB.color, "FF3030CC", "a wrong color changes nothing")
     eq(game.printed[#game.printed]:find("usage", 1, true) ~= nil, true, "and says how")
-    SlashCmdList.GAMEPADCROSSHAIRCUSTOMIZER("#00ff00")
-    eq(GamepadCrosshairCustomizerDB.color, "00FF00FF", "six digits: opaque")
+    SlashCmdList.GAMEPADRETICLECUSTOMIZER("#00ff00")
+    eq(GamepadReticleCustomizerDB.color, "00FF00FF", "six digits: opaque")
 end)
 
 test("the two swatches speak AARRGGBB, each for its own color; the opacity is kept", function()
@@ -427,12 +449,12 @@ test("the two swatches speak AARRGGBB, each for its own color; the opacity is ke
     local colorSwatch, borderSwatch = control("swatch", "Color").setting, control("swatch", "Border color").setting
     eq(colorSwatch.getValue(), "FF00FF00", "alpha FF, the color")
     colorSwatch.setValue("ff0000ff")
-    eq(GamepadCrosshairCustomizerDB.color, "0000FF66", "the picked color, the opacity kept")
+    eq(GamepadReticleCustomizerDB.color, "0000FF66", "the picked color, the opacity kept")
     colorSwatch.setValue("nonsense")
-    eq(GamepadCrosshairCustomizerDB.color, "0000FF66", "a wrong value changes nothing")
+    eq(GamepadReticleCustomizerDB.color, "0000FF66", "a wrong value changes nothing")
     borderSwatch.setValue("ffffffff")
-    eq(GamepadCrosshairCustomizerDB.borderColor, "FFFFFFFF", "the border's own color")
-    eq(GamepadCrosshairCustomizerDB.color, "0000FF66", "the crosshair's untouched")
+    eq(GamepadReticleCustomizerDB.borderColor, "FFFFFFFF", "the border's own color")
+    eq(GamepadReticleCustomizerDB.color, "0000FF66", "the reticle's untouched")
     eq(colorOf(layer().border), "1.00 1.00 1.00 1.00", "drawn at once")
 end)
 
@@ -442,34 +464,34 @@ test("the picker's opacity bar is for the color whose swatch opened it", functio
     ColorPickerFrame:Show()
     near(game.picker.alpha, 0x40 / 255, "the border's opacity on the bar")
     ColorPickerFrame.Content.ColorPicker:SetColorAlpha(1); ColorPickerFrame.opacityFunc()
-    eq(GamepadCrosshairCustomizerDB.borderColor, "000000FF", "the bar sets the border's")
-    eq(GamepadCrosshairCustomizerDB.color, "FFFFFF80", "not the crosshair's")
+    eq(GamepadReticleCustomizerDB.borderColor, "000000FF", "the bar sets the border's")
+    eq(GamepadReticleCustomizerDB.color, "FFFFFF80", "not the reticle's")
     ColorPickerFrame:Hide()
     game.time = game.time + 5
     control("swatch", "Color").setting.getValue()
     ColorPickerFrame:Show()
-    near(game.picker.alpha, 0x80 / 255, "then the crosshair's own")
+    near(game.picker.alpha, 0x80 / 255, "then the reticle's own")
 end)
 
 test("controller: while the picker is open for our color, the sticks and D-pad drive it", function()
     boot()
-    local driver = GamepadCrosshairCustomizer.PickerSticks.driver
+    local driver = GamepadReticleCustomizer.PickerSticks.driver
     local function step(seconds) driver.scripts.OnUpdate(driver, seconds) end
     ColorPickerFrame:Show()
     eq(driver.shown, false, "a picker opened by something else (the chat settings): left to the game")
     eq(ColorPickerFrame.hasOpacity, nil, "and no opacity bar put on it")
     ColorPickerFrame:Hide()
-    SlashCmdList.GAMEPADCROSSHAIRCUSTOMIZER("FFFFFF80")
+    SlashCmdList.GAMEPADRETICLECUSTOMIZER("FFFFFF80")
     control("swatch", "Color").setting.getValue()   -- the swatch reads the color as it opens the picker
     game.time = game.time + 0.1
     ColorPickerFrame:Show()
-    eq(driver.shown, true, "opened for the crosshair color")
+    eq(driver.shown, true, "opened for the reticle color")
     eq(ColorPickerFrame.hasOpacity, true, "the opacity bar put on the picker")
-    near(game.picker.alpha, 128 / 255, "at the crosshair's opacity")
+    near(game.picker.alpha, 128 / 255, "at the reticle's opacity")
     game.padUp = true; step(0.5)
     near(game.picker.alpha, 128 / 255 + 0.25, "D-pad up: more solid (0.5 a second)")
-    eq(GamepadCrosshairCustomizerDB.color:sub(7, 8), string.format("%02X", math.floor((128 / 255 + 0.25) * 255 + 0.5)),
-        "and the crosshair with it")
+    eq(GamepadReticleCustomizerDB.color:sub(7, 8), string.format("%02X", math.floor((128 / 255 + 0.25) * 255 + 0.5)),
+        "and the reticle with it")
     game.padUp, game.padDown = false, true; step(10)
     near(game.picker.alpha, 0, "D-pad down: see-through, not past 0")
     game.padDown = false
@@ -493,28 +515,28 @@ test("keyboard: the picker gets the opacity bar but no stick driver", function()
     control("swatch", "Color").setting.getValue()
     ColorPickerFrame:Show()
     eq(ColorPickerFrame.hasOpacity, true)
-    eq(GamepadCrosshairCustomizer.PickerSticks.driver.shown, false)
+    eq(GamepadReticleCustomizer.PickerSticks.driver.shown, false)
 end)
 
 -- Shapes
 
-test("the crosshair: the game's dot, no Jiberish shapes without it; a Jiberish id without it falls back to the dot", function()
+test("the reticle: the game's dot, no Jiberish shapes without it; a Jiberish id without it falls back to the dot", function()
     boot()
-    eq(control("slider", "Crosshair"), nil, "one choice only: no slider")
-    GamepadCrosshairCustomizerDB.icon = "jiberish:x-bold"; GamepadCrosshairCustomizer.UpdateCrosshair()
-    eq(GamepadCrosshairCustomizer.Crosshair.Drawn().icon, "dot")
+    eq(control("slider", "Reticle"), nil, "one choice only: no slider")
+    GamepadReticleCustomizerDB.icon = "jiberish:x-bold"; GamepadReticleCustomizer.UpdateReticle()
+    eq(GamepadReticleCustomizer.Reticle.Drawn().icon, "dot")
 end)
 
-test("with Jiberish Fabled Icons installed: its 16 crosshairs listed and drawn from its folder, credited, no install button", function()
+test("with Jiberish Fabled Icons installed: its 16 reticles listed and drawn from its folder, credited, no install button", function()
     boot({ jiberish = true })
-    local labels = choiceLabels("Crosshair")
+    local labels = choiceLabels("Reticle")
     eq(#labels, 17, "the dot and 16 Jiberish shapes")
     eq(labels[2], "Circle (bold)"); eq(labels[8], "Split plus (bold)"); eq(labels[17], "X (thin)")
     choose("icon", "jiberish:splitplus-thin")
-    eq(GamepadCrosshairCustomizerDB.icon, "jiberish:splitplus-thin", "the slider's step saved as the shape's id")
+    eq(GamepadReticleCustomizerDB.icon, "jiberish:splitplus-thin", "the slider's step saved as the shape's id")
     eq(layer().shape.texture, "Interface\\AddOns\\JiberishIcons\\Media\\Crosshair\\splitplus-thin-128")
     eq(control("button", "Class icons"), nil, "no install button when it's there")
-    eq(control("slider", "Crosshair").extra.tooltip:find("Shapes from Jiberish Fabled Icons", 1, true) ~= nil, true,
+    eq(control("slider", "Reticle").extra.tooltip:find("Shapes from Jiberish Fabled Icons", 1, true) ~= nil, true,
         "credited, as its license asks")
 end)
 
@@ -525,18 +547,18 @@ test("choices are sliders (a dropdown's menu broke on the controller): on a targ
     eq(labels[1], "None"); eq(labels[2], "Target Class")
     eq(labels[10], "Raid marker: Skull"); eq(labels[11], "Icon: Sniper scope"); eq(labels[22], "Icon: Holy")
     choose("targetIcon", "marker8")
-    eq(GamepadCrosshairCustomizerDB.targetIcon, "marker8")
+    eq(GamepadReticleCustomizerDB.targetIcon, "marker8")
     setTarget({ isPlayer = false, reaction = 2 })
     choose("targetIcon", "icon:scope")
     eq(layer().shape.texture, "Interface\\Icons\\Ability_Hunter_SniperShot", "a game icon on the target")
 
     boot({ saved = { targetIcon = "class", icon = "dot" } })
-    eq(GamepadCrosshairCustomizer.choices.targetIcon, 2, "the slider starts at your saved choice")
+    eq(GamepadReticleCustomizer.choices.targetIcon, 2, "the slider starts at your saved choice")
 end)
 
-test("icons show only while you have a target, at the icon size, in their own colors; the crosshair comes back", function()
+test("icons show only while you have a target, at the icon size, in their own colors; the reticle comes back", function()
     boot({ saved = { color = "FF3030FF", size = 6, targetIcon = "marker8", iconSize = 30, borderSize = 2 } })
-    eq(layer().shape.texture, "Interface\\CharacterFrame\\TempPortraitAlphaMask", "no target: the crosshair")
+    eq(layer().shape.texture, "Interface\\CharacterFrame\\TempPortraitAlphaMask", "no target: the reticle")
     eq(layer().shape:GetWidth(), 6); eq(colorOf(layer().shape), "1.00 0.19 0.19 1.00")
     setTarget({ isPlayer = false, reaction = 2 })
     eq(layer().shape.texture, "Interface\\TargetingFrame\\UI-RaidTargetingIcon_8", "a target: the skull")
@@ -545,45 +567,45 @@ test("icons show only while you have a target, at the icon size, in their own co
     eq(layer().border:GetWidth(), 34, "the border around it")
     eq(layer().shape.texCoord[2], 1, "shown whole")
     setTarget(nil)
-    eq(layer().shape.texture, "Interface\\CharacterFrame\\TempPortraitAlphaMask", "target gone: the crosshair back")
+    eq(layer().shape.texture, "Interface\\CharacterFrame\\TempPortraitAlphaMask", "target gone: the reticle back")
     eq(layer().shape:GetWidth(), 6); eq(colorOf(layer().shape), "1.00 0.19 0.19 1.00")
 end)
 
-test("a player's class icon: the game's classicon atlas for players; NPCs, an unknown class or a missing atlas keep the crosshair", function()
+test("a player's class icon: the game's classicon atlas for players; NPCs, an unknown class or a missing atlas keep the reticle", function()
     boot({ saved = { targetIcon = "class" } })
     setTarget({ isPlayer = true, classFile = "MAGE", reaction = 5 })
-    eq(GamepadCrosshairCustomizer.Crosshair.Drawn().atlas, "classicon-mage")
+    eq(GamepadReticleCustomizer.Reticle.Drawn().atlas, "classicon-mage")
     eq(layer().shape.texture, "classicons-file", "drawn as the atlas's file")
     eq(table.concat(layer().shape.texCoord, ","), "0.5,0.75,0.25,0.5", "and its cell")
-    eq(GamepadCrosshairCustomizer.Crosshair.Drawn().icon, "class")
+    eq(GamepadReticleCustomizer.Reticle.Drawn().icon, "class")
     eq(layer().shape:GetWidth(), 24)
     setTarget({ isPlayer = true, classFile = "DRUID", reaction = 2 })
-    eq(GamepadCrosshairCustomizer.Crosshair.Drawn().atlas, "classicon-druid", "an enemy player too")
+    eq(GamepadReticleCustomizer.Reticle.Drawn().atlas, "classicon-druid", "an enemy player too")
     setTarget({ isPlayer = false, reaction = 4 })
-    eq(GamepadCrosshairCustomizer.Crosshair.Drawn().icon, "dot", "an NPC: the crosshair")
+    eq(GamepadReticleCustomizer.Reticle.Drawn().icon, "dot", "an NPC: the reticle")
     eq(layer().shape.texture, "Interface\\CharacterFrame\\TempPortraitAlphaMask", "the dot's texture")
     eq(table.concat(layer().shape.texCoord, ","), "0,1,0,1", "shown whole again")
     setTarget({ isPlayer = true, classFile = nil, reaction = 5 })
-    eq(GamepadCrosshairCustomizer.Crosshair.Drawn().icon, "dot", "class unknown (hidden): the crosshair")
+    eq(GamepadReticleCustomizer.Reticle.Drawn().icon, "dot", "class unknown (hidden): the reticle")
     boot({ saved = { targetIcon = "class" }, classAtlases = false })
     setTarget({ isPlayer = true, classFile = "MAGE", reaction = 5 })
-    eq(GamepadCrosshairCustomizer.Crosshair.Drawn().icon, "dot", "no such atlas on this client: the crosshair")
+    eq(GamepadReticleCustomizer.Reticle.Drawn().icon, "dot", "no such atlas on this client: the reticle")
 end)
 
-test("a target without a nameplate on screen (a vendor, a minion, off screen) keeps the crosshair; its nameplate coming brings the icon", function()
+test("a target without a nameplate on screen (a vendor, a minion, off screen) keeps the reticle; its nameplate coming brings the icon", function()
     boot({ saved = { targetIcon = "marker8", iconSize = 30 } })
     setTarget({ isPlayer = false, reaction = 5, nameplate = false, plateUnit = "nameplate4" })
-    eq(GamepadCrosshairCustomizer.Crosshair.Drawn().icon, "dot", "a vendor with friendly NPC nameplates off: the crosshair")
+    eq(GamepadReticleCustomizer.Reticle.Drawn().icon, "dot", "a vendor with friendly NPC nameplates off: the reticle")
     game.target.nameplate = true
     game.fire("NAME_PLATE_UNIT_ADDED", "nameplate4")
-    eq(GamepadCrosshairCustomizer.Crosshair.Drawn().icon, "marker8", "its nameplate shows: the icon")
+    eq(GamepadReticleCustomizer.Reticle.Drawn().icon, "marker8", "its nameplate shows: the icon")
     game.target.nameplate = false
     game.fire("NAME_PLATE_UNIT_REMOVED", "nameplate9")
-    eq(GamepadCrosshairCustomizer.Crosshair.Drawn().icon, "marker8", "another unit's nameplate: nothing redrawn")
+    eq(GamepadReticleCustomizer.Reticle.Drawn().icon, "marker8", "another unit's nameplate: nothing redrawn")
     game.fire("NAME_PLATE_UNIT_REMOVED", "nameplate4")
-    eq(GamepadCrosshairCustomizer.Crosshair.Drawn().icon, "dot", "the target off screen: the crosshair back")
+    eq(GamepadReticleCustomizer.Reticle.Drawn().icon, "dot", "the target off screen: the reticle back")
     setTarget({ isPlayer = true, classFile = "MAGE", reaction = 5, nameplate = false })
-    eq(GamepadCrosshairCustomizer.Crosshair.Drawn().icon, "dot", "a player with friendly nameplates off: the crosshair")
+    eq(GamepadReticleCustomizer.Reticle.Drawn().icon, "dot", "a player with friendly nameplates off: the reticle")
 end)
 
 test("a client without an atlas file: SetAtlas, after resetting the cell a Jiberish style left", function()
@@ -598,23 +620,23 @@ end)
 
 test("old settings: a marker in the single Shape becomes the icon on a target; a custom texture becomes none", function()
     boot({ saved = { icon = "marker2" } })
-    eq(GamepadCrosshairCustomizerDB.icon, "dot"); eq(GamepadCrosshairCustomizerDB.targetIcon, "marker2")
+    eq(GamepadReticleCustomizerDB.icon, "dot"); eq(GamepadReticleCustomizerDB.targetIcon, "marker2")
     boot({ saved = { targetIcon = "custom", customTexture = "Interface\\Icons\\INV_Misc_QuestionMark" } })
-    eq(GamepadCrosshairCustomizerDB.targetIcon, "none", "no texture paths any more"); eq(GamepadCrosshairCustomizerDB.customTexture, nil)
+    eq(GamepadReticleCustomizerDB.targetIcon, "none", "no texture paths any more"); eq(GamepadReticleCustomizerDB.customTexture, nil)
     boot({ saved = { icon = "custom", customTexture = 136243 } })
-    eq(GamepadCrosshairCustomizerDB.targetIcon, "none", "the oldest shape setting, custom: none too"); eq(GamepadCrosshairCustomizerDB.icon, "dot")
+    eq(GamepadReticleCustomizerDB.targetIcon, "none", "the oldest shape setting, custom: none too"); eq(GamepadReticleCustomizerDB.icon, "dot")
     boot({ saved = { icon = "jiberish:x-bold" } })
-    eq(GamepadCrosshairCustomizerDB.icon, "jiberish:x-bold", "a crosshair shape stays"); eq(GamepadCrosshairCustomizerDB.targetIcon, "none")
+    eq(GamepadReticleCustomizerDB.icon, "jiberish:x-bold", "a reticle shape stays"); eq(GamepadReticleCustomizerDB.targetIcon, "none")
 end)
 
 test("Jiberish Fabled Icons installed but turned off: not offered, its choices fall back, a button tells how to turn it on", function()
     boot({ jiberishOff = true, saved = { icon = "jiberish:x-bold", size = 24, targetIcon = "class", classStyle = "jiberish:fabled" } })
-    eq(control("slider", "Crosshair"), nil, "its shapes aren't offered")
+    eq(control("slider", "Reticle"), nil, "its shapes aren't offered")
     eq(control("slider", "Class icons"), nil, "nor its styles")
-    eq(GamepadCrosshairCustomizer.Crosshair.Drawn().icon, "dot", "a saved Jiberish shape falls back to the dot")
+    eq(GamepadReticleCustomizer.Reticle.Drawn().icon, "dot", "a saved Jiberish shape falls back to the dot")
     setTarget({ isPlayer = true, classFile = "MAGE", reaction = 5 })
-    eq(GamepadCrosshairCustomizer.Crosshair.Drawn().atlas, "classicon-mage", "and a Jiberish class style to the game's")
-    eq(GamepadCrosshairCustomizerDB.icon, "jiberish:x-bold", "your choice kept for when it's on again")
+    eq(GamepadReticleCustomizer.Reticle.Drawn().atlas, "classicon-mage", "and a Jiberish class style to the game's")
+    eq(GamepadReticleCustomizerDB.icon, "jiberish:x-bold", "your choice kept for when it's on again")
     local button = control("button", "Class icons")
     eq(button.extra.buttonText, "Enable Jiberish Fabled Icons", "not Get: it's installed")
     button.extra.onClick()
@@ -642,12 +664,12 @@ test("without it: the install button shows the link to copy", function()
     eq(popup():IsShown(), false)
 end)
 
-test("no icon picker and no texture paths: no Choose icon button, /gcc texture is just a wrong color", function()
+test("no icon picker and no texture paths: no Choose icon button, /grc texture is just a wrong color", function()
     boot()
     eq(control("button", "Choose icon"), nil)
-    SlashCmdList.GAMEPADCROSSHAIRCUSTOMIZER("texture Interface\\Icons\\Spell_Nature_Starfall")
-    eq(game.printed[#game.printed]:find("usage: /gcc RRGGBBAA", 1, true) ~= nil, true, game.printed[#game.printed])
-    eq(GamepadCrosshairCustomizer.IconPicker, nil)
+    SlashCmdList.GAMEPADRETICLECUSTOMIZER("texture Interface\\Icons\\Spell_Nature_Starfall")
+    eq(game.printed[#game.printed]:find("usage: /grc RRGGBBAA", 1, true) ~= nil, true, game.printed[#game.printed])
+    eq(GamepadReticleCustomizer.IconPicker, nil)
 end)
 
 test("tooltips: text after a colon is a list (each line after \":\" a \"•\" line), for legibility", function()
@@ -672,8 +694,8 @@ end)
 
 test("every choice slider's label fits the slider (22 characters, seen cut in game beyond)", function()
     boot({ jiberish = true })
-    local maxLength = GamepadCrosshairCustomizer.Icons.LABEL_MAX_LENGTH
-    for _, slider in ipairs({ "Crosshair", "On a target", "Class icons" }) do
+    local maxLength = GamepadReticleCustomizer.Icons.LABEL_MAX_LENGTH
+    for _, slider in ipairs({ "Reticle", "On a target", "Class icons" }) do
         for _, label in ipairs(choiceLabels(slider)) do
             eq(#label <= maxLength, true, slider .. ": \"" .. label .. "\" is " .. #label .. " characters")
         end
@@ -683,15 +705,15 @@ end)
 test("the dot and the shapes keep their own sizes: a shape starts at 24, the dot gets its own back", function()
     boot({ jiberish = true, saved = { size = 6 } })
     choose("icon", "jiberish:x-bold")
-    eq(GamepadCrosshairCustomizerDB.size, 24, "a shape starts at 24: at the dot's size it can't be seen")
+    eq(GamepadReticleCustomizerDB.size, 24, "a shape starts at 24: at the dot's size it can't be seen")
     setting("size"):SetValue(40)
     choose("icon", "jiberish:plus-thin")
-    eq(GamepadCrosshairCustomizerDB.size, 40, "shape to shape: the size kept")
+    eq(GamepadReticleCustomizerDB.size, 40, "shape to shape: the size kept")
     choose("icon", "dot")
-    eq(GamepadCrosshairCustomizerDB.size, 6, "back to the dot: the dot's own size, not 24 or 40")
+    eq(GamepadReticleCustomizerDB.size, 6, "back to the dot: the dot's own size, not 24 or 40")
     eq(layer().shape:GetWidth(), 6)
     choose("icon", "jiberish:x-thin")
-    eq(GamepadCrosshairCustomizerDB.size, 40, "back to a shape: the shapes' size")
+    eq(GamepadReticleCustomizerDB.size, 40, "back to a shape: the shapes' size")
 end)
 
 test("the reset rows' label is one space: blank, yet not \"\", so the game lines the button up with the others", function()
@@ -700,13 +722,13 @@ test("the reset rows' label is one space: blank, yet not \"\", so the game lines
     eq(control("button", "Reset border color").extra.name, " ")
 end)
 
-test("each color has its own reset: the crosshair's to white, the border's to black", function()
+test("each color has its own reset: the reticle's to white, the border's to black", function()
     boot({ saved = { color = "FF3030CC", borderColor = "00FF00FF", borderSize = 2 } })
     control("button", "Reset color").extra.onClick()
-    eq(GamepadCrosshairCustomizerDB.color, "FFFFFFFF"); eq(colorOf(layer().shape), "1.00 1.00 1.00 1.00")
-    eq(GamepadCrosshairCustomizerDB.borderColor, "00FF00FF", "the border's untouched")
+    eq(GamepadReticleCustomizerDB.color, "FFFFFFFF"); eq(colorOf(layer().shape), "1.00 1.00 1.00 1.00")
+    eq(GamepadReticleCustomizerDB.borderColor, "00FF00FF", "the border's untouched")
     control("button", "Reset border color").extra.onClick()
-    eq(GamepadCrosshairCustomizerDB.borderColor, "000000FF"); eq(colorOf(layer().border), "0.00 0.00 0.00 1.00")
+    eq(GamepadReticleCustomizerDB.borderColor, "000000FF"); eq(colorOf(layer().border), "0.00 0.00 0.00 1.00")
 end)
 
 test("class icon styles: the game's, or a Jiberish Fabled Icons class sheet's cell for the class; without it, the game's", function()
@@ -723,31 +745,31 @@ test("class icon styles: the game's, or a Jiberish Fabled Icons class sheet's ce
     setTarget({ isPlayer = true, classFile = "DEMONHUNTER", reaction = 2 })
     eq(table.concat(layer().shape.texCoord, ","), "0.375,0.5,0.25,0.375")
     choose("classStyle", "game")
-    eq(GamepadCrosshairCustomizer.Crosshair.Drawn().atlas, "classicon-demonhunter", "the game's again")
+    eq(GamepadReticleCustomizer.Reticle.Drawn().atlas, "classicon-demonhunter", "the game's again")
     eq(layer().shape.texture, "classicons-file")
     eq(table.concat(layer().shape.texCoord, ","), "0.5,0.75,0.25,0.5",
         "the game's cell, not the Jiberish one left behind (seen in game)")
     boot({ saved = { targetIcon = "class", classStyle = "jiberish:fabled" } })
     setTarget({ isPlayer = true, classFile = "MAGE", reaction = 5 })
-    eq(GamepadCrosshairCustomizer.Crosshair.Drawn().atlas, "classicon-mage", "a Jiberish style without the addon: the game's icon")
+    eq(GamepadReticleCustomizer.Reticle.Drawn().atlas, "classicon-mage", "a Jiberish style without the addon: the game's icon")
 end)
 
-test("without Gamepad Camera Offset: a button shows its CurseForge link to copy; with it, no button", function()
+test("without Gamepad Reticle On Target: a button shows its link to copy; with it, no button", function()
     boot()
-    control("button", "Gamepad Camera Offset").extra.onClick()
-    eq(control("button", "Gamepad Camera Offset").extra.buttonText, "Get Gamepad Camera Offset")
-    eq(popup().editBox:GetText(), "https://www.curseforge.com/projects/1818297")
+    control("button", "Gamepad Reticle On Target").extra.onClick()
+    eq(control("button", "Gamepad Reticle On Target").extra.buttonText, "Get Gamepad Reticle On Target")
+    eq(popup().editBox:GetText(), "https://github.com/ArtisanGW/GamepadReticleOnTarget")
     eq(popup().editBox.highlighted, true, "selected, ready for Ctrl+C")
     eq(popupButtons(), "Close, [secure] Reload")
-    boot({ cameraOffset = true })
-    eq(control("button", "Gamepad Camera Offset"), nil, "installed: no button")
+    boot({ reticleOnTargetInstalled = true })
+    eq(control("button", "Gamepad Reticle On Target"), nil, "installed: no button")
 end)
 
 test("on the controller: A clicks the popup's first button, B the last, a hint says so; closing gives them back", function()
     boot()
     control("button", "Class icons").extra.onClick()   -- Get Jiberish Fabled Icons: Reload, Close
-    eq(game.bindings.PAD1, "GamepadCrosshairCustomizerPopupReload", "A: the first button, Reload")
-    eq(game.bindings.PAD2, "GamepadCrosshairCustomizerPopupButton1", "B: the last, Close")
+    eq(game.bindings.PAD1, "GamepadReticleCustomizerPopupReload", "A: the first button, Reload")
+    eq(game.bindings.PAD2, "GamepadReticleCustomizerPopupButton1", "B: the last, Close")
     eq(popup().reloadButton.controllerIcon.atlas, "gamepad-test-pad1", "the A icon on Reload, as the game marks its buttons")
     eq(popup().buttons[1].controllerIcon.atlas, "gamepad-test-pad2", "the B icon on Close")
     eq(popup().hint.text, "", "the icons say it: no hint line")
@@ -769,7 +791,7 @@ end)
 test("in a fight, a popup (it holds a secure Reload) opens once the fight is over", function()
     boot()
     game.combat = true
-    eq(GamepadCrosshairCustomizer.Popup.Show({ text = "Hello", buttons = { { text = "Reload", reload = true } } }), false)
+    eq(GamepadReticleCustomizer.Popup.Show({ text = "Hello", buttons = { { text = "Reload", reload = true } } }), false)
     eq(popup(), nil, "not built in combat")
     game.combat = false
     game.fire("PLAYER_REGEN_ENABLED")
@@ -781,18 +803,18 @@ end)
 
 local function showPage(category)
     SettingsPanel.shown, game.currentCategory = category ~= nil, category
-    local watcher = GamepadCrosshairCustomizer.Preview.watcher
+    local watcher = GamepadReticleCustomizer.Preview.watcher
     watcher.scripts.OnUpdate(watcher, 1)
 end
 
-test("the preview shows beside our settings page only, with the crosshair and the icon on a target as drawn", function()
+test("the preview shows beside our settings page only, with the reticle and the icon on a target as drawn", function()
     boot({ saved = { color = "FF3030FF", size = 10, targetIcon = "marker8", iconSize = 30, borderSize = 2 } })
-    local preview = GamepadCrosshairCustomizer.Preview.frame
+    local preview = GamepadReticleCustomizer.Preview.frame
     eq(preview.parent, SettingsPanel, "on the settings window")
     eq(preview.Bg.template, "FlatPanelBackgroundTemplate", "the settings window's own background")
     eq(preview.NineSlice.template, "NineSlicePanelTemplate"); eq(preview.NineSlice.layoutName, "ButtonFrameTemplateNoPortrait",
         "and its metal border")
-    eq(preview.crosshair.template, "InsetFrameTemplate", "each cell an inset, as inside the game's windows")
+    eq(preview.reticle.template, "InsetFrameTemplate", "each cell an inset, as inside the game's windows")
     eq(preview.title.text, "Preview")
     eq(preview:IsShown(), false, "hidden until the page opens")
     showPage({ name = "Another page" })
@@ -800,23 +822,23 @@ test("the preview shows beside our settings page only, with the crosshair and th
     showPage(game.category)
     eq(preview:IsShown(), true, "our page: shown")
     local width, height = preview:GetWidth(), preview:GetHeight()
-    eq(preview.crosshair.shape.texture, "Interface\\CharacterFrame\\TempPortraitAlphaMask")
-    -- Zoomed: the crosshair and its border fill 80% of the 120 cell (96): 10 + 2 x 2 = 14 wide becomes 96.
-    near(preview.crosshair.border:GetWidth(), 96, "zoomed to fill the cell"); near(preview.crosshair.shape:GetWidth(), 96 * 10 / 14)
-    eq(colorOf(preview.crosshair.shape), "1.00 0.19 0.19 1.00")
-    eq(preview.crosshair.realShape:GetWidth(), 10, "and at its real size in the corner")
-    eq(preview.crosshair.realBorder:GetWidth(), 14)
+    eq(preview.reticle.shape.texture, "Interface\\CharacterFrame\\TempPortraitAlphaMask")
+    -- Zoomed: the reticle and its border fill 80% of the 120 cell (96): 10 + 2 x 2 = 14 wide becomes 96.
+    near(preview.reticle.border:GetWidth(), 96, "zoomed to fill the cell"); near(preview.reticle.shape:GetWidth(), 96 * 10 / 14)
+    eq(colorOf(preview.reticle.shape), "1.00 0.19 0.19 1.00")
+    eq(preview.reticle.realShape:GetWidth(), 10, "and at its real size in the corner")
+    eq(preview.reticle.realBorder:GetWidth(), 14)
     eq(preview.onTarget.shape.texture, "Interface\\TargetingFrame\\UI-RaidTargetingIcon_8")
     near(preview.onTarget.border:GetWidth(), 96, "an icon zoomed the same")
     near(preview.onTarget.realBorder:GetWidth(), 32, "an icon bigger than the corner: shrunk to fit it (40 x 80%)")
     setting("size"):SetValue(20)
-    eq(preview.crosshair.realShape:GetWidth(), 20, "redrawn on a change")
-    near(preview.crosshair.border:GetWidth(), 96, "the zoomed view still fills the cell")
+    eq(preview.reticle.realShape:GetWidth(), 20, "redrawn on a change")
+    near(preview.reticle.border:GetWidth(), 96, "the zoomed view still fills the cell")
     eq(preview:GetWidth(), width); eq(preview:GetHeight(), height, "the window keeps its size")
     choose("targetIcon", "class")
     eq(preview.onTarget.shape.texture, "classicons-file", "a player's class: your own as the example")
     choose("targetIcon", "none")
-    eq(preview.onTarget.label.text, "On a target: the crosshair stays")
+    eq(preview.onTarget.label.text, "On a target: the reticle stays")
     eq(preview.onTarget.shape.texture, "Interface\\CharacterFrame\\TempPortraitAlphaMask")
     setting("enabled"):SetValue(false)
     eq(preview.alpha, 0.5, "the addon off: dimmed")
@@ -824,7 +846,7 @@ test("the preview shows beside our settings page only, with the crosshair and th
     eq(preview:IsShown(), false, "the window closed: hidden")
 end)
 
--- /gcc debug, run here against the fake game
+-- /grc debug, run here against the fake game
 
 local function failedChecks(run)
     local lines = {}
@@ -843,7 +865,7 @@ local function driveDebugRun(friendlyPlayers, npcs)
     local friendlyIndex, npcIndex = 0, 0
     for _ = 1, 20000 do
         if #game.timers == 0 then return end
-        local marker = GamepadCrosshairCustomizer.Debug.marker
+        local marker = GamepadReticleCustomizer.Debug.marker
         local color = marker and marker:IsShown() and colorOf(marker.texture)
         if color == "0.00 0.00 1.00 1.00" and friendlyIndex < #friendlyPlayers then
             friendlyIndex = friendlyIndex + 1; setTarget(friendlyPlayers[friendlyIndex])
@@ -863,15 +885,15 @@ local function checkResult(run, wanted)
     end
 end
 
-test("/gcc debug: every look checked, on 3 friendly classes and both NPC kinds, your settings back, the reload box", function()
+test("/grc debug: every look checked, on 3 friendly classes and both NPC kinds, your settings back, the reload box", function()
     for _, jiberish in ipairs({ false, true }) do
         boot({ jiberish = jiberish, saved = { color = "3961CDFF", size = 7, targetIcon = "marker2" } })
-        SlashCmdList.GAMEPADCROSSHAIRCUSTOMIZER("debug")
-        local debugSuite = GamepadCrosshairCustomizer.Debug
+        SlashCmdList.GAMEPADRETICLECUSTOMIZER("debug")
+        local debugSuite = GamepadReticleCustomizer.Debug
         driveDebugRun({ { isPlayer = true, classFile = "WARRIOR", reaction = 5 }, { isPlayer = true, classFile = "WARRIOR", reaction = 5 },
             { isPlayer = true, classFile = "MAGE", reaction = 5 }, { isPlayer = true, classFile = "PRIEST", reaction = 5 } },
             { { isPlayer = false, reaction = 2 }, { isPlayer = false, reaction = 4 } })
-        local run = GamepadCrosshairCustomizerDebugDB.runs[1]
+        local run = GamepadReticleCustomizerDebugDB.runs[1]
         eq(failedChecks(run), "", "no failed check (Jiberish " .. tostring(jiberish) .. ")")
         eq(run.failed, 0)
         eq(run.found.class1, "WARRIOR"); eq(run.found.class2, "MAGE", "the second Warrior skipped: a class already seen")
@@ -880,95 +902,95 @@ test("/gcc debug: every look checked, on 3 friendly classes and both NPC kinds, 
         eq(checkResult(run, "friendly player 2: its class icon, size 32 (MAGE): its nameplate shows the class's color"), "pass")
         eq(checkResult(run, "(within 60 s)"), "pass")
         eq(run.passed > 150, true, "passed " .. run.passed)
-        eq(run.steps[3].onScreen.x, 1200, "where the crosshair is, in screen pixels")
+        eq(run.steps[3].onScreen.x, 1200, "where the reticle is, in screen pixels")
         eq(debugSuite.marker:IsShown(), false, "the square gone: done")
-        eq(GamepadCrosshairCustomizerDB.color, "3961CDFF", "your settings back")
-        eq(GamepadCrosshairCustomizerDB.size, 7); eq(GamepadCrosshairCustomizerDB.targetIcon, "marker2")
-        eq(GamepadCrosshairCustomizerDebugDB.settingsToRestore, nil)
+        eq(GamepadReticleCustomizerDB.color, "3961CDFF", "your settings back")
+        eq(GamepadReticleCustomizerDB.size, 7); eq(GamepadReticleCustomizerDB.targetIcon, "marker2")
+        eq(GamepadReticleCustomizerDebugDB.settingsToRestore, nil)
         eq(popup():IsShown(), true, "the reload popup")
         eq(popupButtons(), "Later, [secure] Reload")
     end
 end)
 
-test("/gcc debug: alone (yourself, one NPC kind, no nameplates: the crosshair stays), the optional parts are skipped, nothing fails", function()
+test("/grc debug: alone (yourself, one NPC kind, no nameplates: the reticle stays), the optional parts are skipped, nothing fails", function()
     boot({ noNameplates = true })
-    SlashCmdList.GAMEPADCROSSHAIRCUSTOMIZER("debug")
+    SlashCmdList.GAMEPADRETICLECUSTOMIZER("debug")
     driveDebugRun({ { isPlayer = true, classFile = "DRUID", reaction = 5 } }, { { isPlayer = false, reaction = 4 } })
-    local run = GamepadCrosshairCustomizerDebugDB.runs[1]
+    local run = GamepadReticleCustomizerDebugDB.runs[1]
     eq(failedChecks(run), "", "nothing failed")
     eq(run.found.class2, nil); eq(run.found.npc1, "neutral"); eq(run.found.npc2, nil)
     eq(checkResult(run, "its nameplate shows the class's color"), nil, "no nameplate: no class icon, nothing to compare")
-    eq(checkResult(run, "target: its class icon, size 32 (DRUID): what's drawn"), "pass", "checked as the crosshair staying")
+    eq(checkResult(run, "target: its class icon, size 32 (DRUID): what's drawn"), "pass", "checked as the reticle staying")
     eq(checkResult(run, "the other kind of NPC"), "skip")
 end)
 
-test("/gcc debug: an offered game icon missing on the client fails its check", function()
+test("/grc debug: an offered game icon missing on the client fails its check", function()
     boot()
-    table.insert(GamepadCrosshairCustomizer.Icons.GAME_ICONS, { key = "gone", name = "Gone", file = "Interface\\Icons\\missing_icon" })
-    SlashCmdList.GAMEPADCROSSHAIRCUSTOMIZER("debug")
+    table.insert(GamepadReticleCustomizer.Icons.GAME_ICONS, { key = "gone", name = "Gone", file = "Interface\\Icons\\missing_icon" })
+    SlashCmdList.GAMEPADRETICLECUSTOMIZER("debug")
     driveDebugRun({ { isPlayer = true, classFile = "MAGE", reaction = 5 } }, { { isPlayer = false, reaction = 2 } })
-    local run = GamepadCrosshairCustomizerDebugDB.runs[1]
+    local run = GamepadReticleCustomizerDebugDB.runs[1]
     eq(checkResult(run, "every game icon offered exists on this client"), "fail")
-    table.remove(GamepadCrosshairCustomizer.Icons.GAME_ICONS)
+    table.remove(GamepadReticleCustomizer.Icons.GAME_ICONS)
 end)
 
-test("/gcc friendly runs only the friendly player part, then the target cleared", function()
+test("/grc friendly runs only the friendly player part, then the target cleared", function()
     boot({ saved = { color = "3961CDFF" } })
-    SlashCmdList.GAMEPADCROSSHAIRCUSTOMIZER("friendly")
+    SlashCmdList.GAMEPADRETICLECUSTOMIZER("friendly")
     driveDebugRun({ { isPlayer = true, classFile = "WARRIOR", reaction = 5 }, { isPlayer = true, classFile = "MAGE", reaction = 5 } },
         { { isPlayer = false, reaction = 2 } })
-    local run = GamepadCrosshairCustomizerDebugDB.runs[1]
+    local run = GamepadReticleCustomizerDebugDB.runs[1]
     eq(run.name, "friendly")
     eq(failedChecks(run), "", "nothing failed")
     eq(run.found.class1, "WARRIOR"); eq(run.found.class2, "MAGE")
     eq(run.found.npc1, nil, "no NPC part")
-    eq(checkResult(run, "dot, size 12, red"), nil, "no crosshair-only part")
-    eq(checkResult(run, "target cleared: the crosshair back"), "pass", "ends with the target cleared")
-    eq(GamepadCrosshairCustomizerDB.color, "3961CDFF", "your settings back")
+    eq(checkResult(run, "dot, size 12, red"), nil, "no reticle-only part")
+    eq(checkResult(run, "target cleared: the reticle back"), "pass", "ends with the target cleared")
+    eq(GamepadReticleCustomizerDB.color, "3961CDFF", "your settings back")
     eq(popup():IsShown(), true, "the reload popup")
 end)
 
-test("/gcc monsters runs only the NPC part, then the target cleared", function()
+test("/grc monsters runs only the NPC part, then the target cleared", function()
     boot()
-    SlashCmdList.GAMEPADCROSSHAIRCUSTOMIZER("monsters")
+    SlashCmdList.GAMEPADRETICLECUSTOMIZER("monsters")
     driveDebugRun({ { isPlayer = true, classFile = "WARRIOR", reaction = 5 } },
         { { isPlayer = false, reaction = 4 }, { isPlayer = false, reaction = 1 } })
-    local run = GamepadCrosshairCustomizerDebugDB.runs[1]
+    local run = GamepadReticleCustomizerDebugDB.runs[1]
     eq(run.name, "monsters")
     eq(failedChecks(run), "", "nothing failed")
     eq(run.found.npc1, "neutral"); eq(run.found.npc2, "enemy")
     eq(run.found.class1, nil, "no friendly part")
-    eq(checkResult(run, "target cleared: the crosshair back"), "pass")
+    eq(checkResult(run, "target cleared: the reticle back"), "pass")
 end)
 
-test("in the release (no Debug.lua), /gcc friendly and /gcc monsters open the settings", function()
+test("in the release (no Debug.lua), /grc friendly and /grc monsters open the settings", function()
     boot({ releaseBuild = true })
-    SlashCmdList.GAMEPADCROSSHAIRCUSTOMIZER("friendly")
+    SlashCmdList.GAMEPADRETICLECUSTOMIZER("friendly")
     eq(game.opened, 42)
     game.opened = nil
-    SlashCmdList.GAMEPADCROSSHAIRCUSTOMIZER("monsters")
+    SlashCmdList.GAMEPADRETICLECUSTOMIZER("monsters")
     eq(game.opened, 42)
 end)
 
-test("/gcc debug: no friendly player selected within 60 s fails; its keys are bound", function()
+test("/grc debug: no friendly player selected within 60 s fails; its keys are bound", function()
     boot()
-    eq(game.bindings["ALT-CTRL-SHIFT-Y"], "GamepadCrosshairCustomizerDebugTarget")
-    eq(game.bindings["ALT-CTRL-SHIFT-Z"], "GamepadCrosshairCustomizerDebugTargetEnemy")
-    eq(game.bindings["ALT-CTRL-SHIFT-X"], "GamepadCrosshairCustomizerDebugClearTarget")
-    eq(GamepadCrosshairCustomizerDebugTarget.attributes.macrotext, "/targetfriendplayer\n/target [noexists] player")
-    eq(GamepadCrosshairCustomizerDebugTargetEnemy.attributes.macrotext, "/targetenemy")
-    eq(GamepadCrosshairCustomizerDebugClearTarget.attributes.macrotext, "/cleartarget")
-    SlashCmdList.GAMEPADCROSSHAIRCUSTOMIZER("debug")
+    eq(game.bindings["ALT-CTRL-SHIFT-Y"], "GamepadReticleCustomizerDebugTarget")
+    eq(game.bindings["ALT-CTRL-SHIFT-Z"], "GamepadReticleCustomizerDebugTargetEnemy")
+    eq(game.bindings["ALT-CTRL-SHIFT-X"], "GamepadReticleCustomizerDebugClearTarget")
+    eq(GamepadReticleCustomizerDebugTarget.attributes.macrotext, "/targetfriendplayer\n/target [noexists] player")
+    eq(GamepadReticleCustomizerDebugTargetEnemy.attributes.macrotext, "/targetenemy")
+    eq(GamepadReticleCustomizerDebugClearTarget.attributes.macrotext, "/cleartarget")
+    SlashCmdList.GAMEPADRETICLECUSTOMIZER("debug")
     driveDebugRun({}, {})
-    local run = GamepadCrosshairCustomizerDebugDB.runs[1]
+    local run = GamepadReticleCustomizerDebugDB.runs[1]
     eq(checkResult(run, "select a friendly player (within 60 s)"), "fail")
 end)
 
-test("/gcc debug: waits for the crosshair on screen before its first step (the cursor hides it)", function()
+test("/grc debug: waits for the reticle on screen before its first step (the cursor hides it)", function()
     boot()
     GamepadReticle.Icons:Hide()   -- the cursor shows, as just after a reload
-    SlashCmdList.GAMEPADCROSSHAIRCUSTOMIZER("debug")
-    local debugSuite = GamepadCrosshairCustomizer.Debug
+    SlashCmdList.GAMEPADRETICLECUSTOMIZER("debug")
+    local debugSuite = GamepadReticleCustomizer.Debug
     eq(colorOf(debugSuite.marker.texture), "1.00 1.00 0.00 1.00", "yellow: waiting")
     frame(); frame(); frame()
     eq(colorOf(debugSuite.marker.texture), "1.00 1.00 0.00 1.00", "still waiting, no step yet")
@@ -977,52 +999,52 @@ test("/gcc debug: waits for the crosshair on screen before its first step (the c
     eq(math.floor(debugSuite.marker.texture.color[3] * 255 + 0.5), 16,
         "once it shows: step 2 (step 1, waiting for no target, passed at once)")
     runUntilNoTimersLeft()
-    local run = GamepadCrosshairCustomizerDebugDB.runs[1]
-    eq(run.environment.crosshairWaitSeconds, 2, "waited 2 s (4 polls)")
-    eq(run.environment.crosshairOnScreenAtStart, true)
+    local run = GamepadReticleCustomizerDebugDB.runs[1]
+    eq(run.environment.reticleWaitSeconds, 2, "waited 2 s (4 polls)")
+    eq(run.environment.reticleOnScreenAtStart, true)
 
     boot()
-    GamepadCrosshairCustomizer.Debug.WAIT_SECONDS = 1
+    GamepadReticleCustomizer.Debug.WAIT_SECONDS = 1
     GamepadReticle.Icons:Hide()
-    SlashCmdList.GAMEPADCROSSHAIRCUSTOMIZER("debug")
+    SlashCmdList.GAMEPADRETICLECUSTOMIZER("debug")
     runUntilNoTimersLeft()
-    eq(GamepadCrosshairCustomizerDebugDB.runs[1].environment.crosshairOnScreenAtStart, false, "never showed: runs anyway, says so")
+    eq(GamepadReticleCustomizerDebugDB.runs[1].environment.reticleOnScreenAtStart, false, "never showed: runs anyway, says so")
 end)
 
-test("/gcc debug: Alt+Ctrl+Shift+C starts it too (for the screenshot script)", function()
+test("/grc debug: Alt+Ctrl+Shift+C starts it too (for the screenshot script)", function()
     boot()
-    eq(game.bindings["ALT-CTRL-SHIFT-C"], "GamepadCrosshairCustomizerDebugStart")
+    eq(game.bindings["ALT-CTRL-SHIFT-C"], "GamepadReticleCustomizerDebugStart")
     _G[game.bindings["ALT-CTRL-SHIFT-C"]]:Click()
     eq(#game.timers > 0, true, "running")
     driveDebugRun({ { isPlayer = true, classFile = "MAGE", reaction = 5 } }, { { isPlayer = false, reaction = 2 } })
-    eq(GamepadCrosshairCustomizerDebugDB.runs[1].failed, 0)
+    eq(GamepadReticleCustomizerDebugDB.runs[1].failed, 0)
 end)
 
-test("/gcc debug: a fight stops it, your settings back, the square red", function()
+test("/grc debug: a fight stops it, your settings back, the square red", function()
     boot({ saved = { color = "3961CDFF" } })
-    SlashCmdList.GAMEPADCROSSHAIRCUSTOMIZER("debug")
+    SlashCmdList.GAMEPADRETICLECUSTOMIZER("debug")
     frame(); frame()
     game.combat = true
     game.fire("PLAYER_REGEN_DISABLED")
-    eq(GamepadCrosshairCustomizerDebugDB.runs[1].stopped, "combat")
-    eq(GamepadCrosshairCustomizerDB.color, "3961CDFF")
-    eq(GamepadCrosshairCustomizer.Debug.marker.texture.color[1], 1, "red")
+    eq(GamepadReticleCustomizerDebugDB.runs[1].stopped, "combat")
+    eq(GamepadReticleCustomizerDB.color, "3961CDFF")
+    eq(GamepadReticleCustomizer.Debug.marker.texture.color[1], 1, "red")
     runUntilNoTimersLeft()
-    eq(#GamepadCrosshairCustomizerDebugDB.runs, 1, "nothing ran after the stop")
+    eq(#GamepadReticleCustomizerDebugDB.runs, 1, "nothing ran after the stop")
 end)
 
-test("/gcc debug: a reload in the middle of a run puts your settings back at the next login", function()
+test("/grc debug: a reload in the middle of a run puts your settings back at the next login", function()
     boot({ saved = { color = "FF0000FF", size = 48 },
         debugSaved = { runs = {}, settingsToRestore = { color = "3961CDFF", size = 7, enabled = true } } })
-    eq(GamepadCrosshairCustomizerDB.color, "3961CDFF"); eq(GamepadCrosshairCustomizerDB.size, 7)
-    eq(GamepadCrosshairCustomizerDebugDB.settingsToRestore, nil)
+    eq(GamepadReticleCustomizerDB.color, "3961CDFF"); eq(GamepadReticleCustomizerDB.size, 7)
+    eq(GamepadReticleCustomizerDebugDB.settingsToRestore, nil)
     eq(layer().shape:GetWidth(), 7, "and drawn")
 end)
 
 -- The addon and its release
 
 test("an addon of its own: needs no other addon; listed under Gamepad", function()
-    local toc = readFile("GamepadCrosshairCustomizer.toc")
+    local toc = readFile("GamepadReticleCustomizer.toc")
     eq(toc:find("Dependencies", 1, true), nil); eq(toc:find("OptionalDeps", 1, true), nil)
     eq(toc:match("## Category: ([^\r\n]+)"), "Gamepad", "under Gamepad in the AddOns list, the game's own word")
 end)
@@ -1030,16 +1052,47 @@ end)
 test("the release leaves Debug.lua out: ignored by .pkgmeta, and gone from the release .toc", function()
     assert(readFile(".pkgmeta"):find("\n  %- Debug%.lua\n"), ".pkgmeta ignores Debug.lua, alone on its line")
     eq(table.concat(tocFiles(true), ","),
-        "SavedSettings.lua,Color.lua,Icons.lua,Target.lua,Crosshair.lua,PickerSticks.lua,Popup.lua,Preview.lua,RelatedAddon.lua,GamepadCrosshairCustomizer.lua")
+        "SavedSettings.lua,Color.lua,Icons.lua,Target.lua,Reticle.lua,PickerSticks.lua,Popup.lua,Preview.lua,RelatedAddon.lua,GamepadReticleCustomizer.lua")
     eq(tocFiles()[#tocFiles()], "Debug.lua", "the repo's .toc loads it last")
 end)
 
-test("without Debug.lua (the release), the addon works and /gcc debug opens the settings", function()
+test("without Debug.lua (the release), the addon works and /grc debug opens the settings", function()
     boot({ releaseBuild = true })
-    eq(GamepadCrosshairCustomizer.Debug, nil)
+    eq(GamepadReticleCustomizer.Debug, nil)
     eq(layer():IsShown(), true)
-    SlashCmdList.GAMEPADCROSSHAIRCUSTOMIZER("debug")
+    SlashCmdList.GAMEPADRETICLECUSTOMIZER("debug")
     eq(game.opened, 42)
+end)
+
+test("the reticle left in the middle of the screen (nothing moves it): no icon, the reticle stays", function()
+    boot({ reticleOnTarget = false, saved = { targetIcon = "marker8" } })
+    game.fire("PLAYER_ENTERING_WORLD")
+    setTarget({ isPlayer = false, reaction = 2, plateUnit = "nameplate4" })
+    eq(GamepadReticleCustomizer.Reticle.Drawn().icon, "dot", "a target with its nameplate, but the reticle in the middle")
+    eq(GamepadReticleCustomizer.TargetInfo().reticleOnNameplate, false)
+    -- Then something puts it under the nameplate (a restricted region: not measurable).
+    GamepadReticle:SetPoint("CENTER", { restricted = true }, "BOTTOM")
+    eq(GamepadReticleCustomizer.Reticle.Drawn().icon, "marker8", "redrawn as soon as it's moved there")
+    GamepadReticle:SetPoint("CENTER", UIParent, "BOTTOM")
+    eq(GamepadReticleCustomizer.Reticle.Drawn().icon, "dot", "and back in the middle: the reticle")
+end)
+
+test("the reticle on a nameplate that can be measured: the target's own counts, another frame doesn't", function()
+    boot({ reticleOnTarget = false, saved = { targetIcon = "marker8" } })
+    game.fire("PLAYER_ENTERING_WORLD")
+    setTarget({ isPlayer = false, reaction = 2 })
+    local plate = C_NamePlate.GetNamePlateForUnit("target")
+    local healthBar = { GetParent = function() return plate end }
+    C_NamePlate.GetNamePlateForUnit = function() return plate end
+    GamepadReticle:SetPoint("CENTER", healthBar, "BOTTOM")
+    eq(GamepadReticleCustomizer.Reticle.Drawn().icon, "marker8", "under a part of the target's nameplate")
+    GamepadReticle:SetPoint("CENTER", { GetParent = function() return UIParent end }, "BOTTOM")
+    eq(GamepadReticleCustomizer.Reticle.Drawn().icon, "dot", "under some other frame")
+end)
+
+test("/grc and /gamepadreticlecustomizer", function()
+    boot()
+    eq(SLASH_GAMEPADRETICLECUSTOMIZER1, "/grc"); eq(SLASH_GAMEPADRETICLECUSTOMIZER2, "/gamepadreticlecustomizer")
 end)
 
 reportLine(passed .. " passed, " .. failed .. " failed")

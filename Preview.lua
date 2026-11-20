@@ -1,10 +1,10 @@
--- A live preview of the crosshair beside the settings page: the game's crosshair
--- is behind the settings window while you change it. Two cells: the crosshair, and
+-- A live preview of the reticle beside the settings page: the game's reticle
+-- is behind the settings window while you change it. Two cells: the reticle, and
 -- the icon shown on a target (for a player's class, your own class as the
 -- example). Each cell shows its picture zoomed to fill it, so a small icon (a
 -- Jiberish Fabled Icons class icon at 24) can be seen properly, with a copy at its real size
 -- in the corner. The window keeps one size whatever is chosen. Painted as the
--- crosshair is (Crosshair.Paint), redrawn on every change.
+-- reticle is (Reticle.Paint), redrawn on every change.
 --
 -- It looks like a game window: built as the settings window's own frame is
 -- (SettingsFrameTemplate, Mainline/Blizzard_SettingsPanelTemplates.xml:4, forever
@@ -34,7 +34,7 @@ local function newCell(label, column)
     local background = cell:CreateTexture(nil, "BACKGROUND", nil, 1)
     background:SetPoint("TOPLEFT", cell, "TOPLEFT", 3, -3)
     background:SetPoint("BOTTOMRIGHT", cell, "BOTTOMRIGHT", -3, 3)
-    background:SetColorTexture(0.22, 0.24, 0.2, 1)   -- a dull ground color, as behind the real crosshair
+    background:SetColorTexture(0.22, 0.24, 0.2, 1)   -- a dull ground color, as behind the real reticle
     -- The zoomed view, in the middle.
     cell.border = cell:CreateTexture(nil, "BORDER")
     cell.border:SetPoint("CENTER", cell, "CENTER")
@@ -59,7 +59,7 @@ local function newCell(label, column)
 end
 
 local function build(settingsPanel)
-    frame = CreateFrame("Frame", "GamepadCrosshairCustomizerPreview", settingsPanel)
+    frame = CreateFrame("Frame", "GamepadReticleCustomizerPreview", settingsPanel)
     frame:SetSize(Preview.PADDING + 2 * (Preview.CELL_SIZE + Preview.PADDING),
         Preview.TITLE_HEIGHT + Preview.PADDING + Preview.CELL_SIZE + Preview.LABEL_HEIGHT)
     frame:SetPoint("TOPLEFT", settingsPanel, "TOPRIGHT", 4, 0)
@@ -78,7 +78,7 @@ local function build(settingsPanel)
     frame.title = frame.NineSlice:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     frame.title:SetPoint("TOP", frame, "TOP", 0, -5)
     frame.title:SetText("Preview")
-    frame.crosshair = newCell("Crosshair", 0)
+    frame.reticle = newCell("Reticle", 0)
     frame.onTarget = newCell("On a target", 1)
     frame:Hide()
     Preview.frame = frame
@@ -88,7 +88,7 @@ end
 local function exampleTarget()
     local classFile
     if type(UnitClass) == "function" then classFile = select(2, UnitClass("player")) end
-    return { exists = true, hasNameplate = true, isPlayer = true, classFile = classFile }
+    return { exists = true, hasNameplate = true, reticleOnNameplate = true, isPlayer = true, classFile = classFile }
 end
 
 -- A look's full width, border included, at its real size.
@@ -100,17 +100,17 @@ end
 -- real size in the corner (shrunk only when it's bigger than the corner).
 local function paintCell(cell, look)
     local width = fullWidth(look)
-    addon.Crosshair.Paint(cell.shape, cell.border, look, Preview.CELL_SIZE * Preview.ZOOMED_FILL / width)
+    addon.Reticle.Paint(cell.shape, cell.border, look, Preview.CELL_SIZE * Preview.ZOOMED_FILL / width)
     local cornerRoom = Preview.REAL_SIZE_CORNER * Preview.ZOOMED_FILL
-    addon.Crosshair.Paint(cell.realShape, cell.realBorder, look, math.min(1, cornerRoom / width))
+    addon.Reticle.Paint(cell.realShape, cell.realBorder, look, math.min(1, cornerRoom / width))
 end
 
 function Preview.Refresh()
     if not (frame and frame:IsShown()) then return end
     local settings = addon.Settings()
-    paintCell(frame.crosshair, addon.Crosshair.Choose(settings, { exists = false }))
-    paintCell(frame.onTarget, addon.Crosshair.Choose(settings, exampleTarget()))
-    frame.onTarget.label:SetText(settings.targetIcon == "none" and "On a target: the crosshair stays" or "On a target")
+    paintCell(frame.reticle, addon.Reticle.Choose(settings, { exists = false }))
+    paintCell(frame.onTarget, addon.Reticle.Choose(settings, exampleTarget()))
+    frame.onTarget.label:SetText(settings.targetIcon == "none" and "On a target: the reticle stays" or "On a target")
     -- The addon off: the game's own dot; shown dimmed so the page still previews your choices.
     frame:SetAlpha(settings.enabled and 1 or 0.5)
 end

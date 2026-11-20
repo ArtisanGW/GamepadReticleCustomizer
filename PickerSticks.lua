@@ -11,7 +11,7 @@
 --   which the settings swatch doesn't ask for, so it's put on the picker here.
 -- Nothing runs while the picker is shut, or open for anything else.
 --
--- It knows nothing of the crosshair: PickerSticks.Watch(owner) takes an owner with
+-- It knows nothing of the reticle: PickerSticks.Watch(owner) takes an owner with
 --   owner.OpenedThePicker() -- whether the picker now showing was opened for it
 --   owner.Opacity()         -- its opacity, 0 to 1, for the opacity bar
 --   owner.SetOpacity(alpha) -- the bar or the D-pad changed it

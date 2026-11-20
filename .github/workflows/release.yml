@@ -1,4 +1,4 @@
-# A release, built when a version tag is pushed:  git tag v1.1 && git push origin v1.1
+# A release, built when a version tag (Major.Minor.Patch) is pushed:  git tag v1.1.0 && git push origin v1.1.0
 #
 # 1. Runs the tests (tests/run.lua, against the fake game). A failing test stops the release.
 # 2. Builds the addon's zip with the BigWigs packager (what goes in: .pkgmeta; the
@@ -10,7 +10,7 @@
 #    - the repository secret CF_API_KEY (an API token from
 #      https://legacy.curseforge.com/account/api-tokens)
 #    Without them the CurseForge upload is skipped and the rest still runs.
-# A tag with "alpha" or "beta" in it (v1.1-beta1) uploads as an alpha or beta file.
+# A tag with "alpha" or "beta" in it (v1.1.0-beta1) uploads as an alpha or beta file.
 #
 # Run by hand (Actions > Release > Run workflow): tests and a zip, kept as the run's
 # artifact, with nothing uploaded anywhere.
@@ -59,7 +59,7 @@ jobs:
       - name: Keep the zip with the run
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9   # v7.0.2
         with:
-          name: GamepadCrosshairCustomizer
+          name: GamepadReticleCustomizer
           path: .release/*.zip
           # The packager's folder starts with a dot, which upload-artifact skips unless told.
           include-hidden-files: true

@@ -1,4 +1,4 @@
--- Draws the customized crosshair on the game's own: its shape (Icons.lua) at its
+-- Draws the customized reticle on the game's own: its shape (Icons.lua) at its
 -- size and color, or while you have a target the icon chosen for one, with a
 -- border behind either (the same picture, larger, in the border color).
 --
@@ -10,15 +10,15 @@
 -- when the addon is switched off. Nothing here is protected, so it works in combat.
 local _, addon = ...
 
-local Crosshair = {}
-addon.Crosshair = Crosshair
+local Reticle = {}
+addon.Reticle = Reticle
 
 local layer          -- our frame: layer.shape, layer.border
 local gameDotAlpha   -- the game's dot's own alpha, read before we first hid it
 
 local function gameDot()
-    local crosshairFrame = _G.GamepadReticle
-    local dot = type(crosshairFrame) == "table" and crosshairFrame.Icons and crosshairFrame.Icons.StandardIcon
+    local reticleFrame = _G.GamepadReticle
+    local dot = type(reticleFrame) == "table" and reticleFrame.Icons and reticleFrame.Icons.StandardIcon
     if type(dot) ~= "table" or type(dot.SetAlpha) ~= "function" then return nil end
     return dot
 end
@@ -31,22 +31,29 @@ local function buildLayer(dot)
     layer.border:SetPoint("CENTER", layer, "CENTER")
     layer.shape = layer:CreateTexture(nil, "ARTWORK")
     layer.shape:SetPoint("CENTER", layer, "CENTER")
+    -- Drawn again whenever the reticle is moved (onto a nameplate or back): a
+    -- post-hook, the game's own SetPoint runs untouched.
+    if type(hooksecurefunc) == "function" and type(GamepadReticle.SetPoint) == "function" then
+        hooksecurefunc(GamepadReticle, "SetPoint", function() addon.UpdateReticle() end)
+    end
 end
 
--- What's drawn now, for the tests and /gcc debug: { icon, texture or atlas, size, borderSize } or nil.
+-- What's drawn now, for the tests and /grc debug: { icon, texture or atlas, size, borderSize } or nil.
 local drawn
-function Crosshair.Drawn() return drawn end
-function Crosshair.Layer() return layer end
-function Crosshair.GameDotAlpha() return gameDotAlpha end
+function Reticle.Drawn() return drawn end
+function Reticle.Layer() return layer end
+function Reticle.GameDotAlpha() return gameDotAlpha end
 
 -- What to draw now: the icon for a target while you have one whose nameplate is
--- on screen (and it can be drawn), else the crosshair's shape. A target without a
--- nameplate (a vendor, a guard or a minion with their nameplates off, as by
--- default, or one off screen) keeps the crosshair: the icon follows what your
--- nameplate settings show. { icon, texture or atlas, size, tinted }.
-function Crosshair.Choose(settings, target)
+-- on screen and the reticle sits on a nameplate (and it can be drawn), else the
+-- reticle's shape. A target without a nameplate (a vendor, a guard or a minion
+-- with their nameplates off, as by default, or one off screen) keeps the reticle:
+-- the icon follows what your nameplate settings show. So does a reticle left in
+-- the middle of the screen, where the game puts it: an icon there would mark
+-- nothing. { icon, texture or atlas, size, tinted }.
+function Reticle.Choose(settings, target)
     local targetIcon = settings.targetIcon
-    if target.exists and target.hasNameplate and targetIcon ~= "none" then
+    if target.exists and target.hasNameplate and target.reticleOnNameplate and targetIcon ~= "none" then
         local iconSize = addon.Clamp(settings.iconSize, addon.SIZE_MIN, addon.SIZE_MAX, addon.DEFAULTS.iconSize)
         if targetIcon == "class" then
             local classLook = target.isPlayer and addon.Icons.ClassLook(target.classFile, settings.classStyle)
@@ -59,10 +66,10 @@ function Crosshair.Choose(settings, target)
             if texture then return { icon = targetIcon, texture = texture, size = iconSize, tinted = false } end
         end
     end
-    -- The crosshair: a shape that can't be drawn now (a Jiberish one without the
+    -- The reticle: a shape that can't be drawn now (a Jiberish one without the
     -- addon) falls back to the game's dot.
     local icon = settings.icon
-    local texture = addon.Icons.IsCrosshairShape(icon) and addon.Icons.Texture(icon)
+    local texture = addon.Icons.IsReticleShape(icon) and addon.Icons.Texture(icon)
     if not texture then icon, texture = "dot", addon.Icons.GAME_DOT_TEXTURE end
     return { icon = icon, texture = texture, size = addon.Clamp(settings.size, addon.SIZE_MIN, addon.SIZE_MAX,
         addon.DEFAULTS.size), tinted = true }
@@ -86,7 +93,7 @@ end
 -- in the saved colors and border size (also the settings page's preview).
 -- zoom (optional, 1 by default): the preview's magnified view, size and border alike.
 -- Returns the border size used (unzoomed).
-function Crosshair.Paint(shape, border, look, zoom)
+function Reticle.Paint(shape, border, look, zoom)
     zoom = zoom or 1
     local borderSize = addon.Clamp(addon.Settings().borderSize, addon.BORDER_MIN, addon.BORDER_MAX, 0)
     setPicture(shape, look)
@@ -107,9 +114,9 @@ function Crosshair.Paint(shape, border, look, zoom)
     return borderSize
 end
 
--- Draws the crosshair from the settings and the target, or puts the game's dot
+-- Draws the reticle from the settings and the target, or puts the game's dot
 -- back when off. Runs on login, on each setting change and when the target changes.
-function addon.UpdateCrosshair()
+function addon.UpdateReticle()
     local dot = gameDot()
     if not dot then return end
     if not layer then buildLayer(dot) end
@@ -124,8 +131,8 @@ function addon.UpdateCrosshair()
         return
     end
 
-    local look = Crosshair.Choose(settings, addon.TargetInfo())
-    local borderSize = Crosshair.Paint(layer.shape, layer.border, look)
+    local look = Reticle.Choose(settings, addon.TargetInfo())
+    local borderSize = Reticle.Paint(layer.shape, layer.border, look)
     layer:Show()
     dot:SetAlpha(0)
     drawn = { icon = look.icon, texture = look.texture, atlas = look.atlas, texCoord = look.texCoord, size = look.size,

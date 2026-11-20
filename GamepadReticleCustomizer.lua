@@ -1,9 +1,9 @@
--- The settings page (Options > AddOns > Gamepad Crosshair Customizer), /gcc and
+-- The settings page (Options > AddOns > Gamepad Reticle Customizer), /grc and
 -- the events. What each setting does is in the other files (SavedSettings.lua
 -- lists them).
 local ADDON_NAME, addon = ...
 
-local CHAT_PREFIX = "|cff88ccffGamepad Crosshair Customizer|r "
+local CHAT_PREFIX = "|cff88ccffGamepad Reticle Customizer|r "
 addon.PICKER_OPENED_WITHIN = 0.5   -- seconds between a swatch reading its color and the picker showing
 
 local function say(text) print(CHAT_PREFIX .. text) end
@@ -44,7 +44,7 @@ local pickerOwner = {
 -- too; "borderColor": black).
 function addon.ResetColor(key)
     addon.Settings()[key] = addon.DEFAULTS[key]
-    addon.UpdateCrosshair()
+    addon.UpdateReticle()
 end
 
 -- Jiberish Fabled Icons turned off: offer to turn it on for this character and reload, as
@@ -54,7 +54,7 @@ end
 -- and no SaveAddOns, the reload left it off: seen in game, 2026-11-20.)
 function addon.TellToEnableJiberish()
     addon.Popup.Show({
-        text = "Jiberish Fabled Icons is installed but turned off.\nTurn it on and reload to use its crosshairs and class icons?",
+        text = "Jiberish Fabled Icons is installed but turned off.\nTurn it on and reload to use its reticles and class icons?",
         buttons = {
             { text = "Turn on and reload", reload = true, beforeReload = function()
                 C_AddOns.EnableAddOn(addon.Icons.JIBERISH_ADDON, addon.Icons.CharacterKey())
@@ -68,7 +68,7 @@ end
 -- Jiberish Fabled Icons missing: its download link to copy, and a Reload for once it's installed.
 function addon.ShowJiberishLink()
     addon.Popup.Show({
-        text = "More crosshairs and class icons come with Jiberish Fabled Icons. To get them:\n"
+        text = "More reticles and class icons come with Jiberish Fabled Icons. To get them:\n"
             .. "• Copy the link (Ctrl+C)\n"
             .. "• Install it\n"
             .. "• Reload",
@@ -104,19 +104,19 @@ end
 
 function addon.RegisterSettings()
     if not (Settings and Settings.RegisterVerticalLayoutCategory and Settings.RegisterAddOnSetting) then return end
-    local category, layout = Settings.RegisterVerticalLayoutCategory("Gamepad Crosshair Customizer")
+    local category, layout = Settings.RegisterVerticalLayoutCategory("Gamepad Reticle Customizer")
     addon.category = category
     local settings = addon.Settings()
 
     local function addSetting(key, valueType, label)
-        local variableName = "GamepadCrosshairCustomizer_" .. key
+        local variableName = "GamepadReticleCustomizer_" .. key
         local setting = Settings.RegisterAddOnSetting(category, variableName, key, settings, valueType, label,
             addon.DEFAULTS[key])
-        Settings.SetOnValueChangedCallback(variableName, function() addon.UpdateCrosshair() end)
+        Settings.SetOnValueChangedCallback(variableName, function() addon.UpdateReticle() end)
         return setting
     end
     local function addSwatch(key, label, tooltip)
-        local colorSetting = Settings.RegisterProxySetting(category, "GamepadCrosshairCustomizer_" .. key .. "Swatch",
+        local colorSetting = Settings.RegisterProxySetting(category, "GamepadReticleCustomizer_" .. key .. "Swatch",
             Settings.VarType.String, label, "FF" .. addon.DEFAULTS[key]:sub(1, 6),
             function() return addon.SwatchColor(key) end, function(value) addon.SetSwatchColor(value, key) end)
         Settings.CreateColorSwatch(category, colorSetting, tooltip)
@@ -131,7 +131,7 @@ function addon.RegisterSettings()
     local function addChoice(key, label, list, tooltip, afterChange)
         local entries = list()
         addon.choices[key] = addon.ChoiceIndex(entries, settings[key])
-        local variableName = "GamepadCrosshairCustomizer_" .. key .. "Choice"
+        local variableName = "GamepadReticleCustomizer_" .. key .. "Choice"
         local setting = Settings.RegisterAddOnSetting(category, variableName, key, addon.choices,
             Settings.VarType.Number, label, 1)
         Settings.SetOnValueChangedCallback(variableName, function(_, _, value)
@@ -139,7 +139,7 @@ function addon.RegisterSettings()
             local previousId = settings[key]
             settings[key] = entry.id
             if afterChange then afterChange(previousId) end
-            addon.UpdateCrosshair()
+            addon.UpdateReticle()
         end)
         Settings.CreateSlider(category, setting, sliderOptions(1, #entries, 1, function(value)
             local entry = entries[math.floor(value + 0.5)] or entries[1]
@@ -153,9 +153,9 @@ function addon.RegisterSettings()
         layout:AddInitializer(CreateSettingsButtonInitializer(name, buttonText, onClick, tooltip, true))
     end
 
-    -- The crosshair, always shown: its shape, size, color and border.
+    -- The reticle, always shown: its shape, size, color and border.
     local jiberishState = addon.Icons.JiberishState()
-    addon.jiberishAtSettings = addon.Icons.JiberishRawState()   -- for /gcc debug's records
+    addon.jiberishAtSettings = addon.Icons.JiberishRawState()   -- for /grc debug's records
     local jiberishInstalled = jiberishState == "enabled"
     -- The dot and the shapes each keep their own size: switching between them saves
     -- the size of the one left and brings back the other's (a shape starts at 24:
@@ -167,14 +167,14 @@ function addon.RegisterSettings()
         local size = isDot and settings.dotSize or settings.shapeSize
         if addon.sizeSetting then addon.sizeSetting:SetValue(size) else settings.size = size end
     end
-    -- Without Jiberish Fabled Icons (missing or turned off) the Crosshair and Class icons
+    -- Without Jiberish Fabled Icons (missing or turned off) the Reticle and Class icons
     -- choices would have one entry each: they're left out, and its button takes the
     -- Class icons row (seen in game: an empty slider).
     if jiberishInstalled then
-        addChoice("icon", "Crosshair", addon.Icons.CrosshairList,
-            "The crosshair's shape, always shown.\n\n"
+        addChoice("icon", "Reticle", addon.Icons.ReticleList,
+            "The reticle's shape, always shown.\n\n"
             .. "• Default dot: the game's own\n"
-            .. "• The others: Jiberish Fabled Icons' crosshairs\n\n"
+            .. "• The others: Jiberish Fabled Icons' reticles\n\n"
             .. addon.Icons.JIBERISH_CREDIT .. ".",
             keepSizePerKind)
     end
@@ -185,32 +185,32 @@ function addon.RegisterSettings()
             local size = math.floor(value + 0.5)
             return size == addon.DEFAULTS.size and (size .. " (default)") or tostring(size)
         end),
-        "The crosshair's width and height.\n\n"
+        "The reticle's width and height.\n\n"
         .. "• The game's dot is 4\n"
         .. "• The dot and the shapes each keep their own size")
 
     if canSwatch then
         addon.PickerSticks.Watch(pickerOwner)
         addSwatch("color", "Color",
-            "The crosshair's color and opacity. White keeps a shape's own look.\n\n"
+            "The reticle's color and opacity. White keeps a shape's own look.\n\n"
             .. "On a controller, in the color picker:\n"
             .. "• Left stick: the color\n"
             .. "• Right stick: the brightness\n"
             .. "• D-pad up and down: the opacity\n\n"
             .. "From chat:\n"
-            .. "• /gcc RRGGBBAA, e.g. /gcc FF3030FF")
+            .. "• /grc RRGGBBAA, e.g. /grc FF3030FF")
         -- The reset rows show only their button, under their color, lined up with the
         -- other controls: a label of one space reads as empty but isn't "", which
         -- the game would put at the left edge (Blizzard_SettingControls.lua:982-999).
         addButton(" ", "Reset color", function() addon.ResetColor("color") end,
-            "Puts the crosshair's color back to white.\n\nWhite shows a shape as it was drawn, Jiberish Fabled Icons' too.")
+            "Puts the reticle's color back to white.\n\nWhite shows a shape as it was drawn, Jiberish Fabled Icons' too.")
     end
     Settings.CreateSlider(category, addSetting("borderSize", Settings.VarType.Number, "Border"),
         sliderOptions(addon.BORDER_MIN, addon.BORDER_MAX, addon.BORDER_STEP, function(value)
             local borderSize = math.floor(value + 0.5)
             return borderSize == 0 and "Off" or tostring(borderSize)
         end),
-        "A border around the crosshair or the icon.\n\n"
+        "A border around the reticle or the icon.\n\n"
         .. "• Off: no border\n"
         .. "• 1 to 10: how wide it is\n\n"
         .. "It's the same picture, larger, behind it, in the border color.")
@@ -220,14 +220,15 @@ function addon.RegisterSettings()
             "Puts the border's color back to black.")
     end
 
-    -- On a target: the icon instead of the crosshair.
+    -- On a target: the icon instead of the reticle.
     addon.targetIconSlider = addChoice("targetIcon", "On a target", addon.Icons.TargetList,
-        "What shows instead of the crosshair while you have a target.\n\n"
-        .. "• None: the crosshair stays\n"
-        .. "• Target Class: a player's class icon (any other target keeps the crosshair)\n"
+        "What shows instead of the reticle while you have a target.\n\n"
+        .. "• None: the reticle stays\n"
+        .. "• Target Class: a player's class icon (any other target keeps the reticle)\n"
         .. "• Raid marker: one of the game's 8 markers\n"
         .. "• Icon: one of a set of the game's icons\n\n"
-        .. "Shown only while the target's nameplate is on screen. These keep the crosshair "
+        .. "Shown only while the reticle sits on the target's nameplate, as Gamepad Reticle On Target puts it; "
+        .. "the game keeps it in the middle of the screen. These keep the reticle "
         .. "unless their nameplates are on (Options > Nameplates):\n"
         .. "• Vendors\n"
         .. "• Guards\n"
@@ -243,12 +244,12 @@ function addon.RegisterSettings()
         addButton("Class icons", "Get Jiberish Fabled Icons", function() addon.ShowJiberishLink() end,
             "More looks come with the Jiberish Fabled Icons addon:\n\n"
             .. "• 11 class icon styles\n"
-            .. "• 16 crosshair shapes\n\n"
+            .. "• 16 reticle shapes\n\n"
             .. "Once it's installed and you've reloaded, they're offered here.")
     else
         addButton("Class icons", "Enable Jiberish Fabled Icons", function() addon.TellToEnableJiberish() end,
             "Jiberish Fabled Icons is installed but turned off.\n\n"
-            .. "Turn it on to get its class icon styles and crosshair shapes here.")
+            .. "Turn it on to get its class icon styles and reticle shapes here.")
     end
     Settings.CreateSlider(category, addSetting("iconSize", Settings.VarType.Number, "Icon size"),
         sliderOptions(addon.SIZE_MIN, addon.SIZE_MAX, addon.SIZE_STEP, function(value) return tostring(math.floor(value + 0.5)) end),
@@ -272,7 +273,7 @@ local eventFrame = CreateFrame("Frame")
 eventFrame:RegisterEvent("ADDON_LOADED")
 eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 eventFrame:RegisterEvent("PLAYER_TARGET_CHANGED")
--- The target's nameplate coming or going (on or off screen) switches between icon and crosshair.
+-- The target's nameplate coming or going (on or off screen) switches between icon and reticle.
 eventFrame:RegisterEvent("NAME_PLATE_UNIT_ADDED")
 eventFrame:RegisterEvent("NAME_PLATE_UNIT_REMOVED")
 eventFrame:SetScript("OnEvent", function(_, event, name)
@@ -282,20 +283,21 @@ eventFrame:SetScript("OnEvent", function(_, event, name)
         addon.Settings()
         pcall(addon.RegisterSettings)
     elseif event == "PLAYER_ENTERING_WORLD" or event == "PLAYER_TARGET_CHANGED" then
-        addon.UpdateCrosshair()
+        addon.UpdateReticle()
     elseif event == "NAME_PLATE_UNIT_ADDED" or event == "NAME_PLATE_UNIT_REMOVED" then
         -- Only the target's own nameplate matters (name is the unit, "nameplate3").
         local succeeded, isTarget = pcall(UnitIsUnit, name, "target")
-        if not succeeded or isTarget ~= false then addon.UpdateCrosshair() end
+        if not succeeded or isTarget ~= false then addon.UpdateReticle() end
     end
 end)
 
--- /gcc                opens the settings
--- /gcc RRGGBBAA       sets the color
--- /gcc debug ...      the in-game test suite (Debug.lua, not in the release);
---                     /gcc friendly and /gcc monsters run its parts
-SLASH_GAMEPADCROSSHAIRCUSTOMIZER1 = "/gcc"
-SlashCmdList.GAMEPADCROSSHAIRCUSTOMIZER = function(message)
+-- /grc                opens the settings (/gamepadreticlecustomizer works too)
+-- /grc RRGGBBAA       sets the color
+-- /grc debug ...      the in-game test suite (Debug.lua, not in the release);
+--                     /grc friendly and /grc monsters run its parts
+SLASH_GAMEPADRETICLECUSTOMIZER1 = "/grc"
+SLASH_GAMEPADRETICLECUSTOMIZER2 = "/gamepadreticlecustomizer"
+SlashCmdList.GAMEPADRETICLECUSTOMIZER = function(message)
     local text = tostring(message or ""):match("^%s*(.-)%s*$")
     local command, arguments = text:match("^(%S+)%s*(.-)$")
     command = command and command:lower()
@@ -305,8 +307,8 @@ SlashCmdList.GAMEPADCROSSHAIRCUSTOMIZER = function(message)
         return addon.Debug.Command(command == "debug" and arguments:lower() or command)
     end
     if addon.SetColor(text) then
-        say("crosshair color: " .. addon.Color())
+        say("reticle color: " .. addon.Color())
     else
-        say("usage: /gcc RRGGBBAA (hex, alpha last), e.g. /gcc FF3030FF")
+        say("usage: /grc RRGGBBAA (hex, alpha last), e.g. /grc FF3030FF")
     end
 end
