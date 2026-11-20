@@ -40,20 +40,40 @@ local pickerOwner = {
     SetOpacity = function(alpha) addon.SetOpacity(alpha, pickerColorKey) end,
 }
 
--- The custom texture: typed in a box (the settings page has no text field).
-function addon.AskCustomTexture()
-    addon.TextBox.Ask("A texture path for the crosshair, e.g. Interface\\Icons\\INV_Misc_QuestionMark",
-        addon.Settings().customTexture, function(text) addon.SetCustomTexture(text) end)
-end
-
-function addon.SetCustomTexture(text)
-    text = tostring(text or ""):match("^%s*(.-)%s*$")
-    if text == "" then return false end
-    addon.Settings().customTexture = text
-    addon.Settings().targetIcon = "custom"
-    if addon.targetIconSlider then addon.targetIconSlider:SetValue(addon.ChoiceIndex(addon.Icons.TargetList(), "custom")) end
+-- The icon on a target, from the icon picker (as the macro window's) or /gcc texture:
+-- a raid marker becomes its own choice, anything else the custom texture.
+function addon.SetTargetIcon(icon)
+    if type(icon) == "string" then icon = icon:match("^%s*(.-)%s*$") end
+    if icon == nil or icon == "" then return false end
+    local settings = addon.Settings()
+    local markerIndex
+    for index = 1, 8 do
+        if icon == addon.Icons.RAID_MARKER_TEXTURE .. index then markerIndex = index end
+    end
+    if markerIndex then
+        settings.targetIcon = "marker" .. markerIndex
+    else
+        settings.targetIcon, settings.customTexture = "custom", icon
+    end
+    if addon.targetIconSlider then
+        addon.targetIconSlider:SetValue(addon.ChoiceIndex(addon.Icons.TargetList(), settings.targetIcon))
+    end
     addon.UpdateCrosshair()
     return true
+end
+
+function addon.ChooseTargetIcon()
+    local settings = addon.Settings()
+    local current = addon.Icons.Texture(settings.targetIcon, settings.customTexture)
+    addon.IconPicker.Open(current, addon.SetTargetIcon)
+end
+
+-- Both colors back to their defaults: the crosshair white (a shape's own look,
+-- JiberishUI's too), the border black.
+function addon.ResetColors()
+    local settings = addon.Settings()
+    settings.color, settings.borderColor = addon.DEFAULTS.color, addon.DEFAULTS.borderColor
+    addon.UpdateCrosshair()
 end
 
 function addon.ShowJiberishLink()
@@ -110,8 +130,9 @@ function addon.RegisterSettings()
     Settings.CreateCheckbox(category, addSetting("enabled", Settings.VarType.Boolean, "Enable"),
         "Draws the controller's aiming dot (the controller UI's crosshair) your way. Turned off, the game's own dot comes back.")
 
-    -- A choice slider: steps through a list, its label the chosen name; saves the id under key.
-    local function addChoice(key, label, list, tooltip)
+    -- A choice slider: steps through a list, its label the chosen name; saves the id
+    -- under key. afterChange (optional) runs once the id is saved.
+    local function addChoice(key, label, list, tooltip, afterChange)
         local entries = list()
         addon.choices[key] = addon.ChoiceIndex(entries, settings[key])
         local variableName = "GamepadCrosshairCustomizer_" .. key .. "Choice"
@@ -120,6 +141,7 @@ function addon.RegisterSettings()
         Settings.SetOnValueChangedCallback(variableName, function(_, _, value)
             local entry = entries[math.floor((tonumber(value) or 1) + 0.5)] or entries[1]
             settings[key] = entry.id
+            if afterChange then afterChange() end
             addon.UpdateCrosshair()
         end)
         Settings.CreateSlider(category, setting, sliderOptions(1, #entries, 1, function(value)
@@ -129,36 +151,40 @@ function addon.RegisterSettings()
         return setting
     end
 
+    local function addButton(name, buttonText, onClick, tooltip)
+        if not (layout and type(CreateSettingsButtonInitializer) == "function") then return end
+        layout:AddInitializer(CreateSettingsButtonInitializer(name, buttonText, onClick, tooltip, true))
+    end
+
+    -- The crosshair, always shown: its shape, size, color and border.
     local jiberishInstalled = addon.Icons.JiberishInstalled()
+    -- A shape at the game dot's size is too small to see: choosing one raises the size.
+    local function raiseSizeForShape()
+        if settings.icon ~= "dot" and (tonumber(settings.size) or 0) < addon.SHAPE_MIN_SIZE and addon.sizeSetting then
+            addon.sizeSetting:SetValue(addon.SHAPE_SIZE)
+        end
+    end
     addChoice("icon", "Crosshair", addon.Icons.CrosshairList,
         "The crosshair's shape, always shown: the game's dot"
         .. (jiberishInstalled and (", or one of JiberishUI's crosshairs. " .. addon.Icons.JIBERISH_CREDIT
-            .. " (" .. addon.Icons.JIBERISH_LINK .. ").") or ". More shapes come with JiberishUI Fabled Icons (Get JiberishUI Icons... below)."))
+            .. " (" .. addon.Icons.JIBERISH_LINK .. ").") or ". More shapes come with JiberishUI Fabled Icons (Get JiberishUI Icons... below)."),
+        raiseSizeForShape)
 
-    Settings.CreateSlider(category, addSetting("size", Settings.VarType.Number, "Size"),
+    addon.sizeSetting = addSetting("size", Settings.VarType.Number, "Size")
+    Settings.CreateSlider(category, addon.sizeSetting,
         sliderOptions(addon.SIZE_MIN, addon.SIZE_MAX, addon.SIZE_STEP, function(value)
             local size = math.floor(value + 0.5)
             return size == addon.DEFAULTS.size and (size .. " (the game's)") or tostring(size)
         end),
-        "The crosshair's width and height. The game's dot is 4.")
+        "The crosshair's width and height. The game's dot is 4; a shape is set to " .. addon.SHAPE_SIZE .. " when chosen.")
 
     if canSwatch then
         addon.PickerSticks.Watch(pickerOwner)
         addSwatch("color", "Color",
-            "The crosshair's color and opacity, e.g. to see it better on the ground. "
+            "The crosshair's color and opacity, e.g. to see it better on the ground. White keeps a shape's own look. "
             .. "On a controller: left stick for the color, right stick for the brightness, D-pad up and down for the opacity. "
             .. "Also from chat: /gcc RRGGBBAA (hex, alpha last), e.g. /gcc FF3030FF.")
     end
-
-    addon.targetIconSlider = addChoice("targetIcon", "On a target", addon.Icons.TargetList,
-        "What shows instead of the crosshair while your target's nameplate is on screen (vendors, guards "
-        .. "and minions keep the crosshair unless their nameplates are on in Options > Nameplates): nothing, "
-        .. "a player's class icon (any other target keeps the crosshair), one of the game's raid markers, "
-        .. "or a texture of your own (Custom texture...). Icons keep their own colors.")
-    Settings.CreateSlider(category, addSetting("iconSize", Settings.VarType.Number, "Icon size"),
-        sliderOptions(addon.SIZE_MIN, addon.SIZE_MAX, addon.SIZE_STEP, function(value) return tostring(math.floor(value + 0.5)) end),
-        "The icon's width and height on a target.")
-
     Settings.CreateSlider(category, addSetting("borderSize", Settings.VarType.Number, "Border"),
         sliderOptions(addon.BORDER_MIN, addon.BORDER_MAX, addon.BORDER_STEP, function(value)
             local borderSize = math.floor(value + 0.5)
@@ -168,18 +194,30 @@ function addon.RegisterSettings()
     if canSwatch then
         addSwatch("borderColor", "Border color", "The border's color and opacity.")
     end
+    addButton("Default colors", "Default colors", function() addon.ResetColors() end,
+        "Puts the crosshair's color back to white (a shape's own look) and the border's to black.")
 
-    if layout and type(CreateSettingsButtonInitializer) == "function" then
-        layout:AddInitializer(CreateSettingsButtonInitializer("Custom texture", "Custom texture...",
-            function() addon.AskCustomTexture() end,
-            "Type the path of any texture in the game to show it on a target. Also from chat: /gcc texture <path>.",
-            true))
-        if not jiberishInstalled then
-            layout:AddInitializer(CreateSettingsButtonInitializer("More shapes", "Get JiberishUI Icons...",
-                function() addon.ShowJiberishLink() end,
-                "16 more crosshair shapes come with the JiberishUI Fabled Icons addon. "
-                .. "Once it's installed, they're in the Crosshair list.", true))
-        end
+    -- On a target: the icon instead of the crosshair.
+    addon.targetIconSlider = addChoice("targetIcon", "On a target", addon.Icons.TargetList,
+        "What shows instead of the crosshair while your target's nameplate is on screen (vendors, guards "
+        .. "and minions keep the crosshair unless their nameplates are on in Options > Nameplates): nothing, "
+        .. "a player's class icon (any other target keeps the crosshair), one of the game's raid markers, "
+        .. "or any icon (Choose icon...). Icons keep their own colors.")
+    addChoice("classStyle", "Class icons", addon.Icons.ClassStyleList,
+        "How a player's class icon looks: the game's own"
+        .. (jiberishInstalled and ", or one of JiberishUI's class icon styles (Fabled, Fabled Pixels, Fabled Class...)." or
+            ". More styles come with JiberishUI Fabled Icons (Get JiberishUI Icons... below)."))
+    addButton("Choose icon", "Choose icon...", function() addon.ChooseTargetIcon() end,
+        "Choose the icon shown on a target as you choose a macro's icon: the game's raid markers, every spell and "
+        .. "item icon, or a texture path. Also from chat: /gcc texture <path>.")
+    Settings.CreateSlider(category, addSetting("iconSize", Settings.VarType.Number, "Icon size"),
+        sliderOptions(addon.SIZE_MIN, addon.SIZE_MAX, addon.SIZE_STEP, function(value) return tostring(math.floor(value + 0.5)) end),
+        "The icon's width and height on a target.")
+
+    if not jiberishInstalled then
+        addButton("More shapes", "Get JiberishUI Icons...", function() addon.ShowJiberishLink() end,
+            "16 more crosshair shapes and 11 class icon styles come with the JiberishUI Fabled Icons addon. "
+            .. "Once it's installed (and after /reload), they're in the Crosshair and Class icons choices.")
     end
 
     Settings.RegisterAddOnCategory(category)
@@ -231,7 +269,7 @@ SlashCmdList.GAMEPADCROSSHAIRCUSTOMIZER = function(message)
         return addon.Debug.Command(command == "debug" and arguments:lower() or command)
     end
     if command == "texture" then
-        if addon.SetCustomTexture(arguments) then say("crosshair texture: " .. arguments)
+        if addon.SetTargetIcon(arguments) then say("icon on a target: " .. arguments)
         else say("usage: /gcc texture <path>, e.g. /gcc texture Interface\\Icons\\INV_Misc_QuestionMark") end
         return
     end

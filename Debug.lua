@@ -139,7 +139,10 @@ local function expectedLook(step, settings)
     end
     if step.shows == "targetIcon" then
         if settings.targetIcon == "class" then
-            return { icon = "class", atlas = addon.Icons.ClassAtlas(target.classFile), size = settings.iconSize, tinted = false }
+            -- In its style: the game's atlas, or a JiberishUI sheet's cell (the game's without it).
+            local classLook = addon.Icons.ClassLook(target.classFile, settings.classStyle) or {}
+            return { icon = "class", atlas = classLook.atlas, texture = classLook.texture, texCoord = classLook.texCoord,
+                size = settings.iconSize, tinted = false }
         end
         return { icon = settings.targetIcon, texture = addon.Icons.Texture(settings.targetIcon, settings.customTexture),
             size = settings.iconSize, tinted = false }
@@ -171,6 +174,13 @@ local function checkLook(label, step)
     expectEqual(label .. ": what's drawn", expected.icon, drawn and drawn.icon)
     if expected.atlas then
         expectEqual(label .. ": its atlas", expected.atlas, type(layer.shape.GetAtlas) == "function" and layer.shape:GetAtlas() or drawn.atlas)
+        Debug.CheckNameplateClassColor(label, addon.TargetInfo().classFile)
+    elseif expected.icon == "class" and expected.texture then
+        expectEqual(label .. ": its sheet", fileAsGameReportsIt(expected.texture), layer.shape:GetTexture())
+        -- The game gives the four corners: upper left, lower left, upper right, lower right (x, y each).
+        local upperLeftX, upperLeftY, _, lowerLeftY, upperRightX = layer.shape:GetTexCoord()
+        expectEqual(label .. ": the class's cell on it", table.concat(expected.texCoord, ","),
+            table.concat({ upperLeftX, upperRightX, upperLeftY, lowerLeftY }, ","))
         Debug.CheckNameplateClassColor(label, addon.TargetInfo().classFile)
     elseif expected.icon == "class" then
         recordCheck(label .. ": the class's atlas exists on this client", false, "classicon-<class>", "none")
@@ -262,6 +272,10 @@ addLook("target, \"None\": the crosshair stays", { targetIcon = "none", size = 1
 addLook("target: its class icon, size 32", { targetIcon = "class", iconSize = 32 }, { shows = "targetIcon", requires = "class1" })
 addLook("target: its class icon, size 48, black border 3", { targetIcon = "class", iconSize = 48, borderSize = 3 },
     { shows = "targetIcon" })
+addLook("target: its class icon, Jiberish Fabled Pixels, size 40", { targetIcon = "class", classStyle = "jiberish:fabledpixels",
+    iconSize = 40 }, { shows = "targetIcon", needsJiberish = true })
+addLook("target: its class icon, Jiberish Fabled Class, size 40", { targetIcon = "class", classStyle = "jiberish:fabledclass",
+    iconSize = 40 }, { shows = "targetIcon", needsJiberish = true })
 for index = 1, 8 do
     addLook("target: raid marker " .. index .. ", size 32", { targetIcon = "marker" .. index, iconSize = 32 },
         { shows = "targetIcon" })

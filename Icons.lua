@@ -9,7 +9,9 @@
 --                     its shapes are credited (its license asks for that).
 -- The icons shown instead while you have a target (setting "targetIcon"):
 --   "none"            none: the crosshair stays
---   "class"           a player target's class (the game's classicon-<class> atlases)
+--   "class"           a player target's class, in a class icon style (setting
+--                     "classStyle"): "game" (the game's classicon-<class> atlases), or
+--                     "jiberish:<style>", a JiberishUI class sheet when installed
 --   "marker1".."8"    the game's raid target markers: star, circle, diamond,
 --                     triangle, moon, square, cross, skull
 --   "custom"          any texture path you type (the customTexture setting)
@@ -26,6 +28,24 @@ local Icons = {
     JIBERISH_WEIGHTS = { "bold", "thin" },
     JIBERISH_FILE_SIZE = 128,   -- each shape comes in 32, 64, 128 and 256 px
     JIBERISH_CREDIT = "Shapes from JiberishUI Fabled Icons",
+    JIBERISH_CLASS_FOLDER = "Interface\\AddOns\\JiberishIcons\\Media\\Class\\",
+    -- Its class sheets (files and names as it lists them).
+    JIBERISH_CLASS_STYLES = {
+        { file = "fabled", name = "Fabled" }, { file = "fabledclass", name = "Fabled Class" },
+        { file = "fabledpixels", name = "Fabled Pixels" }, { file = "fabledpixelsv2", name = "Fabled Pixels v2" },
+        { file = "fabledcore", name = "Fabled Core" }, { file = "fableddimension", name = "Fabled Dimension" },
+        { file = "fabledmyth", name = "Fabled Myth" }, { file = "fabledrealm", name = "Fabled Realm" },
+        { file = "fabledrealmv2", name = "Fabled Realm v2" }, { file = "fabledregalia", name = "Fabled Regalia" },
+        { file = "intothevoid", name = "Into The VOID" },
+    },
+    -- Where each class sits on a sheet: { column, row } of an 8 by 8 grid (all its
+    -- class sheets share this layout).
+    JIBERISH_CLASS_GRID = {
+        WARRIOR = { 0, 0 }, MAGE = { 1, 0 }, ROGUE = { 2, 0 }, DRUID = { 3, 0 }, EVOKER = { 4, 0 },
+        HUNTER = { 0, 1 }, SHAMAN = { 1, 1 }, PRIEST = { 2, 1 }, WARLOCK = { 3, 1 },
+        PALADIN = { 0, 2 }, DEATHKNIGHT = { 1, 2 }, MONK = { 2, 2 }, DEMONHUNTER = { 3, 2 },
+    },
+    JIBERISH_CLASS_GRID_CELLS = 8,
     JIBERISH_LINK = "https://www.curseforge.com/wow/addons/jiberish-fabled-icons",
 }
 addon.Icons = Icons
@@ -67,7 +87,7 @@ function Icons.TargetList()
         list[#list + 1] = { id = "marker" .. index,
             label = "Raid marker: " .. (_G["RAID_TARGET_" .. index] or Icons.RAID_MARKER_NAMES[index]) }
     end
-    list[#list + 1] = { id = "custom", label = "Your own texture (Custom texture... button)" }
+    list[#list + 1] = { id = "custom", label = "Your own icon (Choose icon...)" }
     return list
 end
 
@@ -82,10 +102,37 @@ function Icons.Texture(iconId, customTexture)
     if jiberishName and Icons.JiberishInstalled() then
         return Icons.JIBERISH_FOLDER .. jiberishName .. "-" .. Icons.JIBERISH_FILE_SIZE
     end
-    if iconId == "custom" and type(customTexture) == "string" and customTexture:match("%S") then
+    -- A custom icon: a path, or a file id from the icon picker.
+    if iconId == "custom" and ((type(customTexture) == "string" and customTexture:match("%S")) or type(customTexture) == "number") then
         return customTexture
     end
     return nil
+end
+
+-- The class icon styles on offer now, in order: { id, label }.
+function Icons.ClassStyleList()
+    local list = { { id = "game", label = "The game's class icons" } }
+    if Icons.JiberishInstalled() then
+        for _, style in ipairs(Icons.JIBERISH_CLASS_STYLES) do
+            list[#list + 1] = { id = "jiberish:" .. style.file, label = "Jiberish: " .. style.name }
+        end
+    end
+    return list
+end
+
+-- A class's icon in a style: { atlas } or { texture, texCoord = { left, right, top, bottom } },
+-- or nil. A Jiberish style without the addon, or a class not on its sheet, falls
+-- back to the game's icon.
+function Icons.ClassLook(classFile, style)
+    local file = tostring(style or ""):match("^jiberish:(%l[%l%d]*)$")
+    local cell = Icons.JIBERISH_CLASS_GRID[classFile or ""]
+    if file and cell and Icons.JiberishInstalled() then
+        local cells = Icons.JIBERISH_CLASS_GRID_CELLS
+        return { texture = Icons.JIBERISH_CLASS_FOLDER .. file,
+            texCoord = { cell[1] / cells, (cell[1] + 1) / cells, cell[2] / cells, (cell[2] + 1) / cells } }
+    end
+    local atlas = Icons.ClassAtlas(classFile)
+    return atlas and { atlas = atlas } or nil
 end
 
 -- The game's atlas for a class ("WARRIOR" -> "classicon-warrior"), or nil if

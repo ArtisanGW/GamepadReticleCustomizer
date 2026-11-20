@@ -49,8 +49,11 @@ function Crosshair.Choose(settings, target)
     if target.exists and target.hasNameplate and targetIcon ~= "none" then
         local iconSize = addon.Clamp(settings.iconSize, addon.SIZE_MIN, addon.SIZE_MAX, addon.DEFAULTS.iconSize)
         if targetIcon == "class" then
-            local atlas = target.isPlayer and addon.Icons.ClassAtlas(target.classFile)
-            if atlas then return { icon = "class", atlas = atlas, size = iconSize, tinted = false } end
+            local classLook = target.isPlayer and addon.Icons.ClassLook(target.classFile, settings.classStyle)
+            if classLook then
+                return { icon = "class", atlas = classLook.atlas, texture = classLook.texture, texCoord = classLook.texCoord,
+                    size = iconSize, tinted = false }
+            end
         else
             local texture = addon.Icons.Texture(targetIcon, settings.customTexture)
             if texture then return { icon = targetIcon, texture = texture, size = iconSize, tinted = false } end
@@ -65,14 +68,15 @@ function Crosshair.Choose(settings, target)
         addon.DEFAULTS.size), tinted = true }
 end
 
--- A texture's picture: an atlas, or a file shown whole (after an atlas, the
--- texture coordinates are reset).
+-- A texture's picture: an atlas, or a file shown whole or in part (a cell of a
+-- sheet); after an atlas, the texture coordinates are reset.
 local function setPicture(texture, look)
     if look.atlas then
         texture:SetAtlas(look.atlas)
     else
         texture:SetTexture(look.texture)
-        texture:SetTexCoord(0, 1, 0, 1)
+        local coords = look.texCoord or { 0, 1, 0, 1 }
+        texture:SetTexCoord(coords[1], coords[2], coords[3], coords[4])
     end
 end
 
@@ -111,5 +115,6 @@ function addon.UpdateCrosshair()
     end
     layer:Show()
     dot:SetAlpha(0)
-    drawn = { icon = look.icon, texture = look.texture, atlas = look.atlas, size = look.size, borderSize = borderSize }
+    drawn = { icon = look.icon, texture = look.texture, atlas = look.atlas, texCoord = look.texCoord, size = look.size,
+        borderSize = borderSize }
 end

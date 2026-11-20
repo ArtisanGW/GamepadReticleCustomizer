@@ -23,14 +23,17 @@ _G.GamepadCrosshairCustomizer = addon
 --   targetIcon:    what shows instead while you have a target: "none" (the crosshair
 --                  stays), "class" (a player's class; others keep the crosshair), a raid
 --                  marker or "custom". Icons keep their own colors.
+--   classStyle:    the class icon's style (Icons.lua): "game" or a JiberishUI class sheet.
 --   iconSize:      the icon's width and height.
 --   borderSize:    how far the border reaches out around either (0: no border).
 --   borderColor:   the border's color, "RRGGBBAA".
 --   customTexture: the texture path the "custom" icon uses.
-addon.DEFAULTS = { enabled = true, icon = "dot", color = "FFFFFFFF", size = 4, targetIcon = "none", iconSize = 24,
+addon.DEFAULTS = { enabled = true, icon = "dot", color = "FFFFFFFF", size = 4, targetIcon = "none", classStyle = "game", iconSize = 24,
     borderSize = 0, borderColor = "000000FF", customTexture = "" }
 addon.SIZE_MIN, addon.SIZE_MAX, addon.SIZE_STEP = 2, 64, 1
 addon.BORDER_MIN, addon.BORDER_MAX, addon.BORDER_STEP = 0, 10, 1
+-- A crosshair shape (not the dot) under SHAPE_MIN_SIZE can't be seen: choosing one sets SHAPE_SIZE.
+addon.SHAPE_MIN_SIZE, addon.SHAPE_SIZE = 16, 24
 
 function addon.Settings()
     if type(GamepadCrosshairCustomizerDB) ~= "table" then GamepadCrosshairCustomizerDB = {} end
