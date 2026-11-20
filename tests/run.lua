@@ -403,13 +403,15 @@ test("its page under Options > AddOns, in order, with the defaults; /grc opens i
     eq(game.category.name, "Gamepad Reticle Customizer")
     eq(controlList(), "checkbox:Enable, slider:Size, swatch:Color, button:(Reset color), slider:Border, "
         .. "swatch:Border color, button:(Reset border color), "
-        .. "slider:Your faction, slider:Other faction, slider:Friendly NPCs, slider:Neutral NPCs, slider:Enemy NPCs, button:Class icons, slider:Icon size, button:Camera over shoulder, button:Reticle on your target",
-        "without Jiberish Fabled Icons: no one-choice Reticle or Class icons slider; its button in the Class icons row")
+        .. "slider:Icon size, slider:Horde players, slider:Alliance players, slider:Friendly NPCs, slider:Neutral NPCs, slider:Enemy NPCs, button:More looks, button:Camera over shoulder, button:Reticle on your target",
+        "without Jiberish Fabled Icons: no one-choice Reticle or Class icons slider; its button, More looks")
     boot({ jiberish = true })
     eq(controlList(), "checkbox:Enable, slider:Reticle, slider:Size, swatch:Color, button:(Reset color), slider:Border, "
         .. "swatch:Border color, button:(Reset border color), "
-        .. "slider:Your faction, slider:Other faction, slider:Friendly NPCs, slider:Neutral NPCs, slider:Enemy NPCs, slider:Class icons, slider:Icon size, button:Camera over shoulder, button:Reticle on your target",
-        "with it: both sliders, no button")
+        .. "slider:Icon size, slider:Horde players, slider:Alliance players, slider:Friendly NPCs, slider:Neutral NPCs, slider:Enemy NPCs, button:Camera over shoulder, button:Reticle on your target",
+        "with it: the shapes; no class style while no player row shows their class")
+    boot({ jiberish = true, saved = { otherFactionIcon = "class" } })
+    eq(controlList():find("slider:Enemy NPCs, slider:Class icons", 1, true) ~= nil, true, "a player row on Class: its style row")
     boot()
     local saved = GamepadReticleCustomizerDB
     eq(saved.enabled, true); eq(saved.color, "FFFFFFFF"); eq(saved.size, 4); eq(saved.borderSize, 0)
@@ -571,18 +573,18 @@ test("with Jiberish Fabled Icons installed: its 16 reticles listed and drawn fro
     choose("icon", "jiberish:splitplus-thin")
     eq(GamepadReticleCustomizerDB.icon, "jiberish:splitplus-thin", "the slider's step saved as the shape's id")
     eq(layer().shape.texture, "Interface\\AddOns\\JiberishIcons\\Media\\Crosshair\\splitplus-thin-128")
-    eq(control("button", "Class icons"), nil, "no install button when it's there")
+    eq(control("button", "More looks"), nil, "no install button when it's there")
     eq(control("slider", "Reticle").extra.tooltip:find("Shapes from Jiberish Fabled Icons", 1, true) ~= nil, true,
         "credited, as its license asks")
 end)
 
 test("choices are sliders (a dropdown's menu breaks on the controller): each kind of target, None, its own icon, the 8 raid markers, then the game's icons", function()
     boot()
-    local labels = choiceLabels("Your faction")
+    local labels = choiceLabels("Horde players")
     eq(#labels, 2 + 8 + 12)
     eq(labels[1], "None"); eq(labels[2], "Class")
     eq(labels[10], "Raid marker: Skull"); eq(labels[11], "Icon: Sniper scope"); eq(labels[22], "Icon: Holy")
-    eq(table.concat(choiceLabels("Other faction"), ","):sub(1, 18), "None,Faction,Class")
+    eq(table.concat(choiceLabels("Alliance players"), ","):sub(1, 18), "None,Faction,Class")
     eq(choiceLabels("Friendly NPCs")[2], "Their job"); eq(choiceLabels("Neutral NPCs")[2], "Question mark")
     eq(choiceLabels("Enemy NPCs")[2], "Crossed swords")
     choose("enemyNpcIcon", "marker8")
@@ -688,7 +690,7 @@ test("Jiberish Fabled Icons installed but turned off: not offered, its choices f
     setTarget({ isPlayer = true, classFile = "MAGE", reaction = 5 })
     eq(GamepadReticleCustomizer.Reticle.Drawn().atlas, "classicon-mage", "and a Jiberish class style to the game's")
     eq(GamepadReticleCustomizerDB.icon, "jiberish:x-bold", "your choice kept for when it's on again")
-    local button = control("button", "Class icons")
+    local button = control("button", "More looks")
     eq(button.extra.buttonText, "Enable Jiberish Fabled Icons", "not Get: it's installed")
     button.extra.onClick()
     eq(popup():IsShown(), true, "the game-style popup")
@@ -705,8 +707,8 @@ end)
 
 test("without it: the install button shows the link to copy", function()
     boot()
-    eq(control("button", "Class icons").extra.buttonText, "Get Jiberish Fabled Icons", "in the Class icons row")
-    control("button", "Class icons").extra.onClick()
+    eq(control("button", "More looks").extra.buttonText, "Get Jiberish Fabled Icons", "in the Class icons row")
+    control("button", "More looks").extra.onClick()
     eq(popup():IsShown(), true)
     eq(popup().editBox:GetText(), "https://www.curseforge.com/wow/addons/jiberish-fabled-icons")
     eq(popup().editBox.highlighted, true, "selected, ready for Ctrl+C")
@@ -744,9 +746,9 @@ test("tooltips: text after a colon is a list (each line after \":\" a \"•\" li
 end)
 
 test("every choice slider's label fits the slider (22 characters, seen cut in game beyond)", function()
-    boot({ jiberish = true })
+    boot({ jiberish = true, saved = { friendlyPlayerIcon = "class" } })
     local maxLength = GamepadReticleCustomizer.Icons.LABEL_MAX_LENGTH
-    for _, slider in ipairs({ "Reticle", "Your faction", "Other faction", "Friendly NPCs", "Neutral NPCs", "Enemy NPCs", "Class icons" }) do
+    for _, slider in ipairs({ "Reticle", "Horde players", "Alliance players", "Friendly NPCs", "Neutral NPCs", "Enemy NPCs", "Class icons" }) do
         for _, label in ipairs(choiceLabels(slider)) do
             eq(#label <= maxLength, true, slider .. ": \"" .. label .. "\" is " .. #label .. " characters")
         end
@@ -818,7 +820,7 @@ end)
 
 test("on the controller: A clicks the popup's first button, B the last, a hint says so; closing gives them back", function()
     boot()
-    control("button", "Class icons").extra.onClick()   -- Get Jiberish Fabled Icons: Reload, Close
+    control("button", "More looks").extra.onClick()   -- Get Jiberish Fabled Icons: Reload, Close
     eq(game.bindings.PAD1, "GamepadReticleCustomizerPopupReload", "A: the first button, Reload")
     eq(game.bindings.PAD2, "GamepadReticleCustomizerPopupButton1", "B: the last, Close")
     eq(popup().reloadButton.controllerIcon.atlas, "gamepad-test-pad1", "the A icon on Reload, as the game marks its buttons")
@@ -830,11 +832,11 @@ test("on the controller: A clicks the popup's first button, B the last, a hint s
     eq(game.bindings["ALT-CTRL-SHIFT-C"] ~= nil, true, "other bindings untouched")
 
     boot({ noControllerIcons = true })
-    control("button", "Class icons").extra.onClick()
+    control("button", "More looks").extra.onClick()
     eq(popup().hint.text, "A: Reload      B: Close", "no icons on this client: said in words")
 
     boot({ keyboard = true })
-    control("button", "Class icons").extra.onClick()
+    control("button", "More looks").extra.onClick()
     eq(game.bindings.PAD1, nil, "keyboard: no controller bindings"); eq(popup().hint.text, "")
     eq(popup().reloadButton.controllerIcon:IsShown(), false, "and no icons")
 end)
@@ -1230,6 +1232,16 @@ test("on a client without those atlases: the game's icon files instead", functio
     eq(drawnLook(), "Interface\\GossipFrame\\GossipGossipIcon")
     setTarget({ isPlayer = true, classFile = "MAGE", reaction = 2, faction = "Alliance" })
     eq(GamepadReticleCustomizer.Reticle.Drawn().icon, "dot", "no faction atlas: the reticle")
+end)
+
+test("the player rows are named after the factions, yours first; without a faction, plain words", function()
+    boot()
+    eq(control("slider", "Horde players") ~= nil, true); eq(control("slider", "Alliance players") ~= nil, true)
+    _G.UnitFactionGroup = function(unit) if unit == "player" then return "Alliance" end end
+    eq(GamepadReticleCustomizer.KindLabel(GamepadReticleCustomizer.TARGET_KINDS[1]), "Alliance players", "an Alliance character: theirs first")
+    eq(GamepadReticleCustomizer.KindLabel(GamepadReticleCustomizer.TARGET_KINDS[2]), "Horde players")
+    _G.UnitFactionGroup = function(unit) if unit == "player" then return "Neutral" end end
+    eq(GamepadReticleCustomizer.KindLabel(GamepadReticleCustomizer.TARGET_KINDS[1]), "Your faction")
 end)
 
 reportLine(passed .. " passed, " .. failed .. " failed")

@@ -43,6 +43,18 @@ addon.TARGET_KINDS = {
     { key = "neutralNpcIcon", label = "Neutral NPCs", tooltip = "Neutral NPCs and critters." },
     { key = "enemyNpcIcon", label = "Enemy NPCs", tooltip = "The NPCs you fight." },
 }
+-- A kind's row label: the player rows say whose players, by faction ("Horde
+-- players" for yours when you're Horde); without a faction, "Your faction" and
+-- "Other faction".
+function addon.KindLabel(kind)
+    local isPlayerRow = kind.key == "friendlyPlayerIcon" or kind.key == "otherFactionIcon"
+    local playerFaction = type(UnitFactionGroup) == "function" and UnitFactionGroup("player") or nil
+    local other = { Horde = "Alliance", Alliance = "Horde" }
+    if not (isPlayerRow and other[playerFaction]) then return kind.label end
+    local faction = kind.key == "friendlyPlayerIcon" and playerFaction or other[playerFaction]
+    local factionName = _G["FACTION_" .. faction:upper()] or faction
+    return factionName .. " players"
+end
 addon.SIZE_MIN, addon.SIZE_MAX, addon.SIZE_STEP = 2, 64, 1
 addon.BORDER_MIN, addon.BORDER_MAX, addon.BORDER_STEP = 0, 10, 1
 

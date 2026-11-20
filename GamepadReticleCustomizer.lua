@@ -218,12 +218,16 @@ function addon.RegisterSettings()
             "Puts the border's color back to black.")
     end
 
-    -- On a target: the icon instead of the reticle, one choice per kind of target.
+    -- On a target: the icon instead of the reticle, one choice per kind of target,
+    -- the icon size first. The player rows carry the factions' names.
     if type(CreateSettingsListSectionHeaderInitializer) == "function" then
         layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("On a target"))
     end
+    Settings.CreateSlider(category, addSetting("iconSize", Settings.VarType.Number, "Icon size"),
+        sliderOptions(addon.SIZE_MIN, addon.SIZE_MAX, addon.SIZE_STEP, function(value) return tostring(math.floor(value + 0.5)) end),
+        "The icon's width and height, on a target.")
     for _, kind in ipairs(addon.TARGET_KINDS) do
-        addChoice(kind.key, kind.label, function() return addon.Icons.TargetList(kind.key) end,
+        addChoice(kind.key, addon.KindLabel(kind), function() return addon.Icons.TargetList(kind.key) end,
             "What shows instead of the reticle on these targets. " .. kind.tooltip .. "\n\n"
             .. "• None: the reticle stays\n"
             .. "• Raid marker: one of the game's 8 markers\n"
@@ -231,26 +235,26 @@ function addon.RegisterSettings()
             .. "Shown only while the reticle sits on the target's nameplate, as Gamepad Reticle On Target puts it; "
             .. "the game keeps it in the middle of the screen. Icons keep their own colors.")
     end
-    if jiberishInstalled then
+    -- The class icon style: only when a player row shows their class (decided as
+    -- the page is built: after choosing Class, it's here from the next reload).
+    local classShown = settings.friendlyPlayerIcon == "class" or settings.otherFactionIcon == "class"
+    if jiberishInstalled and classShown then
         addChoice("classStyle", "Class icons", addon.Icons.ClassStyleList,
-            "How a player's class icon looks, when On a target is Target Class.\n\n"
+            "How a player's class icon looks.\n\n"
             .. "• Default: the game's own\n"
             .. "• The others: Jiberish Fabled Icons' class icon styles\n\n"
             .. addon.Icons.JIBERISH_CREDIT .. ".")
     elseif jiberishState == "missing" then
-        addButton("Class icons", "Get Jiberish Fabled Icons", function() addon.ShowJiberishLink() end,
+        addButton("More looks", "Get Jiberish Fabled Icons", function() addon.ShowJiberishLink() end,
             "More looks come with the Jiberish Fabled Icons addon:\n\n"
             .. "• 11 class icon styles\n"
             .. "• 16 reticle shapes\n\n"
             .. "Once it's installed and you've reloaded, they're offered here.")
-    else
-        addButton("Class icons", "Enable Jiberish Fabled Icons", function() addon.TellToEnableJiberish() end,
+    elseif jiberishState ~= "enabled" then
+        addButton("More looks", "Enable Jiberish Fabled Icons", function() addon.TellToEnableJiberish() end,
             "Jiberish Fabled Icons is installed but turned off.\n\n"
             .. "Turn it on to get its class icon styles and reticle shapes here.")
     end
-    Settings.CreateSlider(category, addSetting("iconSize", Settings.VarType.Number, "Icon size"),
-        sliderOptions(addon.SIZE_MIN, addon.SIZE_MAX, addon.SIZE_STEP, function(value) return tostring(math.floor(value + 0.5)) end),
-        "The icon's width and height, on a target.")
 
     addon.RelatedAddons.AddButtons(addButton)
 
