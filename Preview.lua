@@ -6,6 +6,13 @@
 -- in the corner. The window keeps one size whatever is chosen. Painted as the
 -- crosshair is (Crosshair.Paint), redrawn on every change.
 --
+-- It looks like a game window: built as the settings window's own frame is
+-- (SettingsFrameTemplate, Mainline/Blizzard_SettingsPanelTemplates.xml:4, forever
+-- branch: FlatPanelBackgroundTemplate, a NineSlicePanelTemplate border in the
+-- ButtonFrameTemplateNoPortrait layout, a GameFontNormal title) but without its
+-- close button, and each cell an InsetFrameTemplate, as inside the game's windows.
+-- No template here has a button.
+--
 -- Its own frame on the settings window, not part of the game's settings list:
 -- nothing of the game's runs our code for it, and it has no buttons, so the
 -- controller's navigation doesn't stop on it. It shows while our page is the one
@@ -13,17 +20,20 @@
 -- branch), checked a few times a second while the window is open.
 local _, addon = ...
 
-local Preview = { CHECK_SECONDS = 0.25, CELL_SIZE = 120, ZOOMED_FILL = 0.8, REAL_SIZE_CORNER = 40 }
+local Preview = { CHECK_SECONDS = 0.25, CELL_SIZE = 120, ZOOMED_FILL = 0.8, REAL_SIZE_CORNER = 40,
+    TITLE_HEIGHT = 24, PADDING = 14, LABEL_HEIGHT = 30 }
 addon.Preview = Preview
 
 local frame, watcher
 
 local function newCell(label, column)
-    local cell = CreateFrame("Frame", nil, frame)
+    local cell = CreateFrame("Frame", nil, frame, "InsetFrameTemplate")
     cell:SetSize(Preview.CELL_SIZE, Preview.CELL_SIZE)
-    cell:SetPoint("TOPLEFT", frame, "TOPLEFT", 12 + column * (Preview.CELL_SIZE + 12), -34)
-    local background = cell:CreateTexture(nil, "BACKGROUND")
-    background:SetAllPoints()
+    cell:SetPoint("TOPLEFT", frame, "TOPLEFT", Preview.PADDING + column * (Preview.CELL_SIZE + Preview.PADDING),
+        -(Preview.TITLE_HEIGHT + Preview.PADDING))
+    local background = cell:CreateTexture(nil, "BACKGROUND", nil, 1)
+    background:SetPoint("TOPLEFT", cell, "TOPLEFT", 3, -3)
+    background:SetPoint("BOTTOMRIGHT", cell, "BOTTOMRIGHT", -3, 3)
     background:SetColorTexture(0.22, 0.24, 0.2, 1)   -- a dull ground color, as behind the real crosshair
     -- The zoomed view, in the middle.
     cell.border = cell:CreateTexture(nil, "BORDER")
@@ -33,7 +43,7 @@ local function newCell(label, column)
     -- The real size, in the bottom-right corner, on its own darker square.
     local corner = CreateFrame("Frame", nil, cell)
     corner:SetSize(Preview.REAL_SIZE_CORNER, Preview.REAL_SIZE_CORNER)
-    corner:SetPoint("BOTTOMRIGHT", cell, "BOTTOMRIGHT", 0, 0)
+    corner:SetPoint("BOTTOMRIGHT", cell, "BOTTOMRIGHT", -3, 3)
     local cornerBackground = corner:CreateTexture(nil, "BACKGROUND")
     cornerBackground:SetAllPoints()
     cornerBackground:SetColorTexture(0.12, 0.13, 0.11, 1)
@@ -42,7 +52,7 @@ local function newCell(label, column)
     cell.realShape = corner:CreateTexture(nil, "ARTWORK")
     cell.realShape:SetPoint("CENTER", corner, "CENTER")
     cell.label = cell:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    cell.label:SetPoint("TOP", cell, "BOTTOM", 0, -4)
+    cell.label:SetPoint("TOP", cell, "BOTTOM", 0, -6)
     cell.label:SetWidth(Preview.CELL_SIZE + 10)
     cell.label:SetText(label)
     return cell
@@ -50,15 +60,23 @@ end
 
 local function build(settingsPanel)
     frame = CreateFrame("Frame", "GamepadCrosshairCustomizerPreview", settingsPanel)
-    frame:SetSize(12 + 2 * (Preview.CELL_SIZE + 12), 34 + Preview.CELL_SIZE + 44)
-    frame:SetPoint("TOPLEFT", settingsPanel, "TOPRIGHT", 6, 0)
+    frame:SetSize(Preview.PADDING + 2 * (Preview.CELL_SIZE + Preview.PADDING),
+        Preview.TITLE_HEIGHT + Preview.PADDING + Preview.CELL_SIZE + Preview.LABEL_HEIGHT)
+    frame:SetPoint("TOPLEFT", settingsPanel, "TOPRIGHT", 4, 0)
     frame:SetClampedToScreen(true)
     frame:SetFrameStrata(settingsPanel:GetFrameStrata())
-    local background = frame:CreateTexture(nil, "BACKGROUND")
-    background:SetAllPoints()
-    background:SetColorTexture(0, 0, 0, 0.85)
-    frame.title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    frame.title:SetPoint("TOP", frame, "TOP", 0, -10)
+    -- The settings window's own background and border (SettingsFrameTemplate's pieces).
+    frame.Bg = CreateFrame("Frame", nil, frame, "FlatPanelBackgroundTemplate")
+    frame.Bg:SetFrameLevel(frame:GetFrameLevel())
+    frame.Bg:SetPoint("TOPLEFT", frame, "TOPLEFT", 7, -18)
+    frame.Bg:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -3, 3)
+    frame.NineSlice = CreateFrame("Frame", nil, frame, "NineSlicePanelTemplate")
+    frame.NineSlice:SetAllPoints()
+    if type(NineSliceUtil) == "table" and type(NineSliceUtil.ApplyLayoutByName) == "function" then
+        NineSliceUtil.ApplyLayoutByName(frame.NineSlice, "ButtonFrameTemplateNoPortrait")
+    end
+    frame.title = frame.NineSlice:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    frame.title:SetPoint("TOP", frame, "TOP", 0, -5)
     frame.title:SetText("Preview")
     frame.crosshair = newCell("Crosshair", 0)
     frame.onTarget = newCell("On a target", 1)

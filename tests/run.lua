@@ -59,6 +59,8 @@ local function newRegion(parent)
     function region:SetFrameStrata(strata) self.strata = strata end
     function region:GetFrameStrata() return self.strata or "MEDIUM" end
     function region:SetClampedToScreen() end
+    function region:SetFrameLevel(level) self.level = level end
+    function region:GetFrameLevel() return self.level or 1 end
     function region:EnableMouse() end
     function region:SetText(text) self.text = text end
     function region:GetText() return self.text end
@@ -113,8 +115,10 @@ local function boot(options)
     _G.date = os.date
     -- The game's file ids by path (GetFileIDFromPath): every file but one called "missing".
     _G.GetFileIDFromPath = function(path) if not tostring(path):find("missing", 1, true) then return 100000 + #path end end
+    _G.NineSliceUtil = { ApplyLayoutByName = function(container, layoutName) container.layoutName = layoutName end }
     _G.CreateFrame = function(_, name, parent, template)
         local frame = newRegion(parent)
+        frame.template = template
         frame.events, frame.scripts = {}, {}
         if name then _G[name] = frame end
         function frame:RegisterEvent(eventName) self.events[eventName] = true end
@@ -609,6 +613,11 @@ test("the preview shows beside our settings page only, with the crosshair and th
     boot({ saved = { color = "FF3030FF", size = 10, targetIcon = "marker8", iconSize = 30, borderSize = 2 } })
     local preview = GamepadCrosshairCustomizer.Preview.frame
     eq(preview.parent, SettingsPanel, "on the settings window")
+    eq(preview.Bg.template, "FlatPanelBackgroundTemplate", "the settings window's own background")
+    eq(preview.NineSlice.template, "NineSlicePanelTemplate"); eq(preview.NineSlice.layoutName, "ButtonFrameTemplateNoPortrait",
+        "and its metal border")
+    eq(preview.crosshair.template, "InsetFrameTemplate", "each cell an inset, as inside the game's windows")
+    eq(preview.title.text, "Preview")
     eq(preview:IsShown(), false, "hidden until the page opens")
     showPage({ name = "Another page" })
     eq(preview:IsShown(), false, "another page: hidden")
