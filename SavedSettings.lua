@@ -9,7 +9,7 @@
 --   Target.lua        what's targeted now: whether there's a target, a player's class
 --   Crosshair.lua     draws the crosshair, or the icon on a target, on the game's crosshair
 --   PickerSticks.lua  the game's color picker on a controller
---   TextBox.lua       a small box to type or copy a line of text
+--   Popup.lua         a popup in the game's own style, with a secure Reload when needed
 --   GamepadCrosshairCustomizer.lua  the settings page, /gcc and the events
 --   Debug.lua         /gcc debug, the in-game test suite (not in the release)
 local _, addon = ...

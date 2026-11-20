@@ -47,14 +47,30 @@ function addon.ResetColor(key)
     addon.UpdateCrosshair()
 end
 
+-- JiberishUI turned off: offer to turn it on for this character and reload
+-- (C_AddOns.EnableAddOn, AddOnsDocumentation.lua:62, forever branch; it takes
+-- effect on the reload, done by the popup's secure Reload button).
 function addon.TellToEnableJiberish()
-    addon.TextBox.Tell("JiberishUI Fabled Icons is installed but turned off. To use its shapes and class icons: "
-        .. "open the game menu > AddOns, tick JiberishUI Fabled Icons, then reload (or restart the game).")
+    addon.Popup.Show({
+        text = "JiberishUI Fabled Icons is installed but turned off.\nTurn it on and reload to use its crosshairs and class icons?",
+        buttons = {
+            { text = "Turn on and reload", reload = true, beforeReload = function()
+                local character = type(UnitName) == "function" and UnitName("player") or nil
+                C_AddOns.EnableAddOn(addon.Icons.JIBERISH_ADDON, character)
+            end },
+            { text = "Not now" },
+        },
+    })
 end
 
+-- JiberishUI missing: its download link to copy, and a Reload for once it's installed.
 function addon.ShowJiberishLink()
-    addon.TextBox.Copy("More shapes: install JiberishUI Fabled Icons (copy the link with Ctrl+C), then /reload.",
-        addon.Icons.JIBERISH_LINK)
+    addon.Popup.Show({
+        text = "More crosshairs and class icons come with JiberishUI Fabled Icons.\n"
+            .. "Copy the link (Ctrl+C), install it, then reload.",
+        copyText = addon.Icons.JIBERISH_LINK,
+        buttons = { { text = "Reload", reload = true }, { text = "Close" } },
+    })
 end
 
 -- Settings page
@@ -104,7 +120,7 @@ function addon.RegisterSettings()
     local canSwatch = type(Settings.RegisterProxySetting) == "function" and type(Settings.CreateColorSwatch) == "function"
 
     Settings.CreateCheckbox(category, addSetting("enabled", Settings.VarType.Boolean, "Enable"),
-        "Draws the controller's aiming dot (the controller UI's crosshair) your way. Turned off, the game's own dot comes back.")
+        "Draws the controller's aiming dot your way.\n\nTurned off, the game's own dot comes back.")
 
     -- A choice slider: steps through a list, its label the chosen name; saves the id
     -- under key. afterChange(previousId) (optional) runs once the new id is saved.
@@ -152,8 +168,10 @@ function addon.RegisterSettings()
     -- Class icons row (seen in game: an empty slider).
     if jiberishInstalled then
         addChoice("icon", "Crosshair", addon.Icons.CrosshairList,
-            "The crosshair's shape, always shown: the game's own dot (Default dot), or one of JiberishUI's crosshairs. "
-            .. addon.Icons.JIBERISH_CREDIT .. " (" .. addon.Icons.JIBERISH_LINK .. ").",
+            "The crosshair's shape, always shown.\n\n"
+            .. "• Default dot: the game's own\n"
+            .. "• The others: JiberishUI's crosshairs\n\n"
+            .. addon.Icons.JIBERISH_CREDIT .. ".",
             keepSizePerKind)
     end
 
@@ -163,26 +181,34 @@ function addon.RegisterSettings()
             local size = math.floor(value + 0.5)
             return size == addon.DEFAULTS.size and (size .. " (default)") or tostring(size)
         end),
-        "The crosshair's width and height. The game's dot is 4. The dot and the shapes each keep their own size.")
+        "The crosshair's width and height.\n\n"
+        .. "• The game's dot is 4\n"
+        .. "• The dot and the shapes each keep their own size")
 
     if canSwatch then
         addon.PickerSticks.Watch(pickerOwner)
         addSwatch("color", "Color",
-            "The crosshair's color and opacity, e.g. to see it better on the ground. White keeps a shape's own look. "
-            .. "On a controller: left stick for the color, right stick for the brightness, D-pad up and down for the opacity. "
-            .. "Also from chat: /gcc RRGGBBAA (hex, alpha last), e.g. /gcc FF3030FF.")
+            "The crosshair's color and opacity. White keeps a shape's own look.\n\n"
+            .. "On a controller, in the color picker:\n"
+            .. "• Left stick: the color\n"
+            .. "• Right stick: the brightness\n"
+            .. "• D-pad up and down: the opacity\n\n"
+            .. "From chat: /gcc RRGGBBAA, e.g. /gcc FF3030FF")
         -- The reset rows show only their button, under their color, lined up with the
         -- other controls: a label of one space reads as empty but isn't "", which
         -- the game would put at the left edge (Blizzard_SettingControls.lua:982-999).
         addButton(" ", "Reset color", function() addon.ResetColor("color") end,
-            "Puts the crosshair's color back to white: a shape's own look, JiberishUI's too.")
+            "Puts the crosshair's color back to white.\n\nWhite shows a shape as it was drawn, JiberishUI's too.")
     end
     Settings.CreateSlider(category, addSetting("borderSize", Settings.VarType.Number, "Border"),
         sliderOptions(addon.BORDER_MIN, addon.BORDER_MAX, addon.BORDER_STEP, function(value)
             local borderSize = math.floor(value + 0.5)
             return borderSize == 0 and "Off" or tostring(borderSize)
         end),
-        "A border around the crosshair or the icon, this wide: the same picture, larger, behind it, in the border color.")
+        "A border around the crosshair or the icon.\n\n"
+        .. "• Off: no border\n"
+        .. "• 1 to 10: how wide it is\n\n"
+        .. "It's the same picture, larger, behind it, in the border color.")
     if canSwatch then
         addSwatch("borderColor", "Border color", "The border's color and opacity.")
         addButton(" ", "Reset border color", function() addon.ResetColor("borderColor") end,
@@ -191,26 +217,34 @@ function addon.RegisterSettings()
 
     -- On a target: the icon instead of the crosshair.
     addon.targetIconSlider = addChoice("targetIcon", "On a target", addon.Icons.TargetList,
-        "What shows instead of the crosshair while your target's nameplate is on screen (vendors, guards "
-        .. "and minions keep the crosshair unless their nameplates are on in Options > Nameplates): None (the "
-        .. "crosshair stays), Target Class (a player's class icon; any other target keeps the crosshair), one of the game's raid markers, "
-        .. "or one of a set of the game's icons; the preview shows it big. Icons keep their own colors.")
+        "What shows instead of the crosshair while you have a target.\n\n"
+        .. "• None: the crosshair stays\n"
+        .. "• Target Class: a player's class icon (any other target keeps the crosshair)\n"
+        .. "• Raid marker: one of the game's 8 markers\n"
+        .. "• Icon: one of a set of the game's icons\n\n"
+        .. "Only while the target's nameplate is on screen: vendors, guards and minions keep the crosshair "
+        .. "unless their nameplates are on (Options > Nameplates).\n\n"
+        .. "Icons keep their own colors. The preview shows your choice big.")
     if jiberishInstalled then
         addChoice("classStyle", "Class icons", addon.Icons.ClassStyleList,
-            "How a player's class icon looks: the game's own (Default), or one of JiberishUI's class icon styles "
-            .. "(Fabled, Fabled Pixels, Fabled Class...).")
+            "How a player's class icon looks, for On a target: Target Class.\n\n"
+            .. "• Default: the game's own\n"
+            .. "• The others: JiberishUI's class icon styles\n\n"
+            .. addon.Icons.JIBERISH_CREDIT .. ".")
     elseif jiberishState == "missing" then
         addButton("Class icons", "Get JiberishUI Icons", function() addon.ShowJiberishLink() end,
-            "11 class icon styles and 16 more crosshair shapes come with the JiberishUI Fabled Icons addon. "
-            .. "Once it's installed (and after /reload), they're offered here.")
+            "More looks come with the JiberishUI Fabled Icons addon:\n\n"
+            .. "• 11 class icon styles\n"
+            .. "• 16 crosshair shapes\n\n"
+            .. "Once it's installed and you've reloaded, they're offered here.")
     else
         addButton("Class icons", "Enable JiberishUI Icons", function() addon.TellToEnableJiberish() end,
-            "JiberishUI Fabled Icons is installed but turned off, so its class icon styles and crosshair shapes "
-            .. "aren't offered. Turn it on in the AddOns list, then reload.")
+            "JiberishUI Fabled Icons is installed but turned off.\n\n"
+            .. "Turn it on to get its class icon styles and crosshair shapes here.")
     end
     Settings.CreateSlider(category, addSetting("iconSize", Settings.VarType.Number, "Icon size"),
         sliderOptions(addon.SIZE_MIN, addon.SIZE_MAX, addon.SIZE_STEP, function(value) return tostring(math.floor(value + 0.5)) end),
-        "The icon's width and height on a target.")
+        "The icon's width and height, on a target.")
 
     addon.RelatedAddon.AddButton(addButton)
 

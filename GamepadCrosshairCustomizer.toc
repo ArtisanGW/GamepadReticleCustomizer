@@ -12,7 +12,7 @@ Icons.lua
 Target.lua
 Crosshair.lua
 PickerSticks.lua
-TextBox.lua
+Popup.lua
 Preview.lua
 RelatedAddon.lua
 GamepadCrosshairCustomizer.lua

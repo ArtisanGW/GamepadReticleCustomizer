@@ -353,44 +353,10 @@ local function showMarker(red, green, blue, text)
 end
 
 -- The end: a reload writes the findings to disk. Addon code can't call
--- ReloadUI() on this client, so the box's Reload is a secure /reload button.
-
-local reloadBox
+-- ReloadUI() on this client: the popup's Reload is a secure /reload button (in a
+-- fight, the popup opens once it's over).
 local function showReloadBox(text)
-    if InCombatLockdown() then
-        Debug.eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
-        Debug.reloadBoxTextAfterCombat = text
-        return
-    end
-    if not reloadBox then
-        reloadBox = CreateFrame("Frame", "GamepadCrosshairCustomizerDebugBox", UIParent)
-        reloadBox:SetSize(360, 110)
-        reloadBox:SetPoint("CENTER", UIParent, "CENTER", 0, 160)
-        reloadBox:SetFrameStrata("DIALOG")
-        local background = reloadBox:CreateTexture(nil, "BACKGROUND")
-        background:SetAllPoints()
-        background:SetColorTexture(0, 0, 0, 0.85)
-        reloadBox.text = reloadBox:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-        reloadBox.text:SetPoint("TOP", reloadBox, "TOP", 0, -14)
-        reloadBox.text:SetWidth(330)
-        local reloadButton = CreateFrame("Button", "GamepadCrosshairCustomizerDebugReload", reloadBox,
-            "SecureActionButtonTemplate,UIPanelButtonTemplate")
-        reloadButton:SetAttribute("type", "macro")
-        reloadButton:SetAttribute("macrotext", "/reload")
-        reloadButton:RegisterForClicks("AnyUp", "AnyDown")
-        reloadButton:SetSize(130, 24)
-        reloadButton:SetPoint("BOTTOMLEFT", reloadBox, "BOTTOMLEFT", 30, 14)
-        reloadButton:SetText(RELOADUI or "Reload")
-        local laterButton = CreateFrame("Button", nil, reloadBox, "UIPanelButtonTemplate")
-        laterButton:SetSize(130, 24)
-        laterButton:SetPoint("BOTTOMRIGHT", reloadBox, "BOTTOMRIGHT", -30, 14)
-        laterButton:SetText(LATER or "Later")
-        laterButton:SetScript("OnClick", function() reloadBox:Hide() end)
-        reloadBox.reloadButton, reloadBox.laterButton = reloadButton, laterButton
-    end
-    reloadBox.text:SetText(text)
-    reloadBox:Show()
-    Debug.reloadBox = reloadBox
+    addon.Popup.Show({ text = text, buttons = { { text = RELOADUI or "Reload", reload = true }, { text = LATER or "Later" } } })
 end
 
 -- Results
@@ -616,12 +582,5 @@ Debug.eventFrame:SetScript("OnEvent", function(self, event)
         end
     elseif event == "PLAYER_REGEN_DISABLED" then
         if currentRun then finishRun("combat") end
-    elseif event == "PLAYER_REGEN_ENABLED" then
-        self:UnregisterEvent("PLAYER_REGEN_ENABLED")
-        local text = Debug.reloadBoxTextAfterCombat
-        if text then
-            Debug.reloadBoxTextAfterCombat = nil
-            showReloadBox(text)
-        end
     end
 end)

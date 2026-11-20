@@ -59,12 +59,16 @@ local function newRegion(parent)
     function region:SetFrameStrata(strata) self.strata = strata end
     function region:GetFrameStrata() return self.strata or "MEDIUM" end
     function region:SetClampedToScreen() end
+    function region:SetToplevel() end
+    function region:GetStringHeight() return 30 end
+    function region:ClearAllPoints() end
     function region:SetFrameLevel(level) self.level = level end
     function region:GetFrameLevel() return self.level or 1 end
     function region:EnableMouse() end
     function region:SetText(text) self.text = text end
     function region:GetText() return self.text end
     function region:SetWidth(width) self.width = width end
+    function region:SetHeight(height) self.height = height end
     function region:SetAutoFocus() end
     function region:SetFocus() self.focused = true end
     function region:HighlightText() self.highlighted = true end
@@ -148,6 +152,7 @@ local function boot(options)
             if name == "JiberishIcons" and options.jiberishOff then return character and 0 or 1 end
             return 2
         end,
+        EnableAddOn = function(name, character) game.enabledAddOn = { name = name, character = character } end,
     }
     _G.UnitName = function(unit) if unit == "player" then return "Artio" end end
     _G.MinimalSliderWithSteppersMixin = { Label = { Right = 2 } }
@@ -242,7 +247,7 @@ local function boot(options)
     }
     _G.GamepadCrosshairCustomizerDB = options.saved
     _G.GamepadCrosshairCustomizerDebugDB = options.debugSaved
-    _G.GamepadCrosshairCustomizerDebugBox = nil
+    _G.GamepadCrosshairCustomizerPopup = nil
     _G.print = function(t) game.printed[#game.printed + 1] = t end
     local namespace = {}
     for _, fileName in ipairs(tocFiles(options.releaseBuild)) do assert(loadfile(fileName))("GamepadCrosshairCustomizer", namespace) end
@@ -280,6 +285,28 @@ local function controlList()
     end
     return table.concat(labels, ", ")
 end
+-- The popup: shown, its text, its line to copy, and its buttons' texts in order.
+local function popup() return GamepadCrosshairCustomizer.Popup.frame end
+local function popupButtons()
+    local frame, texts = popup(), {}
+    local buttons = { frame.reloadButton }
+    for _, button in ipairs(frame.buttons) do buttons[#buttons + 1] = button end
+    for _, button in ipairs(buttons) do
+        if button:IsShown() then texts[#texts + 1] = (button.attributes and "[secure] " or "") .. button.text end
+    end
+    table.sort(texts)
+    return table.concat(texts, ", ")
+end
+local function clickPopupButton(text)
+    local frame = popup()
+    for _, button in ipairs(frame.buttons) do if button:IsShown() and button.text == text then return button:Click() end end
+    if frame.reloadButton:IsShown() and frame.reloadButton.text == text then
+        -- A secure /reload button: its PreClick runs, then the game reloads (here: noted).
+        frame.reloadButton.scripts.PreClick(frame.reloadButton)
+        game.reloaded = frame.reloadButton.attributes.macrotext
+    end
+end
+
 -- A choice slider's labels, one per step (what the controller steps through).
 local function choiceLabels(label)
     local options, labels = control("slider", label).extra, {}
@@ -571,23 +598,27 @@ test("JiberishUI installed but turned off: not offered, its choices fall back, a
     local button = control("button", "Class icons")
     eq(button.extra.buttonText, "Enable JiberishUI Icons", "not Get: it's installed")
     button.extra.onClick()
-    local box = GamepadCrosshairCustomizer.TextBox.box
-    eq(box:IsShown(), true)
-    eq(box.title.text:find("turned off", 1, true) ~= nil, true, box.title.text)
-    eq(box.editBox:IsShown(), false, "a message: nothing to copy")
+    eq(popup():IsShown(), true, "the game-style popup")
+    eq(popup().Border.template, "DialogBorderTemplate", "the game's dialog border")
+    eq(popup().text.text:find("turned off", 1, true) ~= nil, true, popup().text.text)
+    eq(popup().editBox:IsShown(), false, "a message: nothing to copy")
+    eq(popupButtons(), "Not now, [secure] Turn on and reload")
+    clickPopupButton("Turn on and reload")
+    eq(game.enabledAddOn.name, "JiberishIcons", "turned on")
+    eq(game.enabledAddOn.character, "Artio", "for this character")
+    eq(game.reloaded, "/reload", "then reloaded by the secure button")
 end)
 
 test("without it: the install button shows the link to copy", function()
     boot()
     eq(control("button", "Class icons").extra.buttonText, "Get JiberishUI Icons", "in the Class icons row")
     control("button", "Class icons").extra.onClick()
-    local box = GamepadCrosshairCustomizer.TextBox.box
-    eq(box:IsShown(), true)
-    eq(box.editBox:GetText(), "https://www.curseforge.com/wow/addons/jiberish-fabled-icons")
-    eq(box.editBox.highlighted, true, "selected, ready for Ctrl+C")
-    eq(box.okButton:IsShown(), false, "nothing to confirm: only Close")
-    box.closeButton:Click()
-    eq(box:IsShown(), false)
+    eq(popup():IsShown(), true)
+    eq(popup().editBox:GetText(), "https://www.curseforge.com/wow/addons/jiberish-fabled-icons")
+    eq(popup().editBox.highlighted, true, "selected, ready for Ctrl+C")
+    eq(popupButtons(), "Close, [secure] Reload", "a Reload for once it's installed")
+    clickPopupButton("Close")
+    eq(popup():IsShown(), false)
 end)
 
 test("no icon picker and no texture paths: no Choose icon button, /gcc texture is just a wrong color", function()
@@ -663,12 +694,23 @@ end)
 test("without Gamepad Camera Offset: a button shows its CurseForge link to copy; with it, no button", function()
     boot()
     control("button", "Gamepad Camera Offset").extra.onClick()
-    local box = GamepadCrosshairCustomizer.TextBox.box
     eq(control("button", "Gamepad Camera Offset").extra.buttonText, "Get Gamepad Camera Offset")
-    eq(box.editBox:GetText(), "https://www.curseforge.com/projects/1818297")
-    eq(box.editBox.highlighted, true, "selected, ready for Ctrl+C")
+    eq(popup().editBox:GetText(), "https://www.curseforge.com/projects/1818297")
+    eq(popup().editBox.highlighted, true, "selected, ready for Ctrl+C")
+    eq(popupButtons(), "Close, [secure] Reload")
     boot({ cameraOffset = true })
     eq(control("button", "Gamepad Camera Offset"), nil, "installed: no button")
+end)
+
+test("in a fight, a popup (it holds a secure Reload) opens once the fight is over", function()
+    boot()
+    game.combat = true
+    eq(GamepadCrosshairCustomizer.Popup.Show({ text = "Hello", buttons = { { text = "Reload", reload = true } } }), false)
+    eq(popup(), nil, "not built in combat")
+    game.combat = false
+    game.fire("PLAYER_REGEN_ENABLED")
+    eq(popup():IsShown(), true, "after the fight")
+    eq(popup().text.text, "Hello")
 end)
 
 -- The preview beside the settings page
@@ -779,8 +821,8 @@ test("/gcc debug: every look checked, on 3 friendly classes and both NPC kinds, 
         eq(GamepadCrosshairCustomizerDB.color, "3961CDFF", "your settings back")
         eq(GamepadCrosshairCustomizerDB.size, 7); eq(GamepadCrosshairCustomizerDB.targetIcon, "marker2")
         eq(GamepadCrosshairCustomizerDebugDB.settingsToRestore, nil)
-        eq(GamepadCrosshairCustomizerDebugBox:IsShown(), true, "the reload box")
-        eq(GamepadCrosshairCustomizerDebugBox.reloadButton.attributes.macrotext, "/reload")
+        eq(popup():IsShown(), true, "the reload popup")
+        eq(popupButtons(), "Later, [secure] Reload")
     end
 end)
 
@@ -819,7 +861,7 @@ test("/gcc friendly runs only the friendly player part, then the target cleared"
     eq(checkResult(run, "dot, size 12, red"), nil, "no crosshair-only part")
     eq(checkResult(run, "target cleared: the crosshair back"), "pass", "ends with the target cleared")
     eq(GamepadCrosshairCustomizerDB.color, "3961CDFF", "your settings back")
-    eq(GamepadCrosshairCustomizerDebugBox:IsShown(), true, "the reload box")
+    eq(popup():IsShown(), true, "the reload popup")
 end)
 
 test("/gcc monsters runs only the NPC part, then the target cleared", function()
@@ -924,7 +966,7 @@ end)
 test("the release leaves Debug.lua out: ignored by .pkgmeta, and gone from the release .toc", function()
     assert(readFile(".pkgmeta"):find("\n  %- Debug%.lua\n"), ".pkgmeta ignores Debug.lua, alone on its line")
     eq(table.concat(tocFiles(true), ","),
-        "SavedSettings.lua,Color.lua,Icons.lua,Target.lua,Crosshair.lua,PickerSticks.lua,TextBox.lua,Preview.lua,RelatedAddon.lua,GamepadCrosshairCustomizer.lua")
+        "SavedSettings.lua,Color.lua,Icons.lua,Target.lua,Crosshair.lua,PickerSticks.lua,Popup.lua,Preview.lua,RelatedAddon.lua,GamepadCrosshairCustomizer.lua")
     eq(tocFiles()[#tocFiles()], "Debug.lua", "the repo's .toc loads it last")
 end)
 

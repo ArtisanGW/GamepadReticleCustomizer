@@ -1,7 +1,7 @@
 -- A hint on the settings page: Gamepad Camera Offset, a separate addon, moves the
 -- camera over your shoulder (keyboard or controller) and puts the crosshair on
 -- your target. Shown only when it isn't installed; its button opens the copy box
--- (TextBox.lua) with its CurseForge page (the game can't open a web page). The
+-- (Popup.lua) with its CurseForge page (the game can't open a web page). The
 -- other addon is named here only as text: nothing calls it or depends on it.
 local _, addon = ...
 
@@ -21,7 +21,11 @@ function RelatedAddon.Installed()
 end
 
 function RelatedAddon.ShowLink()
-    addon.TextBox.Copy(RelatedAddon.TITLE .. ": copy the link with Ctrl+C, install it, then restart the game.", RelatedAddon.LINK)
+    addon.Popup.Show({
+        text = RelatedAddon.TITLE .. ": copy the link (Ctrl+C), install it, then reload.",
+        copyText = RelatedAddon.LINK,
+        buttons = { { text = "Reload", reload = true }, { text = "Close" } },
+    })
 end
 
 -- The settings page's button, when it isn't installed.
