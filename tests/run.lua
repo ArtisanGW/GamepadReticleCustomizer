@@ -146,7 +146,10 @@ local function boot(options)
         end
     end }
     -- The target's side, owner and tooltip title (game.target.faction, .controlled, .title).
-    _G.UnitFactionGroup = function(unit) return game.target and unit == "target" and game.target.faction or nil end
+    _G.UnitFactionGroup = function(unit)
+        if unit == "player" then return "Horde" end
+        return game.target and unit == "target" and game.target.faction or nil
+    end
     _G.UnitPlayerControlled = function(unit) return game.target ~= nil and unit == "target" and (game.target.controlled or game.target.isPlayer) == true end
     _G.C_TooltipInfo = { GetUnit = function(unit)
         if not (game.target and unit == "target") then return nil end
@@ -1164,8 +1167,10 @@ test("By target: players their class, enemy players their faction, enemy NPCs cr
     eq(drawnLook(), "classicon-mage", "a friendly player: the class")
     setTarget({ isPlayer = true, classFile = "MAGE", reaction = 2, faction = "Alliance" })
     eq(drawnLook(), "UI-HUD-UnitFrame-Player-PVP-AllianceIcon", "an enemy player: the faction")
+    setTarget({ isPlayer = true, classFile = "PRIEST", reaction = 4, faction = "Alliance" })
+    eq(drawnLook(), "UI-HUD-UnitFrame-Player-PVP-AllianceIcon", "the other faction, unflagged on a PvE realm (neutral): still its faction")
     setTarget({ isPlayer = true, classFile = "PRIEST", reaction = 1, faction = "Horde" })
-    eq(drawnLook(), "UI-HUD-UnitFrame-Player-PVP-HordeIcon")
+    eq(drawnLook(), "classicon-priest", "your own faction, hostile (a duel): its class")
     setTarget({ isPlayer = false, reaction = 2 })
     eq(drawnLook(), "Crosshair_PVP_128", "an enemy NPC: crossed swords")
     setTarget({ isPlayer = false, reaction = 4 })

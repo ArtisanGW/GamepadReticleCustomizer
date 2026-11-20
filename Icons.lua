@@ -13,7 +13,7 @@
 --                     "classStyle"): "game" (the game's classicon-<class> atlases), or
 --                     "jiberish:<style>", a Jiberish Fabled Icons class sheet when installed
 --   "bytarget"        by kind of target (Icons.ByTargetLook): a friendly player's class,
---                     an enemy player's faction, a friendly NPC's job (NpcJobs.lua) or a
+--                     the other faction's players their faction, a friendly NPC's job (NpcJobs.lua) or a
 --                     speech bubble, a question mark on neutral NPCs, crossed swords on enemy NPCs
 --   "marker1".."8"    the game's raid target markers: star, circle, diamond,
 --                     triangle, moon, square, cross, skull
@@ -220,7 +220,9 @@ end
 -- reticle (another player's pet, or a target whose side isn't known).
 function Icons.ByTargetLook(target, classStyle)
     if target.isPlayer then
-        if target.reaction == "enemy" then return Icons.AtlasLook(Icons.FACTION_ATLASES[target.faction or ""]) end
+        -- The other faction's players, by faction, not reaction: on PvE realms they
+        -- read as neutral until flagged for PvP.
+        if target.otherFaction then return Icons.AtlasLook(Icons.FACTION_ATLASES[target.faction or ""]) end
         return Icons.ClassLook(target.classFile, classStyle)
     end
     if target.controlledByPlayer then return nil end

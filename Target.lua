@@ -61,6 +61,8 @@ end
 -- { exists = true/false, isPlayer = true/false, classFile = "WARRIOR" or nil,
 --   reaction = "enemy"/"neutral"/"friendly" or nil, hasNameplate = true/false,
 --   reticleOnNameplate = true/false, faction = "Alliance"/"Horde" or nil,
+--   otherFaction = true/false (its faction isn't yours: on PvE realms such a player
+--   reads as neutral, not enemy, until flagged for PvP),
 --   controlledByPlayer = true/false (a player's pet, guardian or totem, or a player) }
 function addon.TargetInfo()
     local exists = type(UnitExists) == "function" and readable(UnitExists("target")) == true
@@ -73,8 +75,10 @@ function addon.TargetInfo()
     end
     local reaction = type(UnitReaction) == "function" and reactionWord(readable(UnitReaction("target", "player"))) or nil
     local faction = type(UnitFactionGroup) == "function" and readable((UnitFactionGroup("target"))) or nil
+    local playerFaction = type(UnitFactionGroup) == "function" and readable((UnitFactionGroup("player"))) or nil
     local controlledByPlayer = type(UnitPlayerControlled) == "function" and readable(UnitPlayerControlled("target")) == true
     return { exists = true, isPlayer = isPlayer, classFile = type(classFile) == "string" and classFile or nil,
         reaction = reaction, hasNameplate = addon.TargetHasNameplate(), reticleOnNameplate = addon.ReticleOnNameplate(),
-        faction = type(faction) == "string" and faction or nil, controlledByPlayer = controlledByPlayer }
+        faction = type(faction) == "string" and faction or nil, controlledByPlayer = controlledByPlayer,
+        otherFaction = type(faction) == "string" and type(playerFaction) == "string" and faction ~= playerFaction }
 end
