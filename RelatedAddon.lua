@@ -22,7 +22,10 @@ end
 
 function RelatedAddon.ShowLink()
     addon.Popup.Show({
-        text = RelatedAddon.TITLE .. ": copy the link (Ctrl+C), install it, then reload.",
+        text = "To get " .. RelatedAddon.TITLE .. ":\n"
+            .. "• Copy the link (Ctrl+C)\n"
+            .. "• Install it\n"
+            .. "• Reload",
         copyText = RelatedAddon.LINK,
         buttons = { { text = "Reload", reload = true }, { text = "Close" } },
     })

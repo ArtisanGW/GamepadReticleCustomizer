@@ -64,6 +64,8 @@ end
 
 local function layout(options)
     frame.text:SetText(options.text or "")
+    -- Centered as the game's popups are; a list ("•" lines) reads better left-aligned.
+    frame.text:SetJustifyH((options.text or ""):find("•", 1, true) and "LEFT" or "CENTER")
     local height = 20 + (frame.text:GetStringHeight() or 40) + 16
     frame.editBox:SetShown(options.copyText ~= nil)
     frame.editBox:SetText(options.copyText or "")

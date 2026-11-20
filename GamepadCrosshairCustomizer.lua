@@ -66,8 +66,10 @@ end
 -- JiberishUI missing: its download link to copy, and a Reload for once it's installed.
 function addon.ShowJiberishLink()
     addon.Popup.Show({
-        text = "More crosshairs and class icons come with JiberishUI Fabled Icons.\n"
-            .. "Copy the link (Ctrl+C), install it, then reload.",
+        text = "More crosshairs and class icons come with JiberishUI Fabled Icons. To get them:\n"
+            .. "• Copy the link (Ctrl+C)\n"
+            .. "• Install it\n"
+            .. "• Reload",
         copyText = addon.Icons.JIBERISH_LINK,
         buttons = { { text = "Reload", reload = true }, { text = "Close" } },
     })
@@ -193,7 +195,8 @@ function addon.RegisterSettings()
             .. "• Left stick: the color\n"
             .. "• Right stick: the brightness\n"
             .. "• D-pad up and down: the opacity\n\n"
-            .. "From chat: /gcc RRGGBBAA, e.g. /gcc FF3030FF")
+            .. "From chat:\n"
+            .. "• /gcc RRGGBBAA, e.g. /gcc FF3030FF")
         -- The reset rows show only their button, under their color, lined up with the
         -- other controls: a label of one space reads as empty but isn't "", which
         -- the game would put at the left edge (Blizzard_SettingControls.lua:982-999).
@@ -222,12 +225,15 @@ function addon.RegisterSettings()
         .. "• Target Class: a player's class icon (any other target keeps the crosshair)\n"
         .. "• Raid marker: one of the game's 8 markers\n"
         .. "• Icon: one of a set of the game's icons\n\n"
-        .. "Only while the target's nameplate is on screen: vendors, guards and minions keep the crosshair "
-        .. "unless their nameplates are on (Options > Nameplates).\n\n"
-        .. "Icons keep their own colors. The preview shows your choice big.")
+        .. "Shown only while the target's nameplate is on screen. These keep the crosshair "
+        .. "unless their nameplates are on (Options > Nameplates):\n"
+        .. "• Vendors\n"
+        .. "• Guards\n"
+        .. "• Minions\n\n"
+        .. "Icons keep their own colors.")
     if jiberishInstalled then
         addChoice("classStyle", "Class icons", addon.Icons.ClassStyleList,
-            "How a player's class icon looks, for On a target: Target Class.\n\n"
+            "How a player's class icon looks, when On a target is Target Class.\n\n"
             .. "• Default: the game's own\n"
             .. "• The others: JiberishUI's class icon styles\n\n"
             .. addon.Icons.JIBERISH_CREDIT .. ".")

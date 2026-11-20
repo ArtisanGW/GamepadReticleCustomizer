@@ -60,6 +60,7 @@ local function newRegion(parent)
     function region:GetFrameStrata() return self.strata or "MEDIUM" end
     function region:SetClampedToScreen() end
     function region:SetToplevel() end
+    function region:SetJustifyH(justify) self.justify = justify end
     function region:GetStringHeight() return 30 end
     function region:ClearAllPoints() end
     function region:SetFrameLevel(level) self.level = level end
@@ -180,7 +181,7 @@ local function boot(options)
             game.settings[variable] = setting
             return setting
         end,
-        CreateCheckbox = function(_, setting) addControl("checkbox", setting) end,
+        CreateCheckbox = function(_, setting, tooltip) addControl("checkbox", setting, { tooltip = tooltip }) end,
         CreateSlider = function(_, setting, sliderOptions, tooltip) sliderOptions.tooltip = tooltip; addControl("slider", setting, sliderOptions) end,
         CreateSliderOptions = function(minimum, maximum, step)
             return { minimum = minimum, maximum = maximum, step = step, SetLabelFormatter = function(self, _, fn) self.format = fn end }
@@ -191,7 +192,7 @@ local function boot(options)
             function container:GetData() return self.data end
             return container
         end,
-        CreateColorSwatch = function(_, setting) addControl("swatch", setting) end,
+        CreateColorSwatch = function(_, setting, tooltip) addControl("swatch", setting, { tooltip = tooltip }) end,
         RegisterAddOnCategory = function(category) game.category = category end,
         OpenToCategory = function(id) game.opened = id end,
     }
@@ -627,6 +628,26 @@ test("no icon picker and no texture paths: no Choose icon button, /gcc texture i
     SlashCmdList.GAMEPADCROSSHAIRCUSTOMIZER("texture Interface\\Icons\\Spell_Nature_Starfall")
     eq(game.printed[#game.printed]:find("usage: /gcc RRGGBBAA", 1, true) ~= nil, true, game.printed[#game.printed])
     eq(GamepadCrosshairCustomizer.IconPicker, nil)
+end)
+
+test("tooltips: text after a colon is a list (each line after \":\" a \"•\" line), for legibility", function()
+    for _, jiberish in ipairs({ true, false }) do
+        boot({ jiberish = jiberish })
+        for _, entry in ipairs(game.controls) do
+            local tooltip = entry.extra and entry.extra.tooltip
+            local name = (entry.setting and entry.setting.label) or entry.extra.name or "?"
+            if type(tooltip) == "string" then
+                for line in tooltip:gmatch("[^\n]+") do
+                    if not line:find("^• ") then
+                        -- A colon outside a list line ends the line: what follows is a list.
+                        local afterColon = line:gsub("https?://", ""):match(":%s*(.+)$")
+                        eq(afterColon, nil, name .. ": \"" .. line .. "\"")
+                    end
+                end
+                eq(tooltip:find("preview shows", 1, true), nil, name .. ": no telling what the preview shows")
+            end
+        end
+    end
 end)
 
 test("every choice slider's label fits the slider (22 characters, seen cut in game beyond)", function()
