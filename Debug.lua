@@ -605,7 +605,7 @@ end
 Debug.INTERACTION_RECORDS_KEPT = 20
 local interactionProbe
 local function recordInteractionIcon()
-    if type(SetUnitCursorTexture) ~= "function" or not UnitExists("target") then return end
+    if type(SetUnitCursorTexture) ~= "function" then return end
     if not interactionProbe then
         local holder = CreateFrame("Frame")
         holder:Hide()
@@ -628,9 +628,14 @@ local function recordInteractionIcon()
     table.insert(store.interactionIcons, record)
     while #store.interactionIcons > Debug.INTERACTION_RECORDS_KEPT do table.remove(store.interactionIcons, 1) end
 end
-Debug.recorder = CreateFrame("Frame")
-Debug.recorder:RegisterEvent("PLAYER_TARGET_CHANGED")
-Debug.recorder:SetScript("OnEvent", function() C_Timer.After(0.2, recordInteractionIcon) end)
+-- After each draw of the reticle (the game's icon is ready by then), once per target.
+local lastRecordedTarget
+hooksecurefunc(addon, "UpdateReticle", function()
+    local guid = UnitExists("target") and type(UnitGUID) == "function" and UnitGUID("target") or nil
+    if not guid or guid == lastRecordedTarget then return end
+    lastRecordedTarget = guid
+    recordInteractionIcon()
+end)
 
 Debug.eventFrame = CreateFrame("Frame")
 Debug.eventFrame:RegisterEvent("PLAYER_LOGIN")
