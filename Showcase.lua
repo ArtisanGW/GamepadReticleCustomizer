@@ -1,9 +1,12 @@
 -- Development builds only (never in the release, .pkgmeta): a screenshot tour of
 -- our controller addons, driven from outside the game by tests/screenshot_showcase.sh
 -- with one key, SHOWCASE_KEY. Each press does the next step:
---   settings   opens a settings page (a slash command); the script scrolls it with the
---              mouse wheel so every slider shows its handle (the game draws them late).
---              Nothing here touches the game's settings window: that taints it.
+--   settings   opens a settings page (a slash command), scrolled to its end and back
+--              so every slider shows its handle (the game draws them late). The window
+--              is closed here too, before the first target. This touches the game's
+--              settings window from addon code, which taints it: fine for a tour that
+--              never ships, followed by a reload. No mouse and no Escape: the mouse
+--              brings the cursor back, and the game hides its reticle while it shows.
 --   target     selects targets with the game's own /targetfriend, /targetfriendplayer
 --              or /targetenemy until the kind wanted comes up (addon code can't target)
 --   look       changes this addon's look on the same target
@@ -80,6 +83,27 @@ local function restore()
     addon.UpdateReticle()
 end
 
+local function settingsList()
+    local panel = _G.SettingsPanel
+    local list = panel and type(panel.GetSettingsList) == "function" and panel:GetSettingsList()
+    return list and list.ScrollBox
+end
+
+local function scrollSettings(done)
+    local scrollBox = settingsList()
+    if not (scrollBox and type(scrollBox.ScrollToEnd) == "function") then return done() end
+    scrollBox:ScrollToEnd()
+    C_Timer.After(0.4, function()
+        scrollBox:ScrollToBegin()
+        C_Timer.After(0.4, done)
+    end)
+end
+
+local function closeSettings()
+    local panel = _G.SettingsPanel
+    if panel and panel:IsShown() then HideUIPanel(panel) end
+end
+
 local function setMacro(step)
     if InCombatLockdown() then return end
     -- A look step keeps the target (it selects it again); after the last step, the target is cleared.
@@ -103,9 +127,9 @@ local function check()
         return
     end
     if step.kind == "settings" then
-        setMarker(nil)   -- the script scrolls the page (the mouse wheel) before shooting
-        return advance()
+        return scrollSettings(function() setMarker(nil); advance() end)
     end
+    closeSettings()
     if step.kind == "look" then
         applyLook(step.look)
         setMarker(nil)

@@ -11,6 +11,8 @@
 # town: a vendor or trainer, a quest giver, a friendly player and a neutral NPC
 # around you, in front of you. Stay still and don't touch the controller.
 # The tour sets its own look and puts your settings back at the end.
+# Only the tour's key is pressed: no mouse (the cursor would hide the reticle),
+# no Escape (the tour scrolls and closes the settings window itself).
 # The square in the game's top-left corner: magenta busy (the script presses the
 # key again to look for the next target), red not found (no shot), gone ready.
 # Exit codes: 0 done, 2 the game isn't running, 9 a step never got ready.
@@ -66,17 +68,7 @@ while read -r kind name; do
         shoot "$probe"
         state="$(read_marker "$probe")"
         if [ "$state" = ready ]; then
-            if [ "$kind" = settings ]; then
-                # Down to the page's end and back, with the mouse wheel over the page,
-                # so the game draws every slider's handle.
-                read -r screen_width screen_height < <(xdotool getdisplaygeometry)
-                xdotool mousemove "$((screen_width / 2))" "$((screen_height / 2))"
-                xdotool click --repeat 15 --delay 60 5; sleep 0.4
-                xdotool click --repeat 15 --delay 60 4; sleep 0.6
-                xdotool mousemove "$((screen_width - 2))" "$((screen_height - 2))"; sleep 0.3   # no tooltip in the shot
-            fi
             sleep 0.3; shoot "$file"; echo "shot $file"
-            [ "$kind" = settings ] && { xdotool key --clearmodifiers Escape; sleep 0.5; }
             break
         elif [ "$state" = notfound ]; then
             echo "skipped $name: no such target near you"
