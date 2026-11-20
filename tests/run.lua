@@ -138,9 +138,14 @@ local function boot(options)
             return (name == "JiberishIcons" and (options.jiberish == true or options.jiberishOff == true))
                 or (name == "GamepadCameraOffset" and options.cameraOffset == true)
         end,
+        -- As the game: GetAddOnInfo's loadable and reason; the switch reports "some
+        -- characters" (1) for all, as when other characters still have it on.
+        GetAddOnInfo = function(name)
+            if name == "JiberishIcons" and options.jiberishOff then return name, name, "", false, "DISABLED", "INSECURE" end
+            return name, name, "", true, "", "INSECURE"
+        end,
         GetAddOnEnableState = function(name, character)
-            assert(character == "Artio", "asked for this character")
-            if name == "JiberishIcons" and options.jiberishOff then return 0 end
+            if name == "JiberishIcons" and options.jiberishOff then return character and 0 or 1 end
             return 2
         end,
     }
@@ -302,7 +307,7 @@ test("its page under Options > AddOns, in order, with the defaults; /gcc opens i
     eq(saved.enabled, true); eq(saved.color, "FFFFFFFF"); eq(saved.size, 4); eq(saved.borderSize, 0)
     eq(saved.borderColor, "000000FF"); eq(saved.icon, "dot")
     eq(saved.targetIcon, "none", "nothing on a target by default"); eq(saved.iconSize, 24)
-    eq(control("slider", "Size").extra.format(4), "4 (the game's)"); eq(control("slider", "Size").extra.format(24), "24")
+    eq(control("slider", "Size").extra.format(4), "4 (default)"); eq(control("slider", "Size").extra.format(24), "24")
     eq(control("slider", "Border").extra.format(0), "Off"); eq(control("slider", "Border").extra.format(3), "3")
     SlashCmdList.GAMEPADCROSSHAIRCUSTOMIZER("")
     eq(game.opened, 42)

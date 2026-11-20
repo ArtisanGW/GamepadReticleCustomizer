@@ -135,6 +135,7 @@ function addon.RegisterSettings()
 
     -- The crosshair, always shown: its shape, size, color and border.
     local jiberishState = addon.Icons.JiberishState()
+    addon.jiberishAtSettings = addon.Icons.JiberishRawState()   -- for /gcc debug's records
     local jiberishInstalled = jiberishState == "enabled"
     -- The dot and the shapes each keep their own size: switching between them saves
     -- the size of the one left and brings back the other's (a shape starts at 24:
@@ -156,7 +157,7 @@ function addon.RegisterSettings()
     Settings.CreateSlider(category, addon.sizeSetting,
         sliderOptions(addon.SIZE_MIN, addon.SIZE_MAX, addon.SIZE_STEP, function(value)
             local size = math.floor(value + 0.5)
-            return size == addon.DEFAULTS.size and (size .. " (the game's)") or tostring(size)
+            return size == addon.DEFAULTS.size and (size .. " (default)") or tostring(size)
         end),
         "The crosshair's width and height. The game's dot is 4. The dot and the shapes each keep their own size.")
 

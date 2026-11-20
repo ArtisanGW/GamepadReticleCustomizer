@@ -75,19 +75,45 @@ addon.Icons = Icons
 
 -- JiberishUI Fabled Icons for this character: "missing" (not installed),
 -- "disabled" (installed, turned off in the AddOns list) or "enabled". Its shapes
--- and styles are offered only when enabled. Its switch is read, not whether it's
--- loaded: this addon loads before it (GetAddOnEnableState,
--- AddOnsDocumentation.lua:98, forever branch; 0 is off).
+-- and styles are offered only when enabled. Not whether it's loaded: this addon
+-- loads before it. First whether it can load and why not (GetAddOnInfo: loadable,
+-- reason "DISABLED"); then its switch for this character (GetAddOnEnableState, 0
+-- is off; AddOnsDocumentation.lua:98-130, forever branch). The switch alone, with
+-- UnitName, didn't see it turned off in game (2026-11-20).
 function Icons.JiberishState()
     local addOns = _G.C_AddOns
     if type(addOns) ~= "table" or type(addOns.DoesAddOnExist) ~= "function" then return "missing" end
     local succeeded, exists = pcall(addOns.DoesAddOnExist, Icons.JIBERISH_ADDON)
     if not (succeeded and exists == true) then return "missing" end
-    if type(addOns.GetAddOnEnableState) ~= "function" then return "enabled" end
-    local character = type(UnitName) == "function" and UnitName("player") or nil
-    local stateSucceeded, state = pcall(addOns.GetAddOnEnableState, Icons.JIBERISH_ADDON, character)
-    if stateSucceeded and tonumber(state) == 0 then return "disabled" end
+    if type(addOns.GetAddOnInfo) == "function" then
+        local infoSucceeded, _, _, _, loadable, reason = pcall(addOns.GetAddOnInfo, Icons.JIBERISH_ADDON)
+        if infoSucceeded and (reason == "DISABLED" or (loadable == false and reason ~= "DEMAND_LOADED")) then
+            return "disabled"
+        end
+    end
+    if type(addOns.GetAddOnEnableState) == "function" then
+        local character = type(UnitName) == "function" and UnitName("player") or nil
+        local stateSucceeded, state = pcall(addOns.GetAddOnEnableState, Icons.JIBERISH_ADDON, character)
+        if stateSucceeded and tonumber(state) == 0 then return "disabled" end
+    end
     return "enabled"
+end
+
+-- The raw answers behind JiberishState, for /gcc debug's records.
+function Icons.JiberishRawState()
+    local addOns, raw = _G.C_AddOns or {}, {}
+    if type(addOns.GetAddOnInfo) == "function" then
+        local _, _, _, _, loadable, reason = pcall(addOns.GetAddOnInfo, Icons.JIBERISH_ADDON)
+        raw.loadable, raw.reason = tostring(loadable), tostring(reason)
+    end
+    if type(addOns.GetAddOnEnableState) == "function" then
+        raw.character = tostring(type(UnitName) == "function" and UnitName("player") or nil)
+        raw.stateForCharacter = tostring(select(2, pcall(addOns.GetAddOnEnableState, Icons.JIBERISH_ADDON,
+            type(UnitName) == "function" and UnitName("player") or nil)))
+        raw.stateForAll = tostring(select(2, pcall(addOns.GetAddOnEnableState, Icons.JIBERISH_ADDON)))
+    end
+    raw.result = Icons.JiberishState()
+    return raw
 end
 
 -- Whether its shapes and styles can be offered and drawn now.

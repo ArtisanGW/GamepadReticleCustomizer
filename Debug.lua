@@ -605,6 +605,9 @@ Debug.eventFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
 Debug.eventFrame:SetScript("OnEvent", function(self, event)
     if event == "PLAYER_LOGIN" then
         bindKeys()
+        -- What the game says about JiberishUI's switch, at login and when the settings were built.
+        getDebugStore().jiberishAtLogin = addon.Icons.JiberishRawState()
+        getDebugStore().jiberishAtSettings = addon.jiberishAtSettings
         local debugStore = getDebugStore()
         if debugStore.settingsToRestore then
             restoreSettings(debugStore.settingsToRestore)
