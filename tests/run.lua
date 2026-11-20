@@ -371,12 +371,12 @@ test("its page under Options > AddOns, in order, with the defaults; /grc opens i
     eq(game.category.name, "Gamepad Reticle Customizer")
     eq(controlList(), "checkbox:Enable, slider:Size, swatch:Color, button:(Reset color), slider:Border, "
         .. "swatch:Border color, button:(Reset border color), "
-        .. "slider:On a target, button:Class icons, slider:Icon size, button:Gamepad Reticle On Target",
+        .. "slider:On a target, button:Class icons, slider:Icon size, button:Gamepad Camera Offset, button:Gamepad Reticle On Target",
         "without Jiberish Fabled Icons: no one-choice Reticle or Class icons slider; its button in the Class icons row")
     boot({ jiberish = true })
     eq(controlList(), "checkbox:Enable, slider:Reticle, slider:Size, swatch:Color, button:(Reset color), slider:Border, "
         .. "swatch:Border color, button:(Reset border color), "
-        .. "slider:On a target, slider:Class icons, slider:Icon size, button:Gamepad Reticle On Target",
+        .. "slider:On a target, slider:Class icons, slider:Icon size, button:Gamepad Camera Offset, button:Gamepad Reticle On Target",
         "with it: both sliders, no button")
     boot()
     local saved = GamepadReticleCustomizerDB
@@ -1053,7 +1053,7 @@ end)
 test("the release leaves Debug.lua out: ignored by .pkgmeta, and gone from the release .toc", function()
     assert(readFile(".pkgmeta"):find("\n  %- Debug%.lua\n"), ".pkgmeta ignores Debug.lua, alone on its line")
     eq(table.concat(tocFiles(true), ","),
-        "SavedSettings.lua,Color.lua,Icons.lua,Target.lua,Reticle.lua,PickerSticks.lua,Popup.lua,Preview.lua,RelatedAddon.lua,GamepadReticleCustomizer.lua")
+        "SavedSettings.lua,Color.lua,Icons.lua,Target.lua,Reticle.lua,PickerSticks.lua,Popup.lua,Preview.lua,RelatedAddons.lua,GamepadReticleCustomizer.lua")
     eq(tocFiles()[#tocFiles()], "Debug.lua", "the repo's .toc loads it last")
 end)
 
@@ -1112,6 +1112,18 @@ test("debug build: Gamepad Reticle On Target turned off counts as missing, to se
     eq(control("button", "Gamepad Reticle On Target"), nil, "the release: installed is installed")
     boot({ reticleOnTargetInstalled = true })
     eq(control("button", "Gamepad Reticle On Target"), nil, "debug build, turned on: no button")
+end)
+
+test("a Get button for each missing sibling, in order, each with its own CurseForge link", function()
+    boot()
+    eq(control("button", "Gamepad Camera Offset").extra.buttonText, "Get Gamepad Camera Offset")
+    control("button", "Gamepad Camera Offset").extra.onClick()
+    eq(popup().editBox:GetText(), "https://www.curseforge.com/projects/1818297")
+    control("button", "Gamepad Reticle On Target").extra.onClick()
+    eq(popup().editBox:GetText(), "https://www.curseforge.com/projects/1819101")
+    boot({ reticleOnTargetInstalled = true })
+    eq(control("button", "Gamepad Reticle On Target"), nil, "installed: its button gone")
+    eq(control("button", "Gamepad Camera Offset") ~= nil, true, "the other one still offered")
 end)
 
 reportLine(passed .. " passed, " .. failed .. " failed")

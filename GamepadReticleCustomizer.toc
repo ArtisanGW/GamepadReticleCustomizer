@@ -15,7 +15,7 @@ Reticle.lua
 PickerSticks.lua
 Popup.lua
 Preview.lua
-RelatedAddon.lua
+RelatedAddons.lua
 GamepadReticleCustomizer.lua
 #@do-not-package@
 # /grc debug, the in-game test suite: not in the release zip (.pkgmeta)

@@ -255,7 +255,7 @@ function addon.RegisterSettings()
         sliderOptions(addon.SIZE_MIN, addon.SIZE_MAX, addon.SIZE_STEP, function(value) return tostring(math.floor(value + 0.5)) end),
         "The icon's width and height, on a target.")
 
-    addon.RelatedAddon.AddButton(addButton)
+    addon.RelatedAddons.AddButtons(addButton)
 
     Settings.RegisterAddOnCategory(category)
     addon.Preview.Watch()

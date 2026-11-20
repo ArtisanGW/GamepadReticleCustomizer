@@ -61,8 +61,8 @@ addon.Debug = Debug
 
 -- Debug builds only: the other addon turned off in the AddOns list counts as
 -- missing, so its "Get" button and popup show as players without it see them
--- (RelatedAddon.lua).
-if addon.RelatedAddon then addon.RelatedAddon.countTurnedOffAsMissing = true end
+-- (RelatedAddons.lua).
+if addon.RelatedAddons then addon.RelatedAddons.countTurnedOffAsMissing = true end
 
 local function say(text) print("|cff88ccffgrc debug|r " .. text) end
 
