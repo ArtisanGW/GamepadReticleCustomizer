@@ -14,7 +14,11 @@
 -- override bindings (GAMEPAD_FACE_BOTTOM/RIGHT, Shared/GamepadConstants.lua:7-8,
 -- forever branch), cleared when it closes: the game's controller navigation
 -- doesn't reach it (kept apart on purpose), and a real button press is what lets
--- the secure Reload work. A hint line says which does what. It's our own frame, not the game's
+-- the secure Reload work. Each of the two buttons then shows the controller
+-- button's icon at its left, as the game marks its own buttons in controller mode
+-- (GamepadMode.AddGamepadIconToButton, FrameReformUtility.lua:25): the active
+-- controller's atlas from InputIconTextureSetUtility (InputIconTexture.lua:565).
+-- Without one, a hint line says which does what instead. It's our own frame, not the game's
 -- StaticPopup (shared windows the controller steers: our code in them broke its
 -- navigation before). Holding a secure button, it can't be shown in a fight: it
 -- opens once the fight is over.
@@ -102,19 +106,45 @@ function Popup.ReleaseControllerButtons()
     ClearOverrideBindings(frame)
 end
 
--- A clicks the first button, B the last, while the popup is open.
+-- The active controller's icon for a button key (an atlas), or nil.
+local function controllerIconAtlas(key)
+    local iconUtility = _G.InputIconTextureSetUtility
+    if type(iconUtility) ~= "table" or type(iconUtility.GetNormalActiveInputIconButtonTexture) ~= "function" then return nil end
+    local succeeded, atlas = pcall(iconUtility.GetNormalActiveInputIconButtonTexture, key)
+    return succeeded and type(atlas) == "string" and atlas or nil
+end
+
+-- Shows (or hides, with no key) a controller button's icon at a button's left.
+local function setButtonIcon(button, key)
+    if not button.controllerIcon then
+        button.controllerIcon = button:CreateTexture(nil, "OVERLAY")
+        button.controllerIcon:SetSize(Popup.BUTTON_HEIGHT - 4, Popup.BUTTON_HEIGHT - 4)
+        button.controllerIcon:SetPoint("LEFT", button, "LEFT", 4, 0)
+    end
+    local atlas = key and controllerIconAtlas(key)
+    if atlas then button.controllerIcon:SetAtlas(atlas); button.controllerIcon:Show() else button.controllerIcon:Hide() end
+    return atlas ~= nil
+end
+
+-- A clicks the first button, B the last, while the popup is open. Returns the
+-- hint line's height (0 when the buttons show their icons).
 local function takeControllerButtons(first, last)
     frame.hint:SetText("")
+    for _, button in ipairs(frame.buttons) do setButtonIcon(button, nil) end
+    setButtonIcon(frame.reloadButton, nil)
     if not (controllerUIOn() and type(SetOverrideBindingClick) == "function") then return 0 end
     local confirmKey, backKey = GAMEPAD_FACE_BOTTOM or "PAD1", GAMEPAD_FACE_RIGHT or "PAD2"
     ClearOverrideBindings(frame)
     SetOverrideBindingClick(frame, true, confirmKey, first:GetName(), "LeftButton")
+    local iconsShown = setButtonIcon(first, confirmKey)
     local hint = buttonLabel(confirmKey, "A") .. ": " .. first:GetText()
     if last ~= first then
         SetOverrideBindingClick(frame, true, backKey, last:GetName(), "LeftButton")
+        iconsShown = setButtonIcon(last, backKey) and iconsShown
         hint = hint .. "      " .. buttonLabel(backKey, "B") .. ": " .. last:GetText()
     end
-    frame.hint:SetText(hint)
+    if iconsShown then return 0 end
+    frame.hint:SetText(hint)   -- no icons on this client: say it in words
     return Popup.HINT_HEIGHT
 end
 

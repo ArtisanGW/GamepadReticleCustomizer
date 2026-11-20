@@ -217,6 +217,9 @@ local function boot(options)
     SettingsPanel.shown = false
     function SettingsPanel:GetCurrentCategory() return game.currentCategory end
     SettingsPanel.strata = "HIGH"
+    -- The active controller's button icons (atlases), unless options.noControllerIcons.
+    _G.InputIconTextureSetUtility = not options.noControllerIcons and
+        { GetNormalActiveInputIconButtonTexture = function(key) return "gamepad-test-" .. key:lower() end } or nil
     game.bindings, game.bindingOwners = {}, {}
     _G.SetOverrideBindingClick = function(owner, _, key, buttonName) game.bindings[key] = buttonName; game.bindingOwners[key] = owner end
     _G.ClearOverrideBindings = function(owner)
@@ -745,15 +748,22 @@ test("on the controller: A clicks the popup's first button, B the last, a hint s
     control("button", "Class icons").extra.onClick()   -- Get Jiberish Fabled Icons: Reload, Close
     eq(game.bindings.PAD1, "GamepadCrosshairCustomizerPopupReload", "A: the first button, Reload")
     eq(game.bindings.PAD2, "GamepadCrosshairCustomizerPopupButton1", "B: the last, Close")
-    eq(popup().hint.text, "A: Reload      B: Close")
+    eq(popup().reloadButton.controllerIcon.atlas, "gamepad-test-pad1", "the A icon on Reload, as the game marks its buttons")
+    eq(popup().buttons[1].controllerIcon.atlas, "gamepad-test-pad2", "the B icon on Close")
+    eq(popup().hint.text, "", "the icons say it: no hint line")
     _G[game.bindings.PAD2]:Click()
     eq(popup():IsShown(), false, "B closed it")
     eq(game.bindings.PAD1, nil, "the controller's buttons given back"); eq(game.bindings.PAD2, nil)
     eq(game.bindings["ALT-CTRL-SHIFT-C"] ~= nil, true, "other bindings untouched")
 
+    boot({ noControllerIcons = true })
+    control("button", "Class icons").extra.onClick()
+    eq(popup().hint.text, "A: Reload      B: Close", "no icons on this client: said in words")
+
     boot({ keyboard = true })
     control("button", "Class icons").extra.onClick()
     eq(game.bindings.PAD1, nil, "keyboard: no controller bindings"); eq(popup().hint.text, "")
+    eq(popup().reloadButton.controllerIcon:IsShown(), false, "and no icons")
 end)
 
 test("in a fight, a popup (it holds a secure Reload) opens once the fight is over", function()
