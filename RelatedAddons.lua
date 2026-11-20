@@ -8,22 +8,25 @@
 local _, addon = ...
 
 local RelatedAddons = {
-    -- Each: its folder name, its title, its CurseForge page (the project's
-    -- permanent short address, which redirects to it) and its button's tooltip.
+    -- Each: its folder name, its title, its settings row's label, its CurseForge
+    -- page (the project's permanent short address, which redirects to it) and
+    -- the row's tooltip.
     SIBLINGS = {
         {
             NAME = "GamepadCameraOffset",
             TITLE = "Gamepad Camera Offset",
+            LABEL = "Camera over shoulder",   -- the settings row: what it does
             LINK = "https://www.curseforge.com/projects/1818297",
             TOOLTIP = "Moves the camera over your shoulder, with a controller too.\n\n"
-            .. "A separate addon; this one works without it.",
+            .. "A separate addon, Gamepad Camera Offset; this one works without it.",
         },
         {
             NAME = "GamepadReticleOnTarget",
             TITLE = "Gamepad Reticle On Target",
+            LABEL = "Reticle on your target",   -- the settings row: what it does
             LINK = "https://www.curseforge.com/projects/1819101",
             TOOLTIP = "Puts the reticle just below your target's nameplate, so the icon on a target shows there.\n\n"
-            .. "A separate addon; this one works without it.",
+            .. "A separate addon, Gamepad Reticle On Target; this one works without it.",
         },
     },
 }
@@ -91,6 +94,6 @@ end
 -- The settings page's buttons, one per sibling that isn't installed.
 function RelatedAddons.AddButtons(addButton)
     for _, sibling in ipairs(RelatedAddons.Missing()) do
-        addButton(sibling.TITLE, "Get " .. sibling.TITLE, function() RelatedAddons.ShowLink(sibling) end, sibling.TOOLTIP)
+        addButton(sibling.LABEL, "Get the addon", function() RelatedAddons.ShowLink(sibling) end, sibling.TOOLTIP)
     end
 end

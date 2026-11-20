@@ -371,12 +371,12 @@ test("its page under Options > AddOns, in order, with the defaults; /grc opens i
     eq(game.category.name, "Gamepad Reticle Customizer")
     eq(controlList(), "checkbox:Enable, slider:Size, swatch:Color, button:(Reset color), slider:Border, "
         .. "swatch:Border color, button:(Reset border color), "
-        .. "slider:On a target, button:Class icons, slider:Icon size, button:Gamepad Camera Offset, button:Gamepad Reticle On Target",
+        .. "slider:On a target, button:Class icons, slider:Icon size, button:Camera over shoulder, button:Reticle on your target",
         "without Jiberish Fabled Icons: no one-choice Reticle or Class icons slider; its button in the Class icons row")
     boot({ jiberish = true })
     eq(controlList(), "checkbox:Enable, slider:Reticle, slider:Size, swatch:Color, button:(Reset color), slider:Border, "
         .. "swatch:Border color, button:(Reset border color), "
-        .. "slider:On a target, slider:Class icons, slider:Icon size, button:Gamepad Camera Offset, button:Gamepad Reticle On Target",
+        .. "slider:On a target, slider:Class icons, slider:Icon size, button:Camera over shoulder, button:Reticle on your target",
         "with it: both sliders, no button")
     boot()
     local saved = GamepadReticleCustomizerDB
@@ -757,13 +757,13 @@ end)
 
 test("without Gamepad Reticle On Target: a button shows its link to copy; with it, no button", function()
     boot()
-    control("button", "Gamepad Reticle On Target").extra.onClick()
-    eq(control("button", "Gamepad Reticle On Target").extra.buttonText, "Get Gamepad Reticle On Target")
+    control("button", "Reticle on your target").extra.onClick()
+    eq(control("button", "Reticle on your target").extra.buttonText, "Get the addon")
     eq(popup().editBox:GetText(), "https://www.curseforge.com/projects/1819101")
     eq(popup().editBox.highlighted, true, "selected, ready for Ctrl+C")
     eq(popupButtons(), "Close, [secure] Reload")
     boot({ reticleOnTargetInstalled = true })
-    eq(control("button", "Gamepad Reticle On Target"), nil, "installed: no button")
+    eq(control("button", "Reticle on your target"), nil, "installed: no button")
 end)
 
 test("on the controller: A clicks the popup's first button, B the last, a hint says so; closing gives them back", function()
@@ -1106,24 +1106,24 @@ end)
 
 test("debug build: Gamepad Reticle On Target turned off counts as missing, to see its button; the release doesn't", function()
     boot({ reticleOnTargetOff = true })
-    eq(control("button", "Gamepad Reticle On Target").extra.buttonText, "Get Gamepad Reticle On Target",
+    eq(control("button", "Reticle on your target").extra.buttonText, "Get the addon",
         "turned off for this character: the button, as players without it see it")
     boot({ reticleOnTargetOff = true, releaseBuild = true })
-    eq(control("button", "Gamepad Reticle On Target"), nil, "the release: installed is installed")
+    eq(control("button", "Reticle on your target"), nil, "the release: installed is installed")
     boot({ reticleOnTargetInstalled = true })
-    eq(control("button", "Gamepad Reticle On Target"), nil, "debug build, turned on: no button")
+    eq(control("button", "Reticle on your target"), nil, "debug build, turned on: no button")
 end)
 
 test("a Get button for each missing sibling, in order, each with its own CurseForge link", function()
     boot()
-    eq(control("button", "Gamepad Camera Offset").extra.buttonText, "Get Gamepad Camera Offset")
-    control("button", "Gamepad Camera Offset").extra.onClick()
+    eq(control("button", "Camera over shoulder").extra.buttonText, "Get the addon")
+    control("button", "Camera over shoulder").extra.onClick()
     eq(popup().editBox:GetText(), "https://www.curseforge.com/projects/1818297")
-    control("button", "Gamepad Reticle On Target").extra.onClick()
+    control("button", "Reticle on your target").extra.onClick()
     eq(popup().editBox:GetText(), "https://www.curseforge.com/projects/1819101")
     boot({ reticleOnTargetInstalled = true })
-    eq(control("button", "Gamepad Reticle On Target"), nil, "installed: its button gone")
-    eq(control("button", "Gamepad Camera Offset") ~= nil, true, "the other one still offered")
+    eq(control("button", "Reticle on your target"), nil, "installed: its button gone")
+    eq(control("button", "Camera over shoulder") ~= nil, true, "the other one still offered")
 end)
 
 reportLine(passed .. " passed, " .. failed .. " failed")
