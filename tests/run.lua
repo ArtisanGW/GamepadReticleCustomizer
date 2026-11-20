@@ -157,6 +157,7 @@ local function boot(options)
         if not interaction then return false end
         -- As the game: in range, asked for the controller's icon, its interact button instead.
         texture.cursorIcon = (preferGamepadIcon and game.target.inRange) and "gamepad-button" or interaction
+        function texture:GetTexture() return "Cursor Crosshair_" .. self.cursorIcon .. "_64" end
         return true
     end
     game.classColors = { WARRIOR = { r = 0.78, g = 0.61, b = 0.43 }, MAGE = { r = 0.25, g = 0.78, b = 0.92 },
@@ -1202,7 +1203,9 @@ test("friendly NPCs, Their job: the game's own interaction icon for them, else a
     setTarget({ isPlayer = false, reaction = 5, interaction = "trainer", inRange = true }); runUntilNoTimersLeft()
     eq(layer().shape.cursorIcon, "trainer", "close enough to interact: still the job, not the controller's button")
     setTarget({ isPlayer = false, reaction = 5 }); runUntilNoTimersLeft()
-    eq(drawnLook(), "Crosshair_Speak_128", "no interaction icon: a speech bubble")
+    eq(drawnLook(), "Crosshair_Speak_128", "no answer from the game: a speech bubble")
+    setTarget({ isPlayer = false, reaction = 5, interaction = "Point" }); runUntilNoTimersLeft()
+    eq(GamepadReticleCustomizer.Reticle.Drawn().icon, "dot", "nothing to interact with (the plain pointer): the reticle")
     setTarget({ isPlayer = false, reaction = 5, controlled = true }); runUntilNoTimersLeft()
     eq(GamepadReticleCustomizer.Reticle.Drawn().icon, "dot", "another player's pet: the reticle")
 end)
