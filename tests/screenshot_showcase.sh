@@ -73,6 +73,7 @@ while read -r kind name; do
                 xdotool mousemove "$((screen_width / 2))" "$((screen_height / 2))"
                 xdotool click --repeat 15 --delay 60 5; sleep 0.4
                 xdotool click --repeat 15 --delay 60 4; sleep 0.6
+                xdotool mousemove "$((screen_width - 2))" "$((screen_height - 2))"; sleep 0.3   # no tooltip in the shot
             fi
             sleep 0.3; shoot "$file"; echo "shot $file"
             [ "$kind" = settings ] && { xdotool key --clearmodifiers Escape; sleep 0.5; }

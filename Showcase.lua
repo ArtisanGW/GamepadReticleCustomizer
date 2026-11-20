@@ -32,12 +32,14 @@ Showcase.STEPS = {
     { name = "settings-reticle-on-target", kind = "settings", macro = "/grt" },
     { name = "settings-camera-offset", kind = "settings", macro = "/gco" },
     { name = "npc-job-icon", kind = "target", macro = "/targetfriend",
-        wanted = function(target) local name = interaction(target); return name and not name:find("Quest", 1, true) end },
+        wanted = function(target)   -- a real job: not just talking, not a quest
+            local name = interaction(target)
+            return name and not (name:find("Quest", 1, true) or name:find("Speak", 1, true)) end },
     { name = "npc-quest-giver", kind = "target", macro = "/targetfriend",
         wanted = function(target) local name = interaction(target); return name and name:find("Quest", 1, true) end },
     { name = "player-class-icon", kind = "target", macro = "/targetfriendplayer",
         wanted = function(target) return target.isPlayer and not target.otherFaction end },
-    { name = "player-faction-badge", kind = "look", look = { friendlyPlayerIcon = "faction" } },
+    { name = "player-faction-badge", kind = "look", macro = "/target [exists] target", look = { friendlyPlayerIcon = "faction" } },
     { name = "neutral-npc-dots", kind = "target", macro = "/targetenemy",
         wanted = function(target) return not target.isPlayer and target.reaction == "neutral" end },
 }
@@ -80,7 +82,7 @@ end
 
 local function setMacro(step)
     if InCombatLockdown() then return end
-    -- A look step runs no macro (the target stays); after the last step, the target is cleared.
+    -- A look step keeps the target (it selects it again); after the last step, the target is cleared.
     local macro = "/cleartarget"
     if step then macro = step.macro or "" end
     button:SetAttribute("macrotext", macro)
