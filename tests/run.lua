@@ -584,7 +584,7 @@ test("choices are sliders (a dropdown's menu breaks on the controller): each kin
     eq(labels[1], "None"); eq(labels[2], "Faction"); eq(labels[3], "Class")
     eq(labels[11], "Raid marker: Skull"); eq(labels[12], "Icon: Sniper scope"); eq(labels[23], "Icon: Holy")
     eq(table.concat(choiceLabels("Alliance players"), ","):sub(1, 18), "None,Faction,Class")
-    eq(choiceLabels("Friendly NPCs")[2], "Their job"); eq(choiceLabels("Neutral NPCs")[2], "Question mark")
+    eq(choiceLabels("Friendly NPCs")[2], "Their job"); eq(choiceLabels("Neutral NPCs")[2], "Gray dots")
     eq(choiceLabels("Enemy NPCs")[2], "Crossed swords")
     choose("enemyNpcIcon", "marker8")
     eq(GamepadReticleCustomizerDB.enemyNpcIcon, "marker8")
@@ -1180,9 +1180,9 @@ end)
 -- Each kind of target's own icon.
 local function drawnLook() local look = GamepadReticleCustomizer.Reticle.Drawn(); return look.atlas or look.texture end
 local function ownIcons() return { friendlyPlayerIcon = "class", otherFactionIcon = "faction", friendlyNpcIcon = "job",
-    neutralNpcIcon = "question", enemyNpcIcon = "swords" } end
+    neutralNpcIcon = "dots", enemyNpcIcon = "swords" } end
 
-test("each kind its own icon: your faction their class, the other faction theirs, enemy NPCs crossed swords, neutral NPCs a gray question mark", function()
+test("each kind its own icon: your faction their class, the other faction theirs, enemy NPCs crossed swords, neutral NPCs gray dots", function()
     boot({ saved = ownIcons() })
     setTarget({ isPlayer = true, classFile = "MAGE", reaction = 5, faction = "Horde" })
     eq(drawnLook(), "classicon-mage", "your faction: the class")
@@ -1195,7 +1195,7 @@ test("each kind its own icon: your faction their class, the other faction theirs
     setTarget({ isPlayer = false, reaction = 2 })
     eq(drawnLook(), "Crosshair_PVP_128", "an enemy NPC: crossed swords")
     setTarget({ isPlayer = false, reaction = 4 })
-    eq(drawnLook(), "SideInProgressquesticon", "a neutral NPC: the game's gray question mark")
+    eq(drawnLook(), "SideInProgressquesticon", "a neutral NPC: the game's gray dots")
     boot({ saved = { otherFactionIcon = "class" } })
     setTarget({ isPlayer = true, classFile = "MAGE", reaction = 2, faction = "Alliance" })
     eq(drawnLook(), "classicon-mage", "the other faction can show their class instead")

@@ -24,7 +24,7 @@ _G.GamepadReticleCustomizer = addon
 --   friendlyPlayerIcon, otherFactionIcon, friendlyNpcIcon, neutralNpcIcon, enemyNpcIcon:
 --                  what shows instead of the reticle on each kind of target
 --                  (addon.TARGET_KINDS; its choices: Icons.TargetList): "none" (the
---                  reticle stays), its own icon ("class", "faction", "job", "question",
+--                  reticle stays), its own icon ("class", "faction", "job", "dots",
 --                  "swords"), a raid marker or one of the game's icons. Icons keep their
 --                  own colors.
 --   friendlyClassStyle, otherClassStyle: the class icons' style for your faction's

@@ -14,7 +14,7 @@
 --                     "jiberish:<style>", a Jiberish Fabled Icons class sheet when installed
 --   "faction"         a player's faction badge
 --   "job"             a friendly NPC's job (NpcJobs.lua), else a speech bubble
---   "question"        the game's gray question mark (neutral NPCs)
+--   "dots"            the game's gray "..." bubble (neutral NPCs)
 --   "swords"          crossed swords (enemy NPCs)
 --   "marker1".."8"    the game's raid target markers: star, circle, diamond,
 --                     triangle, moon, square, cross, skull
@@ -33,8 +33,8 @@ local Icons = {
     FACTION_ATLASES = { Alliance = "UI-HUD-UnitFrame-Player-PVP-AllianceIcon", Horde = "UI-HUD-UnitFrame-Player-PVP-HordeIcon" },
     KIND_ICONS = {
         swords = { atlas = "Crosshair_PVP_128", file = "Interface\\Icons\\Ability_DualWield" },     -- crossed swords
-        -- a gray question mark: the game's quest-in-progress one (QuestUtils.lua:199), not a quest to hand in
-        question = { atlas = "SideInProgressquesticon", file = "Interface\\GossipFrame\\IncompleteQuestIcon" },
+        -- a gray "..." bubble: the game's quest-in-progress icon (QuestUtils.lua:199)
+        dots = { atlas = "SideInProgressquesticon", file = "Interface\\GossipFrame\\IncompleteQuestIcon" },
         talk = { atlas = "Crosshair_Speak_128", file = "Interface\\GossipFrame\\GossipGossipIcon" }, -- a speech bubble
     },
     -- The game's own icons offered on a target: in the game since its first years.
@@ -144,7 +144,7 @@ Icons.KIND_CHOICES = {
     friendlyPlayerIcon = { { id = "faction", label = "Faction" }, { id = "class", label = "Class" } },
     otherFactionIcon = { { id = "faction", label = "Faction" }, { id = "class", label = "Class" } },
     friendlyNpcIcon = { { id = "job", label = "Their job" } },
-    neutralNpcIcon = { { id = "question", label = "Question mark" } },
+    neutralNpcIcon = { { id = "dots", label = "Gray dots" } },
     enemyNpcIcon = { { id = "swords", label = "Crossed swords" } },
 }
 
@@ -238,7 +238,7 @@ function Icons.TargetLook(choice, target, classStyle)
         local jobLook = addon.NpcJobs and addon.NpcJobs.Look("target", classStyle)   -- NpcJobs.lua
         return jobLook or kindIcon("talk")
     end
-    if choice == "question" or choice == "swords" then return kindIcon(choice) end
+    if choice == "dots" or choice == "swords" then return kindIcon(choice) end
     local texture = Icons.Texture(choice)
     return texture and { texture = texture } or nil
 end
