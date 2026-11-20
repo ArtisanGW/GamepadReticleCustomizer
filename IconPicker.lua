@@ -44,6 +44,10 @@ local picker
 
 local function build()
     picker = CreateFrame("Frame", "GamepadCrosshairCustomizerIconPicker", UIParent, "IconSelectorPopupFrameTemplate")
+    -- The template doesn't start hidden (the macro window's own XML hides its copy):
+    -- hidden at once, so the first Open shows it with everything below in place.
+    picker:Hide()
+    picker.iconDataProvider = newIconList()
     picker:ClearAllPoints()
     picker:SetPoint("CENTER", UIParent, "CENTER", 0, 40)
     picker:SetFrameStrata("DIALOG")
@@ -70,7 +74,6 @@ local function build()
     end
 
     picker:HookScript("OnShow", function(self)
-        self.iconDataProvider = self.iconDataProvider or newIconList()
         self:SetIconFilter(IconSelectorPopupFrameIconFilterTypes.All)
         self:Update()
         self.IconSelector:SetSelectedCallback(function(_, icon)

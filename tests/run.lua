@@ -144,8 +144,10 @@ local function boot(options)
         function frame:GetNumIcons() return self.iconDataProvider:GetNumIcons() end
         frame.hooks = {}
         function frame:HookScript(script, fn) self.hooks[script] = fn end
-        frame.shown = false
+        frame.shown = true   -- as the game's template: it doesn't start hidden
         function frame:Show() self.shown = true; if self.hooks.OnShow then self.hooks.OnShow(self) end end
+        -- As the template: asking for an icon before it has its list is an error (seen in game).
+        function frame:GetIndexOfIcon(icon) return self.iconDataProvider:GetIndexOfIcon(icon) end
         -- Picking in the grid, as a click does: the template's selection callback.
         function frame:Pick(index) self.IconSelector.selected = index; self.IconSelector.onSelected(index, self:GetIconByIndex(index)) end
         function frame:ClickOkay() self:OkayButton_OnClick() end
