@@ -40,10 +40,12 @@ STEP_COUNT=$(cd "$SCRIPT_FOLDER/.." && luajit -e '
     dofile("Debug.lua")
     print(#GamepadCrosshairCustomizer.Debug.STEPS)')
 RELOAD_WAIT="${RELOAD_WAIT:-120}"
-TIME_LIMIT=$((STEP_COUNT * 3 + 90))
+START_RETRY_SECONDS=5
+TIME_LIMIT=$((STEP_COUNT * 3 + 150))
 mkdir -p "$OUTPUT_FOLDER"
 
-# Prints the corner square's state in a screenshot: "stopped", "step <n>" or "none".
+# Prints the corner square's state in a screenshot: "stopped", "waiting" (for the
+# crosshair to show), "step <n>" or "none".
 read_marker() {
     python3 - "$1" "$MARKER_BLUE_PER_STEP" <<'PY'
 import sys
@@ -53,6 +55,8 @@ if red > 200 and green < 60 and blue > 240:
     print("none")   # magenta: DevReload's box, not ours
 elif red > 200 and green < 60:
     print("stopped")
+elif red > 200 and green > 200 and blue < 60:
+    print("waiting")
 elif green > 200 and red < 60 and blue > 0:
     print("step %d" % round(blue / int(sys.argv[2])))
 else:
@@ -69,7 +73,10 @@ if [ "${COMPARE_ONLY:-0}" != 1 ]; then
     rm -f "$OUTPUT_FOLDER"/step-*.png
     focus_game_with_kwin "$window"
     sleep 0.5
-    xdotool key --clearmodifiers "$START_KEYS"
+    # Right after game_reload.sh the game may still be loading, before Debug.lua
+    # binds its key at login: the key is pressed again every START_RETRY_SECONDS
+    # until the square shows (seen: the first press after a reload went nowhere).
+    xdotool key --clearmodifiers "$START_KEYS"; last_press=$SECONDS
     echo "/gcc debug: $STEP_COUNT steps. After a reload, touch the controller once so its UI (and the crosshair) comes back; then stay still."
     started=$SECONDS; last_step=0; probe="$OUTPUT_FOLDER/.probe.png"
     while :; do
@@ -83,11 +90,16 @@ if [ "${COMPARE_ONLY:-0}" != 1 ]; then
                     echo "  step $step/$STEP_COUNT"
                     last_step=$step
                 fi ;;
+            waiting) : ;;   # Debug.lua waits for the crosshair (a touch of the controller)
             stopped) echo "The run stopped in the game (a fight?). Shots so far are in $OUTPUT_FOLDER." >&2; exit 6 ;;
             none)
                 if [ "$last_step" -ge "$STEP_COUNT" ]; then break; fi
                 # Debug.lua first waits up to 60 s for the crosshair (its square yellow).
-                if [ "$last_step" -eq 0 ] && [ $((SECONDS - started)) -ge 70 ]; then
+                if [ "$last_step" -eq 0 ] && [ $((SECONDS - last_press)) -ge "$START_RETRY_SECONDS" ]; then
+                    focus_game_with_kwin "$window"; sleep 0.3
+                    xdotool key --clearmodifiers "$START_KEYS"; last_press=$SECONDS
+                fi
+                if [ "$last_step" -eq 0 ] && [ $((SECONDS - started)) -ge 90 ]; then
                     echo "The run didn't start (is Debug.lua loaded? a chat box holding the cursor?)." >&2; exit 7
                 fi ;;
         esac
