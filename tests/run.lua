@@ -163,7 +163,9 @@ local function boot(options)
         game.frames[#game.frames + 1] = frame
         return frame
     end
-    _G.C_AddOns = { DoesAddOnExist = function(name) return name == "JiberishIcons" and options.jiberish == true end }
+    _G.C_AddOns = { DoesAddOnExist = function(name)
+        return (name == "JiberishIcons" and options.jiberish == true) or (name == "GamepadCameraOffset" and options.cameraOffset == true)
+    end }
     _G.MinimalSliderWithSteppersMixin = { Label = { Right = 2 } }
     local function addControl(kind, setting, extra)
         game.controls[#game.controls + 1] = { kind = kind, setting = setting, extra = extra }
@@ -312,7 +314,7 @@ test("its page under Options > AddOns, in order, with the defaults; /gcc opens i
     eq(game.category.name, "Gamepad Crosshair Customizer")
     eq(controlList(), "checkbox:Enable, slider:Crosshair, slider:Size, swatch:Color, button:Reset color, slider:Border, "
         .. "swatch:Border color, button:Reset border color, "
-        .. "slider:On a target, slider:Class icons, button:Choose icon, slider:Icon size, button:More shapes",
+        .. "slider:On a target, slider:Class icons, button:Choose icon, slider:Icon size, button:More shapes, button:Gamepad Camera Offset",
         "the crosshair with its border and colors, then what shows on a target")
     local saved = GamepadCrosshairCustomizerDB
     eq(saved.enabled, true); eq(saved.color, "FFFFFFFF"); eq(saved.size, 4); eq(saved.borderSize, 0)
@@ -634,6 +636,17 @@ test("class icon styles: the game's, or a JiberishUI class sheet's cell for the 
     eq(layer().shape.atlas, "classicon-mage", "a Jiberish style without the addon: the game's icon")
 end)
 
+test("without Gamepad Camera Offset: a button shows its CurseForge link to copy; with it, no button", function()
+    boot()
+    control("button", "Gamepad Camera Offset").extra.onClick()
+    local box = GamepadCrosshairCustomizer.TextBox.box
+    eq(control("button", "Gamepad Camera Offset").extra.buttonText, "Get Gamepad Camera Offset...")
+    eq(box.editBox:GetText(), "https://www.curseforge.com/projects/1818297")
+    eq(box.editBox.highlighted, true, "selected, ready for Ctrl+C")
+    boot({ cameraOffset = true })
+    eq(control("button", "Gamepad Camera Offset"), nil, "installed: no button")
+end)
+
 -- The preview beside the settings page
 
 local function showPage(category)
@@ -872,7 +885,7 @@ end)
 test("the release leaves Debug.lua out: ignored by .pkgmeta, and gone from the release .toc", function()
     assert(readFile(".pkgmeta"):find("\n  %- Debug%.lua\n"), ".pkgmeta ignores Debug.lua, alone on its line")
     eq(table.concat(tocFiles(true), ","),
-        "SavedSettings.lua,Color.lua,Icons.lua,Target.lua,Crosshair.lua,PickerSticks.lua,TextBox.lua,IconPicker.lua,Preview.lua,GamepadCrosshairCustomizer.lua")
+        "SavedSettings.lua,Color.lua,Icons.lua,Target.lua,Crosshair.lua,PickerSticks.lua,TextBox.lua,IconPicker.lua,Preview.lua,RelatedAddon.lua,GamepadCrosshairCustomizer.lua")
     eq(tocFiles()[#tocFiles()], "Debug.lua", "the repo's .toc loads it last")
 end)
 

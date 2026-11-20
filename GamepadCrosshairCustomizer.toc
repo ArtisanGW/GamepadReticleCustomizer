@@ -15,6 +15,7 @@ PickerSticks.lua
 TextBox.lua
 IconPicker.lua
 Preview.lua
+RelatedAddon.lua
 GamepadCrosshairCustomizer.lua
 #@do-not-package@
 # /gcc debug, the in-game test suite: not in the release zip (.pkgmeta)

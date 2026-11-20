@@ -226,6 +226,8 @@ function addon.RegisterSettings()
             .. "Once it's installed (and after /reload), they're in the Crosshair and Class icons choices.")
     end
 
+    addon.RelatedAddon.AddButton(addButton)
+
     Settings.RegisterAddOnCategory(category)
     addon.Preview.Watch()
 end
