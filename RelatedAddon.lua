@@ -9,8 +9,8 @@ local _, addon = ...
 local RelatedAddon = {
     NAME = "GamepadReticleOnTarget",
     TITLE = "Gamepad Reticle On Target",
-    -- GitHub until it has a CurseForge project.
-    LINK = "https://github.com/ArtisanGW/GamepadReticleOnTarget",
+    -- CurseForge's permanent short address for its project (redirects to its page).
+    LINK = "https://www.curseforge.com/projects/1819101",
 }
 addon.RelatedAddon = RelatedAddon
 

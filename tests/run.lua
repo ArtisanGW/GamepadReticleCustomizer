@@ -758,7 +758,7 @@ test("without Gamepad Reticle On Target: a button shows its link to copy; with i
     boot()
     control("button", "Gamepad Reticle On Target").extra.onClick()
     eq(control("button", "Gamepad Reticle On Target").extra.buttonText, "Get Gamepad Reticle On Target")
-    eq(popup().editBox:GetText(), "https://github.com/ArtisanGW/GamepadReticleOnTarget")
+    eq(popup().editBox:GetText(), "https://www.curseforge.com/projects/1819101")
     eq(popup().editBox.highlighted, true, "selected, ready for Ctrl+C")
     eq(popupButtons(), "Close, [secure] Reload")
     boot({ reticleOnTargetInstalled = true })
