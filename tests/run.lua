@@ -88,13 +88,15 @@ local function boot(options)
     _G.UnitIsPlayer = function(unit) return targetField(unit, "isPlayer") == true end
     _G.UnitClass = function(unit) local classFile = targetField(unit, "classFile"); return classFile and classFile:lower(), classFile end
     _G.UnitReaction = function(unit) return targetField(unit, "reaction") end
+    _G.UnitIsUnit = function(unit, other) return other == "target" and game.target ~= nil and unit == game.target.plateUnit end
     _G.C_Texture = { GetAtlasInfo = function(atlas) if atlas:find("^classicon%-") and options.classAtlases ~= false then return {} end end }
     game.classColors = { WARRIOR = { r = 0.78, g = 0.61, b = 0.43 }, MAGE = { r = 0.25, g = 0.78, b = 0.92 },
         PRIEST = { r = 1, g = 1, b = 1 }, DRUID = { r = 1, g = 0.49, b = 0.04 } }
     _G.C_ClassColor = { GetClassColor = function(classFile) return game.classColors[classFile] end }
-    -- A player target's nameplate, its health bar in its class's color (as the game shows them).
+    -- The target's nameplate (unless target.nameplate == false: a vendor, a minion, or
+    -- off screen), a player's health bar in its class's color (as the game shows them).
     _G.C_NamePlate = { GetNamePlateForUnit = function(unit)
-        if unit ~= "target" or not game.target or not game.target.isPlayer or options.noNameplates then return nil end
+        if unit ~= "target" or not game.target or game.target.nameplate == false or options.noNameplates then return nil end
         local color = game.classColors[game.target.classFile] or { r = 0, g = 1, b = 0 }
         return { UnitFrame = { healthBar = { GetStatusBarColor = function() return color.r, color.g, color.b end } } }
     end }
@@ -458,6 +460,22 @@ test("a player's class icon: the game's classicon atlas for players; NPCs, an un
     eq(GamepadCrosshairCustomizer.Crosshair.Drawn().icon, "dot", "no such atlas on this client: the crosshair")
 end)
 
+test("a target without a nameplate on screen (a vendor, a minion, off screen) keeps the crosshair; its nameplate coming brings the icon", function()
+    boot({ saved = { targetIcon = "marker8", iconSize = 30 } })
+    setTarget({ isPlayer = false, reaction = 5, nameplate = false, plateUnit = "nameplate4" })
+    eq(GamepadCrosshairCustomizer.Crosshair.Drawn().icon, "dot", "a vendor with friendly NPC nameplates off: the crosshair")
+    game.target.nameplate = true
+    game.fire("NAME_PLATE_UNIT_ADDED", "nameplate4")
+    eq(GamepadCrosshairCustomizer.Crosshair.Drawn().icon, "marker8", "its nameplate shows: the icon")
+    game.target.nameplate = false
+    game.fire("NAME_PLATE_UNIT_REMOVED", "nameplate9")
+    eq(GamepadCrosshairCustomizer.Crosshair.Drawn().icon, "marker8", "another unit's nameplate: nothing redrawn")
+    game.fire("NAME_PLATE_UNIT_REMOVED", "nameplate4")
+    eq(GamepadCrosshairCustomizer.Crosshair.Drawn().icon, "dot", "the target off screen: the crosshair back")
+    setTarget({ isPlayer = true, classFile = "MAGE", reaction = 5, nameplate = false })
+    eq(GamepadCrosshairCustomizer.Crosshair.Drawn().icon, "dot", "a player with friendly nameplates off: the crosshair")
+end)
+
 test("a marker or custom texture saved in the old single Shape setting becomes the icon on a target", function()
     boot({ saved = { icon = "marker2" } })
     eq(GamepadCrosshairCustomizerDB.icon, "dot"); eq(GamepadCrosshairCustomizerDB.targetIcon, "marker2")
@@ -560,14 +578,15 @@ test("/gcc debug: every look checked, on 3 friendly classes and both NPC kinds, 
     end
 end)
 
-test("/gcc debug: alone (yourself, one NPC kind, no nameplates), the optional parts are skipped, nothing fails", function()
+test("/gcc debug: alone (yourself, one NPC kind, no nameplates: the crosshair stays), the optional parts are skipped, nothing fails", function()
     boot({ noNameplates = true })
     SlashCmdList.GAMEPADCROSSHAIRCUSTOMIZER("debug")
     driveDebugRun({ { isPlayer = true, classFile = "DRUID", reaction = 5 } }, { { isPlayer = false, reaction = 4 } })
     local run = GamepadCrosshairCustomizerDebugDB.runs[1]
     eq(failedChecks(run), "", "nothing failed")
     eq(run.found.class2, nil); eq(run.found.npc1, "neutral"); eq(run.found.npc2, nil)
-    eq(checkResult(run, "its nameplate shows the class's color"), "skip", "no nameplate: skipped")
+    eq(checkResult(run, "its nameplate shows the class's color"), nil, "no nameplate: no class icon, nothing to compare")
+    eq(checkResult(run, "target: its class icon, size 32 (DRUID): what's drawn"), "pass", "checked as the crosshair staying")
     eq(checkResult(run, "the other kind of NPC"), "skip")
 end)
 

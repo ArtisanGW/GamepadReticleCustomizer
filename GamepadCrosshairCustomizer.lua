@@ -151,7 +151,8 @@ function addon.RegisterSettings()
     end
 
     addon.targetIconSlider = addChoice("targetIcon", "On a target", addon.Icons.TargetList,
-        "What shows instead of the crosshair while you have a target: nothing (the crosshair stays), "
+        "What shows instead of the crosshair while your target's nameplate is on screen (vendors, guards "
+        .. "and minions keep the crosshair unless their nameplates are on in Options > Nameplates): nothing, "
         .. "a player's class icon (any other target keeps the crosshair), one of the game's raid markers, "
         .. "or a texture of your own (Custom texture...). Icons keep their own colors.")
     Settings.CreateSlider(category, addSetting("iconSize", Settings.VarType.Number, "Icon size"),
@@ -196,6 +197,9 @@ local eventFrame = CreateFrame("Frame")
 eventFrame:RegisterEvent("ADDON_LOADED")
 eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 eventFrame:RegisterEvent("PLAYER_TARGET_CHANGED")
+-- The target's nameplate coming or going (on or off screen) switches between icon and crosshair.
+eventFrame:RegisterEvent("NAME_PLATE_UNIT_ADDED")
+eventFrame:RegisterEvent("NAME_PLATE_UNIT_REMOVED")
 eventFrame:SetScript("OnEvent", function(_, event, name)
     if event == "ADDON_LOADED" then
         if name ~= ADDON_NAME then return end
@@ -204,6 +208,10 @@ eventFrame:SetScript("OnEvent", function(_, event, name)
         pcall(addon.RegisterSettings)
     elseif event == "PLAYER_ENTERING_WORLD" or event == "PLAYER_TARGET_CHANGED" then
         addon.UpdateCrosshair()
+    elseif event == "NAME_PLATE_UNIT_ADDED" or event == "NAME_PLATE_UNIT_REMOVED" then
+        -- Only the target's own nameplate matters (name is the unit, "nameplate3").
+        local succeeded, isTarget = pcall(UnitIsUnit, name, "target")
+        if not succeeded or isTarget ~= false then addon.UpdateCrosshair() end
     end
 end)
 

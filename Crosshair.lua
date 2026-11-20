@@ -39,11 +39,14 @@ function Crosshair.Drawn() return drawn end
 function Crosshair.Layer() return layer end
 function Crosshair.GameDotAlpha() return gameDotAlpha end
 
--- What to draw now: the icon for a target while you have one (and it can be
--- drawn), else the crosshair's shape. { icon, texture or atlas, size, tinted }.
+-- What to draw now: the icon for a target while you have one whose nameplate is
+-- on screen (and it can be drawn), else the crosshair's shape. A target without a
+-- nameplate (a vendor, a guard or a minion with their nameplates off, as by
+-- default, or one off screen) keeps the crosshair: the icon follows what your
+-- nameplate settings show. { icon, texture or atlas, size, tinted }.
 function Crosshair.Choose(settings, target)
     local targetIcon = settings.targetIcon
-    if target.exists and targetIcon ~= "none" then
+    if target.exists and target.hasNameplate and targetIcon ~= "none" then
         local iconSize = addon.Clamp(settings.iconSize, addon.SIZE_MIN, addon.SIZE_MAX, addon.DEFAULTS.iconSize)
         if targetIcon == "class" then
             local atlas = target.isPlayer and addon.Icons.ClassAtlas(target.classFile)

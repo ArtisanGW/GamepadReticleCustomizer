@@ -131,8 +131,13 @@ end
 -- What a step should show, worked out from its own look and the real target (not
 -- from the addon's choice): { icon, texture or atlas, size, tinted }.
 local function expectedLook(step, settings)
+    local target = addon.TargetInfo()
+    if step.shows == "targetIcon" and not target.hasNameplate then
+        -- No nameplate on screen for this target: the crosshair stays (checked as such).
+        local icon = settings.icon
+        return { icon = icon, texture = addon.Icons.Texture(icon), size = settings.size, tinted = true }
+    end
     if step.shows == "targetIcon" then
-        local target = addon.TargetInfo()
         if settings.targetIcon == "class" then
             return { icon = "class", atlas = addon.Icons.ClassAtlas(target.classFile), size = settings.iconSize, tinted = false }
         end
@@ -167,7 +172,7 @@ local function checkLook(label, step)
     if expected.atlas then
         expectEqual(label .. ": its atlas", expected.atlas, type(layer.shape.GetAtlas) == "function" and layer.shape:GetAtlas() or drawn.atlas)
         Debug.CheckNameplateClassColor(label, addon.TargetInfo().classFile)
-    elseif step.shows == "targetIcon" and settings.targetIcon == "class" then
+    elseif expected.icon == "class" then
         recordCheck(label .. ": the class's atlas exists on this client", false, "classicon-<class>", "none")
     else
         expectEqual(label .. ": its file", fileAsGameReportsIt(expected.texture), layer.shape:GetTexture())
