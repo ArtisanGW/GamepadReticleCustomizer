@@ -23,7 +23,7 @@ DEV_ADDONS="${DEV_ADDONS:-$SCRIPT_FOLDER/../../devAddons}"
 . "$DEV_ADDONS/game_window.sh"
 OUTPUT_FOLDER="${1:-$HOME/Documents/Coding/WoW/Screenshots/$(date +%Y-%m-%d) showcase}"
 SHOWCASE_KEYS="ctrl+alt+shift+b"   # Showcase.lua's KEY
-STEP_SECONDS=40                    # longest wait for one step
+STEP_SECONDS=80                    # longest wait for one step (40 tries of a target)
 PRESS_AGAIN_SECONDS=1.2            # between presses while a target is looked for
 mkdir -p "$OUTPUT_FOLDER"
 

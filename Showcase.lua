@@ -17,7 +17,7 @@
 -- the next login, should a reload cut the tour short). Your own frame and personal
 -- nameplate are hidden meanwhile, for clean shots.
 local addon = _G.GamepadReticleCustomizer
-local Showcase = { KEY = "ALT-CTRL-SHIFT-B", CHECK_DELAY_SECONDS = 0.4, TRIES = 15 }
+local Showcase = { KEY = "ALT-CTRL-SHIFT-B", CHECK_DELAY_SECONDS = 0.4, TRIES = 40 }   -- tries: crowds of players come first
 addon.Showcase = Showcase
 
 -- The look shown: an icon for each kind of target.
