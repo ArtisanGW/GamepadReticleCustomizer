@@ -35,7 +35,12 @@ local function newRegion(parent)
     function region:GetWidth() return self.width end
     function region:GetHeight() return self.height end
     function region:Show() self.shown = true end
-    function region:Hide() self.shown = false end
+    function region:Hide()
+        local wasShown = self.shown
+        self.shown = false
+        if wasShown and self.scripts and self.scripts.OnHide then self.scripts.OnHide(self) end
+    end
+    function region:GetName() return self.name end
     function region:SetShown(shown) self.shown = shown and true or false end
     function region:IsShown() return self.shown end
     function region:IsVisible() return self.shown and (self.parent == nil or self.parent:IsVisible()) end
@@ -128,7 +133,7 @@ local function boot(options)
     _G.NineSliceUtil = { ApplyLayoutByName = function(container, layoutName) container.layoutName = layoutName end }
     _G.CreateFrame = function(_, name, parent, template)
         local frame = newRegion(parent)
-        frame.template = template
+        frame.template, frame.name = template, name
         frame.events, frame.scripts = {}, {}
         if name then _G[name] = frame end
         function frame:RegisterEvent(eventName) self.events[eventName] = true end
@@ -212,8 +217,13 @@ local function boot(options)
     SettingsPanel.shown = false
     function SettingsPanel:GetCurrentCategory() return game.currentCategory end
     SettingsPanel.strata = "HIGH"
-    game.bindings = {}
-    _G.SetOverrideBindingClick = function(_, _, key, buttonName) game.bindings[key] = buttonName end
+    game.bindings, game.bindingOwners = {}, {}
+    _G.SetOverrideBindingClick = function(owner, _, key, buttonName) game.bindings[key] = buttonName; game.bindingOwners[key] = owner end
+    _G.ClearOverrideBindings = function(owner)
+        for key, keyOwner in pairs(game.bindingOwners) do
+            if keyOwner == owner then game.bindings[key], game.bindingOwners[key] = nil, nil end
+        end
+    end
     -- The controller UI's crosshair: Blizzard's dot, white, never tinted by the game.
     local icons = newRegion(nil)
     icons.StandardIcon = newRegion(icons)
@@ -728,6 +738,22 @@ test("without Gamepad Camera Offset: a button shows its CurseForge link to copy;
     eq(popupButtons(), "Close, [secure] Reload")
     boot({ cameraOffset = true })
     eq(control("button", "Gamepad Camera Offset"), nil, "installed: no button")
+end)
+
+test("on the controller: A clicks the popup's first button, B the last, a hint says so; closing gives them back", function()
+    boot()
+    control("button", "Class icons").extra.onClick()   -- Get JiberishUI Icons: Reload, Close
+    eq(game.bindings.PAD1, "GamepadCrosshairCustomizerPopupReload", "A: the first button, Reload")
+    eq(game.bindings.PAD2, "GamepadCrosshairCustomizerPopupButton1", "B: the last, Close")
+    eq(popup().hint.text, "A: Reload      B: Close")
+    _G[game.bindings.PAD2]:Click()
+    eq(popup():IsShown(), false, "B closed it")
+    eq(game.bindings.PAD1, nil, "the controller's buttons given back"); eq(game.bindings.PAD2, nil)
+    eq(game.bindings["ALT-CTRL-SHIFT-C"] ~= nil, true, "other bindings untouched")
+
+    boot({ keyboard = true })
+    control("button", "Class icons").extra.onClick()
+    eq(game.bindings.PAD1, nil, "keyboard: no controller bindings"); eq(popup().hint.text, "")
 end)
 
 test("in a fight, a popup (it holds a secure Reload) opens once the fight is over", function()

@@ -7,13 +7,20 @@
 --   addon.Popup.Show({ text = "...", copyText = "https://...",
 --       buttons = { { text = "Reload", reload = true, beforeReload = function() end },
 --                   { text = "Close" } } })
--- A button without onClick closes the popup. It's our own frame, not the game's
+-- A button without onClick closes the popup.
+--
+-- On the controller UI, while it's open, the controller's bottom face button (A)
+-- clicks the first button and the right one (B) the last, through the popup's own
+-- override bindings (GAMEPAD_FACE_BOTTOM/RIGHT, Shared/GamepadConstants.lua:7-8,
+-- forever branch), cleared when it closes: the game's controller navigation
+-- doesn't reach it (kept apart on purpose), and a real button press is what lets
+-- the secure Reload work. A hint line says which does what. It's our own frame, not the game's
 -- StaticPopup (shared windows the controller steers: our code in them broke its
 -- navigation before). Holding a secure button, it can't be shown in a fight: it
 -- opens once the fight is over.
 local _, addon = ...
 
-local Popup = { WIDTH = 440, BUTTON_WIDTH = 170, BUTTON_HEIGHT = 24, BUTTONS = 3 }
+local Popup = { WIDTH = 440, BUTTON_WIDTH = 170, BUTTON_HEIGHT = 24, BUTTONS = 3, HINT_HEIGHT = 18 }
 addon.Popup = Popup
 
 local frame, waitingForCombatEnd, pendingOptions
@@ -41,8 +48,9 @@ local function build()
     -- Plain buttons, and one secure Reload (created now, out of combat).
     frame.buttons = {}
     for index = 1, Popup.BUTTONS do
-        local button = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+        local button = CreateFrame("Button", "GamepadCrosshairCustomizerPopupButton" .. index, frame, "UIPanelButtonTemplate")
         button:SetSize(Popup.BUTTON_WIDTH, Popup.BUTTON_HEIGHT)
+        button:RegisterForClicks("AnyUp")
         button:SetScript("OnClick", function(self)
             local onClick = self.onClick
             frame:Hide()
@@ -59,7 +67,55 @@ local function build()
     frame.reloadButton:SetScript("PreClick", function(self)
         if self.beforeReload then pcall(self.beforeReload) end
     end)
+    -- The controller hint, under the buttons.
+    frame.hint = frame:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
+    frame.hint:SetPoint("BOTTOM", frame, "BOTTOM", 0, 12)
+    -- Closing gives the controller's buttons back (after the fight if in one).
+    frame:SetScript("OnHide", function() Popup.ReleaseControllerButtons() end)
     Popup.frame = frame
+end
+
+local function controllerUIOn()
+    return type(InputUtil) == "table" and type(InputUtil.IsGamepadUIEnabled) == "function"
+        and InputUtil.IsGamepadUIEnabled() == true
+end
+
+-- A controller button's name as the game shows it, else a plain letter.
+local function buttonLabel(key, fallback)
+    local text = type(GetBindingText) == "function" and GetBindingText(key) or nil
+    if type(text) ~= "string" or text == "" or text == key then return fallback end
+    return text
+end
+
+local releaseAfterCombat
+function Popup.ReleaseControllerButtons()
+    if not frame or type(ClearOverrideBindings) ~= "function" then return end
+    if InCombatLockdown() then
+        releaseAfterCombat = releaseAfterCombat or CreateFrame("Frame")
+        releaseAfterCombat:SetScript("OnEvent", function(self)
+            self:UnregisterEvent("PLAYER_REGEN_ENABLED")
+            if not frame:IsShown() then ClearOverrideBindings(frame) end
+        end)
+        releaseAfterCombat:RegisterEvent("PLAYER_REGEN_ENABLED")
+        return
+    end
+    ClearOverrideBindings(frame)
+end
+
+-- A clicks the first button, B the last, while the popup is open.
+local function takeControllerButtons(first, last)
+    frame.hint:SetText("")
+    if not (controllerUIOn() and type(SetOverrideBindingClick) == "function") then return 0 end
+    local confirmKey, backKey = GAMEPAD_FACE_BOTTOM or "PAD1", GAMEPAD_FACE_RIGHT or "PAD2"
+    ClearOverrideBindings(frame)
+    SetOverrideBindingClick(frame, true, confirmKey, first:GetName(), "LeftButton")
+    local hint = buttonLabel(confirmKey, "A") .. ": " .. first:GetText()
+    if last ~= first then
+        SetOverrideBindingClick(frame, true, backKey, last:GetName(), "LeftButton")
+        hint = hint .. "      " .. buttonLabel(backKey, "B") .. ": " .. last:GetText()
+    end
+    frame.hint:SetText(hint)
+    return Popup.HINT_HEIGHT
 end
 
 local function layout(options)
@@ -91,12 +147,15 @@ local function layout(options)
     -- The buttons in a centered row at the bottom, as the game's popups have them.
     local gap = 10
     local rowWidth = #shown * Popup.BUTTON_WIDTH + (#shown - 1) * gap
-    for index, button in ipairs(shown) do
+    for _, button in ipairs(shown) do
         button:ClearAllPoints()
-        button:SetPoint("BOTTOMLEFT", frame, "BOTTOM", -rowWidth / 2 + (index - 1) * (Popup.BUTTON_WIDTH + gap), 16)
         button:Show()
     end
-    frame:SetHeight(height + Popup.BUTTON_HEIGHT + 16)
+    local hintHeight = takeControllerButtons(shown[1], shown[#shown])
+    for index, button in ipairs(shown) do
+        button:SetPoint("BOTTOMLEFT", frame, "BOTTOM", -rowWidth / 2 + (index - 1) * (Popup.BUTTON_WIDTH + gap), 16 + hintHeight)
+    end
+    frame:SetHeight(height + Popup.BUTTON_HEIGHT + 16 + hintHeight)
 end
 
 function Popup.Show(options)
