@@ -310,8 +310,9 @@ end
 test("its page under Options > AddOns, in order, with the defaults; /gcc opens it", function()
     boot()
     eq(game.category.name, "Gamepad Crosshair Customizer")
-    eq(controlList(), "checkbox:Enable, slider:Crosshair, slider:Size, swatch:Color, slider:Border, swatch:Border color, "
-        .. "button:Default colors, slider:On a target, slider:Class icons, button:Choose icon, slider:Icon size, button:More shapes",
+    eq(controlList(), "checkbox:Enable, slider:Crosshair, slider:Size, swatch:Color, button:Reset color, slider:Border, "
+        .. "swatch:Border color, button:Reset border color, "
+        .. "slider:On a target, slider:Class icons, button:Choose icon, slider:Icon size, button:More shapes",
         "the crosshair with its border and colors, then what shows on a target")
     local saved = GamepadCrosshairCustomizerDB
     eq(saved.enabled, true); eq(saved.color, "FFFFFFFF"); eq(saved.size, 4); eq(saved.borderSize, 0)
@@ -590,22 +591,27 @@ test("Choose icon...: the game's icon picker, the raid markers first; a pick, a 
     eq(game.printed[#game.printed]:find("usage", 1, true) ~= nil, true, "no path: says how")
 end)
 
-test("choosing a crosshair shape at the game dot's size raises it to 24; the dot doesn't", function()
-    boot({ jiberish = true })
+test("the dot and the shapes keep their own sizes: a shape starts at 24, the dot gets its own back", function()
+    boot({ jiberish = true, saved = { size = 6 } })
     choose("icon", "jiberish:x-bold")
-    eq(GamepadCrosshairCustomizerDB.size, 24, "a shape at size 4 can't be seen")
-    eq(layer().shape:GetWidth(), 24)
-    setting("size"):SetValue(40); choose("icon", "jiberish:plus-thin")
-    eq(GamepadCrosshairCustomizerDB.size, 40, "a size you set is kept")
-    setting("size"):SetValue(4); choose("icon", "dot")
-    eq(GamepadCrosshairCustomizerDB.size, 4, "the dot keeps its size")
+    eq(GamepadCrosshairCustomizerDB.size, 24, "a shape starts at 24: at the dot's size it can't be seen")
+    setting("size"):SetValue(40)
+    choose("icon", "jiberish:plus-thin")
+    eq(GamepadCrosshairCustomizerDB.size, 40, "shape to shape: the size kept")
+    choose("icon", "dot")
+    eq(GamepadCrosshairCustomizerDB.size, 6, "back to the dot: the dot's own size, not 24 or 40")
+    eq(layer().shape:GetWidth(), 6)
+    choose("icon", "jiberish:x-thin")
+    eq(GamepadCrosshairCustomizerDB.size, 40, "back to a shape: the shapes' size")
 end)
 
-test("Default colors: the crosshair white, the border black", function()
+test("each color has its own reset: the crosshair's to white, the border's to black", function()
     boot({ saved = { color = "FF3030CC", borderColor = "00FF00FF", borderSize = 2 } })
-    control("button", "Default colors").extra.onClick()
-    eq(GamepadCrosshairCustomizerDB.color, "FFFFFFFF"); eq(GamepadCrosshairCustomizerDB.borderColor, "000000FF")
-    eq(colorOf(layer().shape), "1.00 1.00 1.00 1.00"); eq(colorOf(layer().border), "0.00 0.00 0.00 1.00")
+    control("button", "Reset color").extra.onClick()
+    eq(GamepadCrosshairCustomizerDB.color, "FFFFFFFF"); eq(colorOf(layer().shape), "1.00 1.00 1.00 1.00")
+    eq(GamepadCrosshairCustomizerDB.borderColor, "00FF00FF", "the border's untouched")
+    control("button", "Reset border color").extra.onClick()
+    eq(GamepadCrosshairCustomizerDB.borderColor, "000000FF"); eq(colorOf(layer().border), "0.00 0.00 0.00 1.00")
 end)
 
 test("class icon styles: the game's, or a JiberishUI class sheet's cell for the class; without it, the game's", function()

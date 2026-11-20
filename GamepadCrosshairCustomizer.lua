@@ -68,11 +68,10 @@ function addon.ChooseTargetIcon()
     addon.IconPicker.Open(current, addon.SetTargetIcon)
 end
 
--- Both colors back to their defaults: the crosshair white (a shape's own look,
--- JiberishUI's too), the border black.
-function addon.ResetColors()
-    local settings = addon.Settings()
-    settings.color, settings.borderColor = addon.DEFAULTS.color, addon.DEFAULTS.borderColor
+-- One color back to its default ("color": white, a shape's own look, JiberishUI's
+-- too; "borderColor": black).
+function addon.ResetColor(key)
+    addon.Settings()[key] = addon.DEFAULTS[key]
     addon.UpdateCrosshair()
 end
 
@@ -131,7 +130,7 @@ function addon.RegisterSettings()
         "Draws the controller's aiming dot (the controller UI's crosshair) your way. Turned off, the game's own dot comes back.")
 
     -- A choice slider: steps through a list, its label the chosen name; saves the id
-    -- under key. afterChange (optional) runs once the id is saved.
+    -- under key. afterChange(previousId) (optional) runs once the new id is saved.
     local function addChoice(key, label, list, tooltip, afterChange)
         local entries = list()
         addon.choices[key] = addon.ChoiceIndex(entries, settings[key])
@@ -140,8 +139,9 @@ function addon.RegisterSettings()
             Settings.VarType.Number, label, 1)
         Settings.SetOnValueChangedCallback(variableName, function(_, _, value)
             local entry = entries[math.floor((tonumber(value) or 1) + 0.5)] or entries[1]
+            local previousId = settings[key]
             settings[key] = entry.id
-            if afterChange then afterChange() end
+            if afterChange then afterChange(previousId) end
             addon.UpdateCrosshair()
         end)
         Settings.CreateSlider(category, setting, sliderOptions(1, #entries, 1, function(value)
@@ -158,17 +158,21 @@ function addon.RegisterSettings()
 
     -- The crosshair, always shown: its shape, size, color and border.
     local jiberishInstalled = addon.Icons.JiberishInstalled()
-    -- A shape at the game dot's size is too small to see: choosing one raises the size.
-    local function raiseSizeForShape()
-        if settings.icon ~= "dot" and (tonumber(settings.size) or 0) < addon.SHAPE_MIN_SIZE and addon.sizeSetting then
-            addon.sizeSetting:SetValue(addon.SHAPE_SIZE)
-        end
+    -- The dot and the shapes each keep their own size: switching between them saves
+    -- the size of the one left and brings back the other's (a shape starts at 24:
+    -- at the dot's 4 it can't be seen).
+    local function keepSizePerKind(previousIcon)
+        local wasDot, isDot = previousIcon == "dot", settings.icon == "dot"
+        if wasDot == isDot then return end
+        if wasDot then settings.dotSize = settings.size else settings.shapeSize = settings.size end
+        local size = isDot and settings.dotSize or settings.shapeSize
+        if addon.sizeSetting then addon.sizeSetting:SetValue(size) else settings.size = size end
     end
     addChoice("icon", "Crosshair", addon.Icons.CrosshairList,
         "The crosshair's shape, always shown: the game's dot"
         .. (jiberishInstalled and (", or one of JiberishUI's crosshairs. " .. addon.Icons.JIBERISH_CREDIT
             .. " (" .. addon.Icons.JIBERISH_LINK .. ").") or ". More shapes come with JiberishUI Fabled Icons (Get JiberishUI Icons... below)."),
-        raiseSizeForShape)
+        keepSizePerKind)
 
     addon.sizeSetting = addSetting("size", Settings.VarType.Number, "Size")
     Settings.CreateSlider(category, addon.sizeSetting,
@@ -176,7 +180,7 @@ function addon.RegisterSettings()
             local size = math.floor(value + 0.5)
             return size == addon.DEFAULTS.size and (size .. " (the game's)") or tostring(size)
         end),
-        "The crosshair's width and height. The game's dot is 4; a shape is set to " .. addon.SHAPE_SIZE .. " when chosen.")
+        "The crosshair's width and height. The game's dot is 4. The dot and the shapes each keep their own size.")
 
     if canSwatch then
         addon.PickerSticks.Watch(pickerOwner)
@@ -184,6 +188,8 @@ function addon.RegisterSettings()
             "The crosshair's color and opacity, e.g. to see it better on the ground. White keeps a shape's own look. "
             .. "On a controller: left stick for the color, right stick for the brightness, D-pad up and down for the opacity. "
             .. "Also from chat: /gcc RRGGBBAA (hex, alpha last), e.g. /gcc FF3030FF.")
+        addButton("Reset color", "Reset color", function() addon.ResetColor("color") end,
+            "Puts the crosshair's color back to white: a shape's own look, JiberishUI's too.")
     end
     Settings.CreateSlider(category, addSetting("borderSize", Settings.VarType.Number, "Border"),
         sliderOptions(addon.BORDER_MIN, addon.BORDER_MAX, addon.BORDER_STEP, function(value)
@@ -193,9 +199,9 @@ function addon.RegisterSettings()
         "A border around the crosshair or the icon, this wide: the same picture, larger, behind it, in the border color.")
     if canSwatch then
         addSwatch("borderColor", "Border color", "The border's color and opacity.")
+        addButton("Reset border color", "Reset border color", function() addon.ResetColor("borderColor") end,
+            "Puts the border's color back to black.")
     end
-    addButton("Default colors", "Default colors", function() addon.ResetColors() end,
-        "Puts the crosshair's color back to white (a shape's own look) and the border's to black.")
 
     -- On a target: the icon instead of the crosshair.
     addon.targetIconSlider = addChoice("targetIcon", "On a target", addon.Icons.TargetList,
