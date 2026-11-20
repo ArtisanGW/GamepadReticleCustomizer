@@ -47,9 +47,11 @@ function addon.ResetColor(key)
     addon.UpdateCrosshair()
 end
 
--- JiberishUI turned off: offer to turn it on for this character and reload
--- (C_AddOns.EnableAddOn, AddOnsDocumentation.lua:62, forever branch; it takes
--- effect on the reload, done by the popup's secure Reload button).
+-- JiberishUI turned off: offer to turn it on for this character and reload, as
+-- the game's AddOns list does it (AddonList.lua:582, :829, forever branch):
+-- EnableAddOn, then SaveAddOns so the reload loads it. Without SaveAddOns the
+-- switch was only written on the way out, and the reload left it off (seen in
+-- game, 2026-11-20). The reload is the popup's secure Reload button.
 function addon.TellToEnableJiberish()
     addon.Popup.Show({
         text = "JiberishUI Fabled Icons is installed but turned off.\nTurn it on and reload to use its crosshairs and class icons?",
@@ -57,6 +59,7 @@ function addon.TellToEnableJiberish()
             { text = "Turn on and reload", reload = true, beforeReload = function()
                 local character = type(UnitName) == "function" and UnitName("player") or nil
                 C_AddOns.EnableAddOn(addon.Icons.JIBERISH_ADDON, character)
+                C_AddOns.SaveAddOns()
             end },
             { text = "Not now" },
         },

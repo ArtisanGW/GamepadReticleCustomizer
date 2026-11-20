@@ -153,7 +153,8 @@ local function boot(options)
             if name == "JiberishIcons" and options.jiberishOff then return character and 0 or 1 end
             return 2
         end,
-        EnableAddOn = function(name, character) game.enabledAddOn = { name = name, character = character } end,
+        EnableAddOn = function(name, character) game.enabledAddOn = { name = name, character = character, saved = false } end,
+        SaveAddOns = function() if game.enabledAddOn then game.enabledAddOn.saved = true end end,
     }
     _G.UnitName = function(unit) if unit == "player" then return "Artio" end end
     _G.MinimalSliderWithSteppersMixin = { Label = { Right = 2 } }
@@ -607,6 +608,7 @@ test("JiberishUI installed but turned off: not offered, its choices fall back, a
     clickPopupButton("Turn on and reload")
     eq(game.enabledAddOn.name, "JiberishIcons", "turned on")
     eq(game.enabledAddOn.character, "Artio", "for this character")
+    eq(game.enabledAddOn.saved, true, "saved before the reload, as the AddOns list does (or it stays off)")
     eq(game.reloaded, "/reload", "then reloaded by the secure button")
 end)
 
