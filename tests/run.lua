@@ -149,14 +149,19 @@ local function boot(options)
             if name == "JiberishIcons" and options.jiberishOff then return name, name, "", false, "DISABLED", "INSECURE" end
             return name, name, "", true, "", "INSECURE"
         end,
+        -- As the game: the character key is the player's GUID; a name isn't one (it reads "on").
         GetAddOnEnableState = function(name, character)
-            if name == "JiberishIcons" and options.jiberishOff then return character and 0 or 1 end
+            if name == "JiberishIcons" and options.jiberishOff then
+                if character == "Player-93-0A1B2C3D" or character == nil then return 0 end
+                return 2
+            end
             return 2
         end,
         EnableAddOn = function(name, character) game.enabledAddOn = { name = name, character = character, saved = false } end,
         SaveAddOns = function() if game.enabledAddOn then game.enabledAddOn.saved = true end end,
     }
     _G.UnitName = function(unit) if unit == "player" then return "Artio" end end
+    _G.UnitGUID = function(unit) if unit == "player" then return "Player-93-0A1B2C3D" end end
     _G.MinimalSliderWithSteppersMixin = { Label = { Right = 2 } }
     local function addControl(kind, setting, extra)
         game.controls[#game.controls + 1] = { kind = kind, setting = setting, extra = extra }
@@ -607,7 +612,7 @@ test("JiberishUI installed but turned off: not offered, its choices fall back, a
     eq(popupButtons(), "Not now, [secure] Turn on and reload")
     clickPopupButton("Turn on and reload")
     eq(game.enabledAddOn.name, "JiberishIcons", "turned on")
-    eq(game.enabledAddOn.character, "Artio", "for this character")
+    eq(game.enabledAddOn.character, "Player-93-0A1B2C3D", "for this character, by its GUID as the AddOns list does (not its name)")
     eq(game.enabledAddOn.saved, true, "saved before the reload, as the AddOns list does (or it stays off)")
     eq(game.reloaded, "/reload", "then reloaded by the secure button")
 end)

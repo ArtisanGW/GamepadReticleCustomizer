@@ -80,6 +80,13 @@ addon.Icons = Icons
 -- reason "DISABLED"); then its switch for this character (GetAddOnEnableState, 0
 -- is off; AddOnsDocumentation.lua:98-130, forever branch). The switch alone, with
 -- UnitName, didn't see it turned off in game (2026-11-20).
+-- The key the game's AddOns list uses for this character: the player's GUID, not
+-- the name (Blizzard_AddOnList/AddonList.lua:12-24, forever branch). With the name,
+-- EnableAddOn switched on a "character" the game never reads (seen in game).
+function Icons.CharacterKey()
+    return type(UnitGUID) == "function" and UnitGUID("player") or nil
+end
+
 function Icons.JiberishState()
     local addOns = _G.C_AddOns
     if type(addOns) ~= "table" or type(addOns.DoesAddOnExist) ~= "function" then return "missing" end
@@ -92,8 +99,7 @@ function Icons.JiberishState()
         end
     end
     if type(addOns.GetAddOnEnableState) == "function" then
-        local character = type(UnitName) == "function" and UnitName("player") or nil
-        local stateSucceeded, state = pcall(addOns.GetAddOnEnableState, Icons.JIBERISH_ADDON, character)
+        local stateSucceeded, state = pcall(addOns.GetAddOnEnableState, Icons.JIBERISH_ADDON, Icons.CharacterKey())
         if stateSucceeded and tonumber(state) == 0 then return "disabled" end
     end
     return "enabled"
@@ -107,9 +113,8 @@ function Icons.JiberishRawState()
         raw.loadable, raw.reason = tostring(loadable), tostring(reason)
     end
     if type(addOns.GetAddOnEnableState) == "function" then
-        raw.character = tostring(type(UnitName) == "function" and UnitName("player") or nil)
-        raw.stateForCharacter = tostring(select(2, pcall(addOns.GetAddOnEnableState, Icons.JIBERISH_ADDON,
-            type(UnitName) == "function" and UnitName("player") or nil)))
+        raw.character = tostring(Icons.CharacterKey())
+        raw.stateForCharacter = tostring(select(2, pcall(addOns.GetAddOnEnableState, Icons.JIBERISH_ADDON, Icons.CharacterKey())))
         raw.stateForAll = tostring(select(2, pcall(addOns.GetAddOnEnableState, Icons.JIBERISH_ADDON)))
     end
     raw.result = Icons.JiberishState()
