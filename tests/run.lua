@@ -1241,5 +1241,17 @@ test("each faction its own class icon style, so friend and foe look different; o
     eq(GamepadReticleCustomizerDB.classStyle, nil)
 end)
 
+test("Their job: drawn again a moment after selecting, and when what you can interact with changes", function()
+    boot({ saved = ownIcons() })
+    setTarget({ isPlayer = false, reaction = 5 })
+    eq(drawnLook(), "Crosshair_Speak_128", "the game has no icon yet")
+    game.target.interaction = "buy"   -- the game settles it a moment later
+    runUntilNoTimersLeft()
+    eq(layer().shape.cursorIcon, "buy", "drawn again: the job's icon")
+    game.target.interaction = "repair"
+    game.fire("PLAYER_SOFT_INTERACT_CHANGED")
+    eq(layer().shape.cursorIcon, "repair", "and when the interaction changes")
+end)
+
 reportLine(passed .. " passed, " .. failed .. " failed")
 os.exit(failed == 0 and 0 or 1)

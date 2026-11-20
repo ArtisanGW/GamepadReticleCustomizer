@@ -277,14 +277,21 @@ eventFrame:RegisterEvent("PLAYER_TARGET_CHANGED")
 -- The target's nameplate coming or going (on or off screen) switches between icon and reticle.
 eventFrame:RegisterEvent("NAME_PLATE_UNIT_ADDED")
 eventFrame:RegisterEvent("NAME_PLATE_UNIT_REMOVED")
+-- The game's interaction icon for an NPC can settle a moment after it's selected,
+-- and changes with what you can interact with: drawn again then too.
+eventFrame:RegisterEvent("PLAYER_SOFT_INTERACT_CHANGED")
+addon.REDRAW_AFTER_TARGET_SECONDS = { 0.2, 0.6 }
 eventFrame:SetScript("OnEvent", function(_, event, name)
     if event == "ADDON_LOADED" then
         if name ~= ADDON_NAME then return end
         eventFrame:UnregisterEvent("ADDON_LOADED")
         addon.Settings()
         pcall(addon.RegisterSettings)
-    elseif event == "PLAYER_ENTERING_WORLD" or event == "PLAYER_TARGET_CHANGED" then
+    elseif event == "PLAYER_ENTERING_WORLD" or event == "PLAYER_SOFT_INTERACT_CHANGED" then
         addon.UpdateReticle()
+    elseif event == "PLAYER_TARGET_CHANGED" then
+        addon.UpdateReticle()
+        for _, seconds in ipairs(addon.REDRAW_AFTER_TARGET_SECONDS) do C_Timer.After(seconds, addon.UpdateReticle) end
     elseif event == "NAME_PLATE_UNIT_ADDED" or event == "NAME_PLATE_UNIT_REMOVED" then
         -- Only the target's own nameplate matters (name is the unit, "nameplate3").
         local succeeded, isTarget = pcall(UnitIsUnit, name, "target")
