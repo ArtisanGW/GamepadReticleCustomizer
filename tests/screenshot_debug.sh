@@ -95,7 +95,7 @@ if [ "${COMPARE_ONLY:-0}" != 1 ]; then
     # until the square shows (seen: the first press after a reload went nowhere).
     xdotool key --clearmodifiers "$START_KEYS"; last_press=$SECONDS
     echo "/gcc debug: $STEP_COUNT steps. After a reload, touch the controller once so its UI (and the crosshair) comes back; then stay still."
-    started=$SECONDS; last_step=0; last_target_press=0; probe="$OUTPUT_FOLDER/.probe.png"
+    started=$SECONDS; last_step=0; last_target_press=0; none_since=0; probe="$OUTPUT_FOLDER/.probe.png"
     while :; do
         shoot "$probe"
         marker="$(read_marker "$probe")"
@@ -121,6 +121,15 @@ if [ "${COMPARE_ONLY:-0}" != 1 ]; then
             stopped) echo "The run stopped in the game (a fight?). Shots so far are in $OUTPUT_FOLDER." >&2; exit 6 ;;
             none)
                 if [ "$last_step" -ge "$STEP_COUNT" ]; then break; fi
+                # Gone for a while after steps were seen: the run is over, some steps
+                # were missed (the game not in front then, e.g.); build with what's there.
+                if [ "$last_step" -gt 0 ]; then
+                    [ "$none_since" -gt 0 ] || none_since=$SECONDS
+                    if [ $((SECONDS - none_since)) -ge 5 ]; then
+                        echo "The run is over, but steps after $last_step weren't seen (was the game in front?)." >&2
+                        break
+                    fi
+                fi
                 # Debug.lua first waits up to 60 s for the crosshair (its square yellow).
                 if [ "$last_step" -eq 0 ] && [ $((SECONDS - last_press)) -ge "$START_RETRY_SECONDS" ]; then
                     focus_game_with_kwin "$window"; sleep 0.3
@@ -131,10 +140,11 @@ if [ "${COMPARE_ONLY:-0}" != 1 ]; then
                 fi ;;
         esac
         [ $((SECONDS - started)) -lt "$TIME_LIMIT" ] || { echo "Over the time limit." >&2; exit 8; }
+        [ "$marker" = "none" ] || none_since=0
         sleep 0.3
     done
     rm -f "$probe"
-    [ "$last_step" -ge "$STEP_COUNT" ] || { echo "Only $last_step of $STEP_COUNT steps were seen." >&2; exit 7; }
+    shots_missing=0; [ "$last_step" -ge "$STEP_COUNT" ] || shots_missing=1
     echo "All steps shot. Click Reload in the game's box to save the run (for the crops)."
     waited=0
     while [ "$(stat -c %Y "$SAVED_VARIABLES" 2>/dev/null || echo 0)" = "$saved_before" ] && [ "$waited" -lt "$RELOAD_WAIT" ]; do
@@ -157,6 +167,7 @@ for _, step in ipairs(run.steps or {}) do
 end
 LUA
 
+[ "${shots_missing:-0}" = 1 ] && echo "Some steps have no shot: the comparison shows the others."
 python3 - "$OUTPUT_FOLDER" "$positions" <<'PY'
 import os, sys
 from PIL import Image, ImageDraw, ImageFont
