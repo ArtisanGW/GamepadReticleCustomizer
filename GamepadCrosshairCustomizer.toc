@@ -13,7 +13,6 @@ Target.lua
 Crosshair.lua
 PickerSticks.lua
 TextBox.lua
-IconPicker.lua
 Preview.lua
 RelatedAddon.lua
 GamepadCrosshairCustomizer.lua

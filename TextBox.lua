@@ -1,9 +1,7 @@
--- A small box with one line of text: to type something (a texture path) and
--- confirm it, or to copy something (a web link: the game can't open one, so the
--- text is shown selected, ready for Ctrl+C). Our own frame, built once; Escape
--- or Close shuts it.
---   addon.TextBox.Ask(title, text, onAccept)  type, then OK calls onAccept(text)
---   addon.TextBox.Copy(title, text)           copy
+-- A small box with one line of text to copy (a web link: the game can't open one,
+-- so the text is shown selected, ready for Ctrl+C). Our own plain frame, built
+-- once; Escape or Close shuts it.
+--   addon.TextBox.Copy(title, text)
 local _, addon = ...
 
 local TextBox = {}
@@ -61,5 +59,4 @@ local function open(title, text, onAccept)
     TextBox.box = box   -- for the tests
 end
 
-function TextBox.Ask(title, text, onAccept) open(title, text, onAccept) end
 function TextBox.Copy(title, text) open(title, text, nil) end

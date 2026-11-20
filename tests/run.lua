@@ -111,52 +111,12 @@ local function boot(options)
         return { UnitFrame = { healthBar = { GetStatusBarColor = function() return color.r, color.g, color.b end } } }
     end }
     _G.date = os.date
-    -- The game's icon picker (IconSelectorPopupFrameTemplate) and its icon list.
-    _G.IconSelectorPopupFrameIconFilterTypes = { All = 1, Spell = 2, Item = 3 }
-    _G.IconDataProviderExtraType = { None = 0 }
-    game.gameIcons = { 134400, 136243, 135274 }
-    _G.IconDataProviderMixin = {
-        Init = function(self) self.icons = game.gameIcons end,
-        GetNumIcons = function(self) return #self.icons end,
-        GetIconByIndex = function(self, index) return self.icons[index] end,
-        GetIndexOfIcon = function(self, icon) for index, value in ipairs(self.icons) do if value == icon then return index end end end,
-        SetIconTypes = function() end, Release = function() end,
-    }
-    _G.CreateAndInitFromMixin = function(mixin, ...)
-        local object = {}; for key, value in pairs(mixin) do object[key] = value end
-        object:Init(...); return object
-    end
-    _G.GenerateClosure = function(fn, first) return function(...) return fn(first, ...) end end
-    _G.IconSelectorPopupFrameTemplateMixin = { OkayButton_OnClick = function(self) self:Hide() end }
-    local function addIconPickerTemplate(frame)
-        local function textBox() local region = newRegion(frame); region.text = ""; return region end
-        frame.BorderBox = { EditBoxHeaderText = newRegion(frame), IconSelectorEditBox = textBox(),
-            SelectedIconArea = { SelectedIconButton = { SetIconTexture = function(self, icon) self.icon = icon end,
-                GetIconTexture = function(self) return self.icon end } } }
-        frame.IconSelector = { SetSelectedIndex = function(self, index) self.selected = index end,
-            SetSelectionsDataProvider = function(self, getIcon, getCount) self.getIcon, self.getCount = getIcon, getCount end,
-            ScrollToSelectedIndex = function() end, SetSelectedCallback = function(self, callback) self.onSelected = callback end }
-        function frame:SetIconFilter() end
-        function frame:SetSelectedIconText() end
-        function frame:ClearAllPoints() end
-        function frame:GetIndexOfIcon(icon) return self.iconDataProvider:GetIndexOfIcon(icon) end
-        function frame:GetIconByIndex(index) return self.iconDataProvider:GetIconByIndex(index) end
-        function frame:GetNumIcons() return self.iconDataProvider:GetNumIcons() end
-        frame.hooks = {}
-        function frame:HookScript(script, fn) self.hooks[script] = fn end
-        frame.shown = true   -- as the game's template: it doesn't start hidden
-        function frame:Show() self.shown = true; if self.hooks.OnShow then self.hooks.OnShow(self) end end
-        -- As the template: asking for an icon before it has its list is an error (seen in game).
-        function frame:GetIndexOfIcon(icon) return self.iconDataProvider:GetIndexOfIcon(icon) end
-        -- Picking in the grid, as a click does: the template's selection callback.
-        function frame:Pick(index) self.IconSelector.selected = index; self.IconSelector.onSelected(index, self:GetIconByIndex(index)) end
-        function frame:ClickOkay() self:OkayButton_OnClick() end
-    end
+    -- The game's file ids by path (GetFileIDFromPath): every file but one called "missing".
+    _G.GetFileIDFromPath = function(path) if not tostring(path):find("missing", 1, true) then return 100000 + #path end end
     _G.CreateFrame = function(_, name, parent, template)
         local frame = newRegion(parent)
         frame.events, frame.scripts = {}, {}
         if name then _G[name] = frame end
-        if template == "IconSelectorPopupFrameTemplate" then addIconPickerTemplate(frame) end
         function frame:RegisterEvent(eventName) self.events[eventName] = true end
         function frame:UnregisterEvent(eventName) self.events[eventName] = nil end
         function frame:SetScript(scriptType, handler) self.scripts[scriptType] = handler end
@@ -259,7 +219,6 @@ local function boot(options)
     _G.GamepadCrosshairCustomizerDB = options.saved
     _G.GamepadCrosshairCustomizerDebugDB = options.debugSaved
     _G.GamepadCrosshairCustomizerDebugBox = nil
-    _G.GamepadCrosshairCustomizerIconPicker = nil
     _G.print = function(t) game.printed[#game.printed + 1] = t end
     local namespace = {}
     for _, fileName in ipairs(tocFiles(options.releaseBuild)) do assert(loadfile(fileName))("GamepadCrosshairCustomizer", namespace) end
@@ -314,11 +273,11 @@ test("its page under Options > AddOns, in order, with the defaults; /gcc opens i
     eq(game.category.name, "Gamepad Crosshair Customizer")
     eq(controlList(), "checkbox:Enable, slider:Crosshair, slider:Size, swatch:Color, button:Reset color, slider:Border, "
         .. "swatch:Border color, button:Reset border color, "
-        .. "slider:On a target, slider:Class icons, button:Choose icon, slider:Icon size, button:More shapes, button:Gamepad Camera Offset",
+        .. "slider:On a target, slider:Class icons, slider:Icon size, button:More shapes, button:Gamepad Camera Offset",
         "the crosshair with its border and colors, then what shows on a target")
     local saved = GamepadCrosshairCustomizerDB
     eq(saved.enabled, true); eq(saved.color, "FFFFFFFF"); eq(saved.size, 4); eq(saved.borderSize, 0)
-    eq(saved.borderColor, "000000FF"); eq(saved.icon, "dot"); eq(saved.customTexture, "")
+    eq(saved.borderColor, "000000FF"); eq(saved.icon, "dot")
     eq(saved.targetIcon, "none", "nothing on a target by default"); eq(saved.iconSize, 24)
     eq(control("slider", "Size").extra.format(4), "4 (the game's)"); eq(control("slider", "Size").extra.format(24), "24")
     eq(control("slider", "Border").extra.format(0), "Off"); eq(control("slider", "Border").extra.format(3), "3")
@@ -478,14 +437,17 @@ test("with JiberishUI Fabled Icons installed: its 16 crosshairs listed and drawn
         "credited, as its license asks")
 end)
 
-test("choices are sliders (a dropdown's menu broke on the controller): on a target, none, a player's class, the 8 raid markers or a custom texture", function()
+test("choices are sliders (a dropdown's menu broke on the controller): on a target, none, a player's class, the 8 raid markers, then the game's icons", function()
     boot()
     local labels = choiceLabels("On a target")
-    eq(#labels, 11)
+    eq(#labels, 10 + 12)
     eq(labels[1], "None: keep the crosshair"); eq(labels[2], "A player's class (others: the crosshair)")
-    eq(labels[10], "Raid marker: Skull"); eq(labels[11], "Your own icon (Choose icon...)")
+    eq(labels[10], "Raid marker: Skull"); eq(labels[11], "Icon: Sniper scope"); eq(labels[22], "Icon: Holy")
     choose("targetIcon", "marker8")
     eq(GamepadCrosshairCustomizerDB.targetIcon, "marker8")
+    setTarget({ isPlayer = false, reaction = 2 })
+    choose("targetIcon", "icon:scope")
+    eq(layer().shape.texture, "Interface\\Icons\\Ability_Hunter_SniperShot", "a game icon on the target")
 
     boot({ saved = { targetIcon = "class", icon = "dot" } })
     eq(GamepadCrosshairCustomizer.choices.targetIcon, 2, "the slider starts at your saved choice")
@@ -540,9 +502,13 @@ test("a target without a nameplate on screen (a vendor, a minion, off screen) ke
     eq(GamepadCrosshairCustomizer.Crosshair.Drawn().icon, "dot", "a player with friendly nameplates off: the crosshair")
 end)
 
-test("a marker or custom texture saved in the old single Shape setting becomes the icon on a target", function()
+test("old settings: a marker in the single Shape becomes the icon on a target; a custom texture becomes none", function()
     boot({ saved = { icon = "marker2" } })
     eq(GamepadCrosshairCustomizerDB.icon, "dot"); eq(GamepadCrosshairCustomizerDB.targetIcon, "marker2")
+    boot({ saved = { targetIcon = "custom", customTexture = "Interface\\Icons\\INV_Misc_QuestionMark" } })
+    eq(GamepadCrosshairCustomizerDB.targetIcon, "none", "no texture paths any more"); eq(GamepadCrosshairCustomizerDB.customTexture, nil)
+    boot({ saved = { icon = "custom", customTexture = 136243 } })
+    eq(GamepadCrosshairCustomizerDB.targetIcon, "none", "the oldest shape setting, custom: none too"); eq(GamepadCrosshairCustomizerDB.icon, "dot")
     boot({ saved = { icon = "jiberish:x-bold" } })
     eq(GamepadCrosshairCustomizerDB.icon, "jiberish:x-bold", "a crosshair shape stays"); eq(GamepadCrosshairCustomizerDB.targetIcon, "none")
 end)
@@ -559,38 +525,12 @@ test("without it: the install button shows the link to copy", function()
     eq(box:IsShown(), false)
 end)
 
-test("Choose icon...: the game's icon picker, the raid markers first; a pick, a marker or a typed path sets the icon on a target", function()
+test("no icon picker and no texture paths: no Choose icon button, /gcc texture is just a wrong color", function()
     boot()
-    setTarget({ isPlayer = false, reaction = 2 })
-    control("button", "Choose icon").extra.onClick()
-    local picker = GamepadCrosshairCustomizerIconPicker
-    eq(picker.shown, true, "the picker")
-    eq(picker:GetNumIcons(), 8 + 3, "the 8 raid markers, then the game's icons")
-    eq(picker:GetIconByIndex(1), "Interface\\TargetingFrame\\UI-RaidTargetingIcon_1")
-    eq(picker:GetIconByIndex(9), 134400, "then the game's, as the macro picker lists them")
-    picker:Pick(10)
-    picker:ClickOkay()
-    eq(picker.shown, false)
-    eq(GamepadCrosshairCustomizerDB.targetIcon, "custom"); eq(GamepadCrosshairCustomizerDB.customTexture, 136243, "the icon's file id")
-    eq(layer().shape.texture, 136243, "drawn on the target")
-    eq(GamepadCrosshairCustomizer.choices.targetIcon, 11, "the On a target slider moved to it")
-
-    control("button", "Choose icon").extra.onClick()
-    eq(picker.IconSelector.selected, 10, "it opens on the current icon")
-    picker:Pick(8)
-    picker:ClickOkay()
-    eq(GamepadCrosshairCustomizerDB.targetIcon, "marker8", "a raid marker is its own choice")
-
-    control("button", "Choose icon").extra.onClick()
-    picker.BorderBox.IconSelectorEditBox:SetText("  Interface\\Icons\\INV_Misc_QuestionMark  ")
-    picker:ClickOkay()
-    eq(GamepadCrosshairCustomizerDB.customTexture, "Interface\\Icons\\INV_Misc_QuestionMark", "a typed path wins, trimmed")
-    eq(layer().shape.texture, "Interface\\Icons\\INV_Misc_QuestionMark")
-
+    eq(control("button", "Choose icon"), nil)
     SlashCmdList.GAMEPADCROSSHAIRCUSTOMIZER("texture Interface\\Icons\\Spell_Nature_Starfall")
-    eq(layer().shape.texture, "Interface\\Icons\\Spell_Nature_Starfall", "/gcc texture too")
-    SlashCmdList.GAMEPADCROSSHAIRCUSTOMIZER("texture")
-    eq(game.printed[#game.printed]:find("usage", 1, true) ~= nil, true, "no path: says how")
+    eq(game.printed[#game.printed]:find("usage: /gcc RRGGBBAA", 1, true) ~= nil, true, game.printed[#game.printed])
+    eq(GamepadCrosshairCustomizer.IconPicker, nil)
 end)
 
 test("the dot and the shapes keep their own sizes: a shape starts at 24, the dot gets its own back", function()
@@ -767,6 +707,16 @@ test("/gcc debug: alone (yourself, one NPC kind, no nameplates: the crosshair st
     eq(checkResult(run, "the other kind of NPC"), "skip")
 end)
 
+test("/gcc debug: an offered game icon missing on the client fails its check", function()
+    boot()
+    table.insert(GamepadCrosshairCustomizer.Icons.GAME_ICONS, { key = "gone", name = "Gone", file = "Interface\\Icons\\missing_icon" })
+    SlashCmdList.GAMEPADCROSSHAIRCUSTOMIZER("debug")
+    driveDebugRun({ { isPlayer = true, classFile = "MAGE", reaction = 5 } }, { { isPlayer = false, reaction = 2 } })
+    local run = GamepadCrosshairCustomizerDebugDB.runs[1]
+    eq(checkResult(run, "every game icon offered exists on this client"), "fail")
+    table.remove(GamepadCrosshairCustomizer.Icons.GAME_ICONS)
+end)
+
 test("/gcc friendly runs only the friendly player part, then the target cleared", function()
     boot({ saved = { color = "3961CDFF" } })
     SlashCmdList.GAMEPADCROSSHAIRCUSTOMIZER("friendly")
@@ -885,7 +835,7 @@ end)
 test("the release leaves Debug.lua out: ignored by .pkgmeta, and gone from the release .toc", function()
     assert(readFile(".pkgmeta"):find("\n  %- Debug%.lua\n"), ".pkgmeta ignores Debug.lua, alone on its line")
     eq(table.concat(tocFiles(true), ","),
-        "SavedSettings.lua,Color.lua,Icons.lua,Target.lua,Crosshair.lua,PickerSticks.lua,TextBox.lua,IconPicker.lua,Preview.lua,RelatedAddon.lua,GamepadCrosshairCustomizer.lua")
+        "SavedSettings.lua,Color.lua,Icons.lua,Target.lua,Crosshair.lua,PickerSticks.lua,TextBox.lua,Preview.lua,RelatedAddon.lua,GamepadCrosshairCustomizer.lua")
     eq(tocFiles()[#tocFiles()], "Debug.lua", "the repo's .toc loads it last")
 end)
 

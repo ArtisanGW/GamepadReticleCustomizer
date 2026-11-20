@@ -40,34 +40,6 @@ local pickerOwner = {
     SetOpacity = function(alpha) addon.SetOpacity(alpha, pickerColorKey) end,
 }
 
--- The icon on a target, from the icon picker (as the macro window's) or /gcc texture:
--- a raid marker becomes its own choice, anything else the custom texture.
-function addon.SetTargetIcon(icon)
-    if type(icon) == "string" then icon = icon:match("^%s*(.-)%s*$") end
-    if icon == nil or icon == "" then return false end
-    local settings = addon.Settings()
-    local markerIndex
-    for index = 1, 8 do
-        if icon == addon.Icons.RAID_MARKER_TEXTURE .. index then markerIndex = index end
-    end
-    if markerIndex then
-        settings.targetIcon = "marker" .. markerIndex
-    else
-        settings.targetIcon, settings.customTexture = "custom", icon
-    end
-    if addon.targetIconSlider then
-        addon.targetIconSlider:SetValue(addon.ChoiceIndex(addon.Icons.TargetList(), settings.targetIcon))
-    end
-    addon.UpdateCrosshair()
-    return true
-end
-
-function addon.ChooseTargetIcon()
-    local settings = addon.Settings()
-    local current = addon.Icons.Texture(settings.targetIcon, settings.customTexture)
-    addon.IconPicker.Open(current, addon.SetTargetIcon)
-end
-
 -- One color back to its default ("color": white, a shape's own look, JiberishUI's
 -- too; "borderColor": black).
 function addon.ResetColor(key)
@@ -208,14 +180,11 @@ function addon.RegisterSettings()
         "What shows instead of the crosshair while your target's nameplate is on screen (vendors, guards "
         .. "and minions keep the crosshair unless their nameplates are on in Options > Nameplates): nothing, "
         .. "a player's class icon (any other target keeps the crosshair), one of the game's raid markers, "
-        .. "or any icon (Choose icon...). Icons keep their own colors.")
+        .. "or one of a set of the game's icons; the preview shows it big. Icons keep their own colors.")
     addChoice("classStyle", "Class icons", addon.Icons.ClassStyleList,
         "How a player's class icon looks: the game's own"
         .. (jiberishInstalled and ", or one of JiberishUI's class icon styles (Fabled, Fabled Pixels, Fabled Class...)." or
             ". More styles come with JiberishUI Fabled Icons (Get JiberishUI Icons... below)."))
-    addButton("Choose icon", "Choose icon...", function() addon.ChooseTargetIcon() end,
-        "Choose the icon shown on a target as you choose a macro's icon: the game's raid markers, every spell and "
-        .. "item icon, or a texture path. Also from chat: /gcc texture <path>.")
     Settings.CreateSlider(category, addSetting("iconSize", Settings.VarType.Number, "Icon size"),
         sliderOptions(addon.SIZE_MIN, addon.SIZE_MAX, addon.SIZE_STEP, function(value) return tostring(math.floor(value + 0.5)) end),
         "The icon's width and height on a target.")
@@ -264,7 +233,6 @@ end)
 
 -- /gcc                opens the settings
 -- /gcc RRGGBBAA       sets the color
--- /gcc texture <path> uses that texture as the crosshair
 -- /gcc debug ...      the in-game test suite (Debug.lua, not in the release);
 --                     /gcc friendly and /gcc monsters run its parts
 SLASH_GAMEPADCROSSHAIRCUSTOMIZER1 = "/gcc"
@@ -277,14 +245,9 @@ SlashCmdList.GAMEPADCROSSHAIRCUSTOMIZER = function(message)
         if not addon.Debug then return addon.Open() end   -- the release has no debug suite
         return addon.Debug.Command(command == "debug" and arguments:lower() or command)
     end
-    if command == "texture" then
-        if addon.SetTargetIcon(arguments) then say("icon on a target: " .. arguments)
-        else say("usage: /gcc texture <path>, e.g. /gcc texture Interface\\Icons\\INV_Misc_QuestionMark") end
-        return
-    end
     if addon.SetColor(text) then
         say("crosshair color: " .. addon.Color())
     else
-        say("usage: /gcc RRGGBBAA (hex, alpha last), e.g. /gcc FF3030FF; /gcc texture <path>")
+        say("usage: /gcc RRGGBBAA (hex, alpha last), e.g. /gcc FF3030FF")
     end
 end

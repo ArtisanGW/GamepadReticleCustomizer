@@ -14,7 +14,9 @@
 --                     "jiberish:<style>", a JiberishUI class sheet when installed
 --   "marker1".."8"    the game's raid target markers: star, circle, diamond,
 --                     triangle, moon, square, cross, skull
---   "custom"          any texture path you type (the customTexture setting)
+--   "icon:<key>"      one of GAME_ICONS, a hand-picked set of the game's own icons
+-- (No icon picker and no texture path: the game's picker, created by addon code,
+-- broke the controller's navigation; a path is too technical. Seen 2026-11-20.)
 local _, addon = ...
 
 local Icons = {
@@ -22,6 +24,22 @@ local Icons = {
     RAID_MARKER_TEXTURE = "Interface\\TargetingFrame\\UI-RaidTargetingIcon_",
     RAID_MARKER_NAMES = { "Star", "Circle", "Diamond", "Triangle", "Moon", "Square", "Cross", "Skull" },
     CLASS_ATLAS_PREFIX = "classicon-",
+    -- The game's own icons offered on a target: in the game since its first years.
+    -- /gcc debug checks each one exists on this client (GetFileIDFromPath).
+    GAME_ICONS = {
+        { key = "scope", name = "Sniper scope", file = "Interface\\Icons\\Ability_Hunter_SniperShot" },
+        { key = "mark", name = "Hunter's mark", file = "Interface\\Icons\\Ability_Hunter_MarkedForDeath" },
+        { key = "weakspot", name = "Weak spot", file = "Interface\\Icons\\Ability_Rogue_FindWeakness" },
+        { key = "skull", name = "Skull", file = "Interface\\Icons\\INV_Misc_Bone_HumanSkull_01" },
+        { key = "eye", name = "Eye", file = "Interface\\Icons\\INV_Misc_Eye_01" },
+        { key = "charge", name = "Charge", file = "Interface\\Icons\\Ability_Warrior_Charge" },
+        { key = "blades", name = "Crossed blades", file = "Interface\\Icons\\Ability_DualWield" },
+        { key = "fire", name = "Fire", file = "Interface\\Icons\\Spell_Fire_FlameBolt" },
+        { key = "frost", name = "Frost", file = "Interface\\Icons\\Spell_Frost_FrostBolt02" },
+        { key = "nature", name = "Nature", file = "Interface\\Icons\\Spell_Nature_StarFall" },
+        { key = "shadow", name = "Shadow", file = "Interface\\Icons\\Spell_Shadow_ShadowBolt" },
+        { key = "holy", name = "Holy", file = "Interface\\Icons\\Spell_Holy_HolyBolt" },
+    },
     JIBERISH_ADDON = "JiberishIcons",
     JIBERISH_FOLDER = "Interface\\AddOns\\JiberishIcons\\Media\\Crosshair\\",
     JIBERISH_SHAPES = { "circle", "diamond", "plus", "splitplus", "splitx", "square", "triangle", "x" },
@@ -87,14 +105,15 @@ function Icons.TargetList()
         list[#list + 1] = { id = "marker" .. index,
             label = "Raid marker: " .. (_G["RAID_TARGET_" .. index] or Icons.RAID_MARKER_NAMES[index]) }
     end
-    list[#list + 1] = { id = "custom", label = "Your own icon (Choose icon...)" }
+    for _, gameIcon in ipairs(Icons.GAME_ICONS) do
+        list[#list + 1] = { id = "icon:" .. gameIcon.key, label = "Icon: " .. gameIcon.name }
+    end
     return list
 end
 
 -- The texture path an id draws, or nil if there's none (an unknown id, a
--- Jiberish shape without the addon, "custom" with no path yet; "none" and
--- "class" aren't textures).
-function Icons.Texture(iconId, customTexture)
+-- Jiberish shape without the addon; "none" and "class" aren't textures).
+function Icons.Texture(iconId)
     if iconId == "dot" then return Icons.GAME_DOT_TEXTURE end
     local markerIndex = tonumber(tostring(iconId):match("^marker(%d)$"))
     if markerIndex and markerIndex >= 1 and markerIndex <= 8 then return Icons.RAID_MARKER_TEXTURE .. markerIndex end
@@ -102,9 +121,9 @@ function Icons.Texture(iconId, customTexture)
     if jiberishName and Icons.JiberishInstalled() then
         return Icons.JIBERISH_FOLDER .. jiberishName .. "-" .. Icons.JIBERISH_FILE_SIZE
     end
-    -- A custom icon: a path, or a file id from the icon picker.
-    if iconId == "custom" and ((type(customTexture) == "string" and customTexture:match("%S")) or type(customTexture) == "number") then
-        return customTexture
+    local gameIconKey = tostring(iconId):match("^icon:(%l+)$")
+    for _, gameIcon in ipairs(Icons.GAME_ICONS) do
+        if gameIcon.key == gameIconKey then return gameIcon.file end
     end
     return nil
 end

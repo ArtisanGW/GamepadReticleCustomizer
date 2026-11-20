@@ -144,7 +144,7 @@ local function expectedLook(step, settings)
             return { icon = "class", atlas = classLook.atlas, texture = classLook.texture, texCoord = classLook.texCoord,
                 size = settings.iconSize, tinted = false }
         end
-        return { icon = settings.targetIcon, texture = addon.Icons.Texture(settings.targetIcon, settings.customTexture),
+        return { icon = settings.targetIcon, texture = addon.Icons.Texture(settings.targetIcon),
             size = settings.iconSize, tinted = false }
     end
     local icon = settings.icon
@@ -280,8 +280,15 @@ for index = 1, 8 do
     addLook("target: raid marker " .. index .. ", size 32", { targetIcon = "marker" .. index, iconSize = 32 },
         { shows = "targetIcon" })
 end
-addLook("target: custom texture (question mark), size 32",
-    { targetIcon = "custom", customTexture = "Interface\\Icons\\INV_Misc_QuestionMark", iconSize = 32 }, { shows = "targetIcon" })
+addLook("target: game icon, sniper scope, size 32", { targetIcon = "icon:scope", iconSize = 32 }, { shows = "targetIcon" })
+addCheck("every game icon offered exists on this client", function(label)
+    local missing = {}
+    for _, gameIcon in ipairs(addon.Icons.GAME_ICONS) do
+        if type(GetFileIDFromPath) == "function" and not GetFileIDFromPath(gameIcon.file) then missing[#missing + 1] = gameIcon.name end
+    end
+    if type(GetFileIDFromPath) ~= "function" then return skipCheck(label, "GetFileIDFromPath isn't there") end
+    expectEqual(label, "none missing", #missing == 0 and "none missing" or table.concat(missing, ", "))
+end)
 
 for number = 2, 1 + Debug.MORE_CLASSES do
     local group = "class" .. number

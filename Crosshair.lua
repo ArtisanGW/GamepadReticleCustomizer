@@ -55,7 +55,7 @@ function Crosshair.Choose(settings, target)
                     size = iconSize, tinted = false }
             end
         else
-            local texture = addon.Icons.Texture(targetIcon, settings.customTexture)
+            local texture = addon.Icons.Texture(targetIcon)
             if texture then return { icon = targetIcon, texture = texture, size = iconSize, tinted = false } end
         end
     end

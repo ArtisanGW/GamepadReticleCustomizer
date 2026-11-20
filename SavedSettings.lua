@@ -5,7 +5,7 @@
 --   Color.lua         colors as "RRGGBBAA" text, the dot's and the border's
 --   Icons.lua         the crosshair's shapes (the game's dot, JiberishUI's crosshair
 --                     shapes when installed) and the icons on a target (its class,
---                     the game's raid markers, a texture path of your own)
+--                     the game's raid markers, a hand-picked set of the game's icons)
 --   Target.lua        what's targeted now: whether there's a target, a player's class
 --   Crosshair.lua     draws the crosshair, or the icon on a target, on the game's crosshair
 --   PickerSticks.lua  the game's color picker on a controller
@@ -24,14 +24,13 @@ _G.GamepadCrosshairCustomizer = addon
 --                  brought back when switching to it.
 --   targetIcon:    what shows instead while you have a target: "none" (the crosshair
 --                  stays), "class" (a player's class; others keep the crosshair), a raid
---                  marker or "custom". Icons keep their own colors.
+--                  marker or one of the game's icons. Icons keep their own colors.
 --   classStyle:    the class icon's style (Icons.lua): "game" or a JiberishUI class sheet.
 --   iconSize:      the icon's width and height.
 --   borderSize:    how far the border reaches out around either (0: no border).
 --   borderColor:   the border's color, "RRGGBBAA".
---   customTexture: the texture path the "custom" icon uses.
 addon.DEFAULTS = { enabled = true, icon = "dot", color = "FFFFFFFF", size = 4, dotSize = 4, shapeSize = 24, targetIcon = "none", classStyle = "game", iconSize = 24,
-    borderSize = 0, borderColor = "000000FF", customTexture = "" }
+    borderSize = 0, borderColor = "000000FF" }
 addon.SIZE_MIN, addon.SIZE_MAX, addon.SIZE_STEP = 2, 64, 1
 addon.BORDER_MIN, addon.BORDER_MAX, addon.BORDER_STEP = 0, 10, 1
 
@@ -44,6 +43,9 @@ function addon.Settings()
     if settings.targetIcon == nil and settings.icon ~= nil and not addon.Icons.IsCrosshairShape(settings.icon) then
         settings.targetIcon, settings.icon = settings.icon, "dot"
     end
+    -- A custom texture path (and the icon picker's file ids) are gone: that icon becomes none.
+    if settings.targetIcon == "custom" then settings.targetIcon = "none" end
+    settings.customTexture = nil
     for key, defaultValue in pairs(addon.DEFAULTS) do
         if settings[key] == nil then settings[key] = defaultValue end
     end
