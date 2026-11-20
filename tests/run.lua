@@ -251,7 +251,7 @@ local function controlList()
     local labels = {}
     for _, entry in ipairs(game.controls) do
         local label = entry.setting and entry.setting.label or entry.extra.name
-        if label == "" then label = "(" .. entry.extra.buttonText .. ")" end   -- a button with no row label
+        if label:match("^%s*$") then label = "(" .. entry.extra.buttonText .. ")" end   -- a button with no row label
         labels[#labels + 1] = entry.kind .. ":" .. label
     end
     return table.concat(labels, ", ")
@@ -549,6 +549,12 @@ test("the dot and the shapes keep their own sizes: a shape starts at 24, the dot
     eq(layer().shape:GetWidth(), 6)
     choose("icon", "jiberish:x-thin")
     eq(GamepadCrosshairCustomizerDB.size, 40, "back to a shape: the shapes' size")
+end)
+
+test("the reset rows' label is one space: blank, yet not \"\", so the game lines the button up with the others", function()
+    boot()
+    eq(control("button", "Reset color").extra.name, " ")
+    eq(control("button", "Reset border color").extra.name, " ")
 end)
 
 test("each color has its own reset: the crosshair's to white, the border's to black", function()

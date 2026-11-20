@@ -160,8 +160,10 @@ function addon.RegisterSettings()
             "The crosshair's color and opacity, e.g. to see it better on the ground. White keeps a shape's own look. "
             .. "On a controller: left stick for the color, right stick for the brightness, D-pad up and down for the opacity. "
             .. "Also from chat: /gcc RRGGBBAA (hex, alpha last), e.g. /gcc FF3030FF.")
-        -- The reset rows show only their button (no label on the left), under their color.
-        addButton("", "Reset color", function() addon.ResetColor("color") end,
+        -- The reset rows show only their button, under their color, lined up with the
+        -- other controls: a label of one space reads as empty but isn't "", which
+        -- the game would put at the left edge (Blizzard_SettingControls.lua:982-999).
+        addButton(" ", "Reset color", function() addon.ResetColor("color") end,
             "Puts the crosshair's color back to white: a shape's own look, JiberishUI's too.")
     end
     Settings.CreateSlider(category, addSetting("borderSize", Settings.VarType.Number, "Border"),
@@ -172,7 +174,7 @@ function addon.RegisterSettings()
         "A border around the crosshair or the icon, this wide: the same picture, larger, behind it, in the border color.")
     if canSwatch then
         addSwatch("borderColor", "Border color", "The border's color and opacity.")
-        addButton("", "Reset border color", function() addon.ResetColor("borderColor") end,
+        addButton(" ", "Reset border color", function() addon.ResetColor("borderColor") end,
             "Puts the border's color back to black.")
     end
 
