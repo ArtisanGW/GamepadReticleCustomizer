@@ -41,7 +41,10 @@ local function newRegion(parent)
     function region:IsVisible() return self.shown and (self.parent == nil or self.parent:IsVisible()) end
     function region:SetAlpha(alpha) self.alpha = alpha end
     function region:GetAlpha() return self.alpha end
-    function region:SetTexture(path) self.texture = path; return true end
+    function region:SetTexture(path) self.texture, self.atlas = path, nil; return true end
+    function region:SetAtlas(atlas) self.atlas, self.texture = atlas, nil end
+    function region:GetAtlas() return self.atlas end
+    function region:SetTexCoord(...) self.texCoord = { ... } end
     function region:GetTexture() return self.texture end
     function region:SetColorTexture(red, green, blue, alpha) self.color = { red, green, blue, alpha } end
     function region:SetVertexColor(red, green, blue, alpha) self.color = { red, green, blue, alpha or 1 } end
@@ -79,7 +82,22 @@ local function boot(options)
     function UIParent:GetHeight() return 768 end
     _G.GetPhysicalScreenSize = function() return 2560, 1440 end
     _G.GetBuildInfo = function() return "1.60.1", "70959", "", 16001 end
-    _G.UnitExists = function() return false end
+    -- The target: game.target = { isPlayer, classFile, reaction (UnitReaction's number) } or nil.
+    local function targetField(unit, field) if unit == "target" and game.target then return game.target[field] end end
+    _G.UnitExists = function(unit) return unit == "target" and game.target ~= nil end
+    _G.UnitIsPlayer = function(unit) return targetField(unit, "isPlayer") == true end
+    _G.UnitClass = function(unit) local classFile = targetField(unit, "classFile"); return classFile and classFile:lower(), classFile end
+    _G.UnitReaction = function(unit) return targetField(unit, "reaction") end
+    _G.C_Texture = { GetAtlasInfo = function(atlas) if atlas:find("^classicon%-") and options.classAtlases ~= false then return {} end end }
+    game.classColors = { WARRIOR = { r = 0.78, g = 0.61, b = 0.43 }, MAGE = { r = 0.25, g = 0.78, b = 0.92 },
+        PRIEST = { r = 1, g = 1, b = 1 }, DRUID = { r = 1, g = 0.49, b = 0.04 } }
+    _G.C_ClassColor = { GetClassColor = function(classFile) return game.classColors[classFile] end }
+    -- A player target's nameplate, its health bar in its class's color (as the game shows them).
+    _G.C_NamePlate = { GetNamePlateForUnit = function(unit)
+        if unit ~= "target" or not game.target or not game.target.isPlayer or options.noNameplates then return nil end
+        local color = game.classColors[game.target.classFile] or { r = 0, g = 1, b = 0 }
+        return { UnitFrame = { healthBar = { GetStatusBarColor = function() return color.r, color.g, color.b end } } }
+    end }
     _G.date = os.date
     _G.CreateFrame = function(_, name, parent)
         local frame = newRegion(parent)
@@ -188,9 +206,11 @@ local function boot(options)
     fire("PLAYER_LOGIN")
     fire("PLAYER_ENTERING_WORLD")
 end
+-- Changes the target as the game does: then PLAYER_TARGET_CHANGED.
+local function setTarget(target) game.target = target; game.fire("PLAYER_TARGET_CHANGED") end
 local function frame() local timers = game.timers; game.timers = {}; for _, fn in ipairs(timers) do fn() end end
 local function runUntilNoTimersLeft()
-    for _ = 1, 200 do if #game.timers == 0 then return end; frame() end
+    for _ = 1, 5000 do if #game.timers == 0 then return end; frame() end
     error("the timers never ended")
 end
 
@@ -212,9 +232,9 @@ local function controlList()
     end
     return table.concat(labels, ", ")
 end
-local function dropdownIds()
+local function dropdownIds(label)
     local ids = {}
-    for _, option in ipairs(control("dropdown", "Shape").extra.getOptions()) do ids[#ids + 1] = option.value end
+    for _, option in ipairs(control("dropdown", label).extra.getOptions()) do ids[#ids + 1] = option.value end
     return ids
 end
 
@@ -223,11 +243,12 @@ end
 test("its page under Options > AddOns, in order, with the defaults; /gcc opens it", function()
     boot()
     eq(game.category.name, "Gamepad Crosshair Customizer")
-    eq(controlList(), "checkbox:Enable, dropdown:Shape, slider:Size, swatch:Color, slider:Border, swatch:Border color, "
-        .. "button:Custom texture, button:More shapes")
+    eq(controlList(), "checkbox:Enable, dropdown:Crosshair, slider:Size, swatch:Color, dropdown:On a target, "
+        .. "slider:Icon size, slider:Border, swatch:Border color, button:Custom texture, button:More shapes")
     local saved = GamepadCrosshairCustomizerDB
     eq(saved.enabled, true); eq(saved.color, "FFFFFFFF"); eq(saved.size, 4); eq(saved.borderSize, 0)
     eq(saved.borderColor, "000000FF"); eq(saved.icon, "dot"); eq(saved.customTexture, "")
+    eq(saved.targetIcon, "none", "nothing on a target by default"); eq(saved.iconSize, 24)
     eq(control("slider", "Size").extra.format(4), "4 (the game's)"); eq(control("slider", "Size").extra.format(24), "24")
     eq(control("slider", "Border").extra.format(0), "Off"); eq(control("slider", "Border").extra.format(3), "3")
     SlashCmdList.GAMEPADCROSSHAIRCUSTOMIZER("")
@@ -366,29 +387,69 @@ end)
 
 -- Shapes
 
-test("shapes: the game's dot, its 8 raid markers and a custom texture; no Jiberish ones without it", function()
+test("the crosshair: the game's dot, no Jiberish shapes without it; a Jiberish id without it falls back to the dot", function()
     boot()
-    local ids = dropdownIds()
-    eq(table.concat(ids, ","), "dot,marker1,marker2,marker3,marker4,marker5,marker6,marker7,marker8,custom")
-    setting("icon"):SetValue("marker8")
-    eq(layer().shape.texture, "Interface\\TargetingFrame\\UI-RaidTargetingIcon_8", "the skull")
-    eq(GamepadCrosshairCustomizer.Crosshair.Drawn().icon, "marker8")
+    eq(table.concat(dropdownIds("Crosshair"), ","), "dot")
     setting("icon"):SetValue("jiberish:x-bold")
-    eq(GamepadCrosshairCustomizer.Crosshair.Drawn().icon, "dot", "a Jiberish shape without the addon: the game's dot shape")
-    setting("icon"):SetValue("custom")
-    eq(GamepadCrosshairCustomizer.Crosshair.Drawn().icon, "dot", "custom with no path yet: the dot")
+    eq(GamepadCrosshairCustomizer.Crosshair.Drawn().icon, "dot")
 end)
 
-test("with JiberishUI Fabled Icons installed: its 16 shapes listed and drawn from its folder, credited, no install button", function()
+test("with JiberishUI Fabled Icons installed: its 16 crosshairs listed and drawn from its folder, credited, no install button", function()
     boot({ jiberish = true })
-    local ids = dropdownIds()
-    eq(#ids, 26, "the dot, 8 markers, 16 Jiberish shapes, custom")
-    eq(ids[10], "jiberish:circle-bold"); eq(ids[25], "jiberish:x-thin")
+    local ids = dropdownIds("Crosshair")
+    eq(#ids, 17, "the dot and 16 Jiberish shapes")
+    eq(ids[2], "jiberish:circle-bold"); eq(ids[17], "jiberish:x-thin")
     setting("icon"):SetValue("jiberish:splitplus-thin")
     eq(layer().shape.texture, "Interface\\AddOns\\JiberishIcons\\Media\\Crosshair\\splitplus-thin-128")
     eq(control("button", "More shapes"), nil, "no install button when it's there")
-    eq(control("dropdown", "Shape").extra.tooltip:find("Shapes from JiberishUI Fabled Icons", 1, true) ~= nil, true,
+    eq(control("dropdown", "Crosshair").extra.tooltip:find("Shapes from JiberishUI Fabled Icons", 1, true) ~= nil, true,
         "credited, as its license asks")
+end)
+
+test("on a target: none, a player's class, the 8 raid markers or a custom texture", function()
+    boot()
+    eq(table.concat(dropdownIds("On a target"), ","),
+        "none,class,marker1,marker2,marker3,marker4,marker5,marker6,marker7,marker8,custom")
+end)
+
+test("icons show only while you have a target, at the icon size, in their own colors; the crosshair comes back", function()
+    boot({ saved = { color = "FF3030FF", size = 6, targetIcon = "marker8", iconSize = 30, borderSize = 2 } })
+    eq(layer().shape.texture, "Interface\\CharacterFrame\\TempPortraitAlphaMask", "no target: the crosshair")
+    eq(layer().shape:GetWidth(), 6); eq(colorOf(layer().shape), "1.00 0.19 0.19 1.00")
+    setTarget({ isPlayer = false, reaction = 2 })
+    eq(layer().shape.texture, "Interface\\TargetingFrame\\UI-RaidTargetingIcon_8", "a target: the skull")
+    eq(layer().shape:GetWidth(), 30, "at the icon size")
+    eq(colorOf(layer().shape), "1.00 1.00 1.00 1.00", "in its own colors")
+    eq(layer().border:GetWidth(), 34, "the border around it")
+    eq(layer().shape.texCoord[2], 1, "shown whole")
+    setTarget(nil)
+    eq(layer().shape.texture, "Interface\\CharacterFrame\\TempPortraitAlphaMask", "target gone: the crosshair back")
+    eq(layer().shape:GetWidth(), 6); eq(colorOf(layer().shape), "1.00 0.19 0.19 1.00")
+end)
+
+test("a player's class icon: the game's classicon atlas for players; NPCs, an unknown class or a missing atlas keep the crosshair", function()
+    boot({ saved = { targetIcon = "class" } })
+    setTarget({ isPlayer = true, classFile = "MAGE", reaction = 5 })
+    eq(layer().shape.atlas, "classicon-mage")
+    eq(GamepadCrosshairCustomizer.Crosshair.Drawn().icon, "class")
+    eq(layer().shape:GetWidth(), 24)
+    setTarget({ isPlayer = true, classFile = "DRUID", reaction = 2 })
+    eq(layer().shape.atlas, "classicon-druid", "an enemy player too")
+    setTarget({ isPlayer = false, reaction = 4 })
+    eq(GamepadCrosshairCustomizer.Crosshair.Drawn().icon, "dot", "an NPC: the crosshair")
+    eq(layer().shape.atlas, nil, "the atlas gone")
+    setTarget({ isPlayer = true, classFile = nil, reaction = 5 })
+    eq(GamepadCrosshairCustomizer.Crosshair.Drawn().icon, "dot", "class unknown (hidden): the crosshair")
+    boot({ saved = { targetIcon = "class" }, classAtlases = false })
+    setTarget({ isPlayer = true, classFile = "MAGE", reaction = 5 })
+    eq(GamepadCrosshairCustomizer.Crosshair.Drawn().icon, "dot", "no such atlas on this client: the crosshair")
+end)
+
+test("a marker or custom texture saved in the old single Shape setting becomes the icon on a target", function()
+    boot({ saved = { icon = "marker2" } })
+    eq(GamepadCrosshairCustomizerDB.icon, "dot"); eq(GamepadCrosshairCustomizerDB.targetIcon, "marker2")
+    boot({ saved = { icon = "jiberish:x-bold" } })
+    eq(GamepadCrosshairCustomizerDB.icon, "jiberish:x-bold", "a crosshair shape stays"); eq(GamepadCrosshairCustomizerDB.targetIcon, "none")
 end)
 
 test("without it: the install button shows the link to copy", function()
@@ -403,15 +464,16 @@ test("without it: the install button shows the link to copy", function()
     eq(box:IsShown(), false)
 end)
 
-test("a custom texture: typed in the box or with /gcc texture, and the Shape picks it", function()
+test("a custom texture: typed in the box or with /gcc texture, and On a target picks it", function()
     boot()
+    setTarget({ isPlayer = false, reaction = 2 })
     control("button", "Custom texture").extra.onClick()
     local box = GamepadCrosshairCustomizer.TextBox.box
     eq(box.okButton:IsShown(), true)
     box.editBox:SetText("  Interface\\Icons\\INV_Misc_QuestionMark  ")
     box.okButton:Click()
     eq(GamepadCrosshairCustomizerDB.customTexture, "Interface\\Icons\\INV_Misc_QuestionMark", "trimmed")
-    eq(GamepadCrosshairCustomizerDB.icon, "custom", "the Shape set to it")
+    eq(GamepadCrosshairCustomizerDB.targetIcon, "custom", "On a target set to it")
     eq(layer().shape.texture, "Interface\\Icons\\INV_Misc_QuestionMark")
     SlashCmdList.GAMEPADCROSSHAIRCUSTOMIZER("texture Interface\\Icons\\Spell_Nature_Starfall")
     eq(layer().shape.texture, "Interface\\Icons\\Spell_Nature_Starfall")
@@ -431,32 +493,83 @@ local function failedChecks(run)
     return table.concat(lines, "\n")
 end
 
-test("/gcc debug: every look checked, each step marked in the corner, your settings back, the reload box", function()
+-- Plays the outside (tests/screenshot_debug.sh's keys, or you): answers the
+-- corner square. Blue: selects the next friendly player; violet: the next NPC;
+-- navy: clears the target. Returns once the run's timers are done.
+local function driveDebugRun(friendlyPlayers, npcs)
+    local friendlyIndex, npcIndex = 0, 0
+    for _ = 1, 20000 do
+        if #game.timers == 0 then return end
+        local marker = GamepadCrosshairCustomizer.Debug.marker
+        local color = marker and marker:IsShown() and colorOf(marker.texture)
+        if color == "0.00 0.00 1.00 1.00" and friendlyIndex < #friendlyPlayers then
+            friendlyIndex = friendlyIndex + 1; setTarget(friendlyPlayers[friendlyIndex])
+        elseif color == "0.50 0.00 1.00 1.00" and npcIndex < #npcs then
+            npcIndex = npcIndex + 1; setTarget(npcs[npcIndex])
+        elseif color == "0.00 0.00 0.50 1.00" and game.target then
+            setTarget(nil)
+        end
+        frame()
+    end
+    error("the debug run never ended")
+end
+
+local function checkResult(run, wanted)
+    for _, check in ipairs(run.checks) do
+        if check.name:find(wanted, 1, true) then return check.result end
+    end
+end
+
+test("/gcc debug: every look checked, on 3 friendly classes and both NPC kinds, your settings back, the reload box", function()
     for _, jiberish in ipairs({ false, true }) do
-        boot({ jiberish = jiberish, saved = { color = "3961CDFF", size = 7, icon = "marker2" } })
+        boot({ jiberish = jiberish, saved = { color = "3961CDFF", size = 7, targetIcon = "marker2" } })
         SlashCmdList.GAMEPADCROSSHAIRCUSTOMIZER("debug")
         local debugSuite = GamepadCrosshairCustomizer.Debug
-        eq(debugSuite.marker:IsShown(), true, "the corner square")
-        eq(math.floor(debugSuite.marker.texture.color[3] * 255 + 0.5), 8, "blue: step 1 x 8")
-        runUntilNoTimersLeft()
+        driveDebugRun({ { isPlayer = true, classFile = "WARRIOR", reaction = 5 }, { isPlayer = true, classFile = "WARRIOR", reaction = 5 },
+            { isPlayer = true, classFile = "MAGE", reaction = 5 }, { isPlayer = true, classFile = "PRIEST", reaction = 5 } },
+            { { isPlayer = false, reaction = 2 }, { isPlayer = false, reaction = 4 } })
         local run = GamepadCrosshairCustomizerDebugDB.runs[1]
         eq(failedChecks(run), "", "no failed check (Jiberish " .. tostring(jiberish) .. ")")
-        eq(run.failed, 0); eq(run.skipped, 0)
-        eq(run.passed > 100, true, "passed " .. run.passed)
-        eq(#run.steps, #debugSuite.STEPS, "one entry per step")
-        -- The fake's center (640, 400) on a 1440 px tall screen (768 units): 1.875 px a unit, y from the top.
-        eq(run.steps[2].onScreen.x, 1200, "where the crosshair is, in screen pixels")
-        eq(run.steps[2].onScreen.y, 1440 - 750, "from the top")
-        eq(run.environment.jiberishInstalled, jiberish)
+        eq(run.failed, 0)
+        eq(run.found.class1, "WARRIOR"); eq(run.found.class2, "MAGE", "the second Warrior skipped: a class already seen")
+        eq(run.found.class3, "PRIEST"); eq(run.found.class4, nil, "no fourth class near")
+        eq(run.found.npc1, "enemy"); eq(run.found.npc2, "neutral", "both kinds")
+        eq(checkResult(run, "friendly player 2: its class icon, size 32 (MAGE): its nameplate shows the class's color"), "pass")
+        eq(checkResult(run, "(within 60 s)"), "pass")
+        eq(run.passed > 150, true, "passed " .. run.passed)
+        eq(run.steps[3].onScreen.x, 1200, "where the crosshair is, in screen pixels")
         eq(debugSuite.marker:IsShown(), false, "the square gone: done")
         eq(GamepadCrosshairCustomizerDB.color, "3961CDFF", "your settings back")
-        eq(GamepadCrosshairCustomizerDB.size, 7); eq(GamepadCrosshairCustomizerDB.icon, "marker2")
-        eq(layer().shape.texture, "Interface\\TargetingFrame\\UI-RaidTargetingIcon_2", "and drawn")
+        eq(GamepadCrosshairCustomizerDB.size, 7); eq(GamepadCrosshairCustomizerDB.targetIcon, "marker2")
         eq(GamepadCrosshairCustomizerDebugDB.settingsToRestore, nil)
-        local reloadBox = GamepadCrosshairCustomizerDebugBox
-        eq(reloadBox:IsShown(), true, "the reload box")
-        eq(reloadBox.reloadButton.attributes.macrotext, "/reload")
+        eq(GamepadCrosshairCustomizerDebugBox:IsShown(), true, "the reload box")
+        eq(GamepadCrosshairCustomizerDebugBox.reloadButton.attributes.macrotext, "/reload")
     end
+end)
+
+test("/gcc debug: alone (yourself, one NPC kind, no nameplates), the optional parts are skipped, nothing fails", function()
+    boot({ noNameplates = true })
+    SlashCmdList.GAMEPADCROSSHAIRCUSTOMIZER("debug")
+    driveDebugRun({ { isPlayer = true, classFile = "DRUID", reaction = 5 } }, { { isPlayer = false, reaction = 4 } })
+    local run = GamepadCrosshairCustomizerDebugDB.runs[1]
+    eq(failedChecks(run), "", "nothing failed")
+    eq(run.found.class2, nil); eq(run.found.npc1, "neutral"); eq(run.found.npc2, nil)
+    eq(checkResult(run, "its nameplate shows the class's color"), "skip", "no nameplate: skipped")
+    eq(checkResult(run, "the other kind of NPC"), "skip")
+end)
+
+test("/gcc debug: no friendly player selected within 60 s fails; its keys are bound", function()
+    boot()
+    eq(game.bindings["ALT-CTRL-SHIFT-Y"], "GamepadCrosshairCustomizerDebugTarget")
+    eq(game.bindings["ALT-CTRL-SHIFT-Z"], "GamepadCrosshairCustomizerDebugTargetEnemy")
+    eq(game.bindings["ALT-CTRL-SHIFT-X"], "GamepadCrosshairCustomizerDebugClearTarget")
+    eq(GamepadCrosshairCustomizerDebugTarget.attributes.macrotext, "/targetfriendplayer\n/target [noexists] player")
+    eq(GamepadCrosshairCustomizerDebugTargetEnemy.attributes.macrotext, "/targetenemy")
+    eq(GamepadCrosshairCustomizerDebugClearTarget.attributes.macrotext, "/cleartarget")
+    SlashCmdList.GAMEPADCROSSHAIRCUSTOMIZER("debug")
+    driveDebugRun({}, {})
+    local run = GamepadCrosshairCustomizerDebugDB.runs[1]
+    eq(checkResult(run, "select a friendly player (within 60 s)"), "fail")
 end)
 
 test("/gcc debug: waits for the crosshair on screen before its first step (the cursor hides it)", function()
@@ -468,15 +581,16 @@ test("/gcc debug: waits for the crosshair on screen before its first step (the c
     frame(); frame(); frame()
     eq(colorOf(debugSuite.marker.texture), "1.00 1.00 0.00 1.00", "still waiting, no step yet")
     GamepadReticle.Icons:Show()
-    frame()
-    eq(math.floor(debugSuite.marker.texture.color[3] * 255 + 0.5), 8, "step 1 once it shows")
+    frame(); frame()
+    eq(math.floor(debugSuite.marker.texture.color[3] * 255 + 0.5), 16,
+        "once it shows: step 2 (step 1, waiting for no target, passed at once)")
     runUntilNoTimersLeft()
     local run = GamepadCrosshairCustomizerDebugDB.runs[1]
     eq(run.environment.crosshairWaitSeconds, 2, "waited 2 s (4 polls)")
     eq(run.environment.crosshairOnScreenAtStart, true)
 
     boot()
-    GamepadCrosshairCustomizer.Debug.CROSSHAIR_WAIT_SECONDS = 1
+    GamepadCrosshairCustomizer.Debug.WAIT_SECONDS = 1
     GamepadReticle.Icons:Hide()
     SlashCmdList.GAMEPADCROSSHAIRCUSTOMIZER("debug")
     runUntilNoTimersLeft()
@@ -487,8 +601,8 @@ test("/gcc debug: Alt+Ctrl+Shift+C starts it too (for the screenshot script)", f
     boot()
     eq(game.bindings["ALT-CTRL-SHIFT-C"], "GamepadCrosshairCustomizerDebugStart")
     _G[game.bindings["ALT-CTRL-SHIFT-C"]]:Click()
-    eq(GamepadCrosshairCustomizer.Debug.marker:IsShown(), true, "running")
-    runUntilNoTimersLeft()
+    eq(#game.timers > 0, true, "running")
+    driveDebugRun({ { isPlayer = true, classFile = "MAGE", reaction = 5 } }, { { isPlayer = false, reaction = 2 } })
     eq(GamepadCrosshairCustomizerDebugDB.runs[1].failed, 0)
 end)
 
@@ -524,7 +638,7 @@ end)
 test("the release leaves Debug.lua out: ignored by .pkgmeta, and gone from the release .toc", function()
     assert(readFile(".pkgmeta"):find("\n  %- Debug%.lua\n"), ".pkgmeta ignores Debug.lua, alone on its line")
     eq(table.concat(tocFiles(true), ","),
-        "SavedSettings.lua,Color.lua,Icons.lua,Crosshair.lua,PickerSticks.lua,TextBox.lua,GamepadCrosshairCustomizer.lua")
+        "SavedSettings.lua,Color.lua,Icons.lua,Target.lua,Crosshair.lua,PickerSticks.lua,TextBox.lua,GamepadCrosshairCustomizer.lua")
     eq(tocFiles()[#tocFiles()], "Debug.lua", "the repo's .toc loads it last")
 end)
 

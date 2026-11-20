@@ -1,29 +1,59 @@
 -- /gcc debug: an in-game test suite. It puts each look on the real crosshair, one
 -- step every Debug.SECONDS_PER_STEP, checks what the game shows (our textures'
--- size, color and file, the game's dot hidden or back), puts your own settings
+-- size, color and picture, the game's dot hidden or back), puts your own settings
 -- back, and keeps the findings in GamepadCrosshairCustomizerDebugDB (written to
 -- disk on /reload). Not in the release zip (.pkgmeta).
---   /gcc debug         runs the suite (out of combat, controller UI on, no target)
+--   /gcc debug         runs the suite (out of combat, controller UI on)
 --   /gcc debug last    prints the last run's findings again
 --   /gcc debug clear   empties the saved runs
 -- A fight stops the run; a reload during one puts your settings back at login.
 --
--- Screenshots: tests/screenshot_debug.sh (outside the game) shoots each step. The
--- square in the top-left corner says which step is on screen: green, with the
--- step number in its blue (step x Debug.MARKER_BLUE_PER_STEP / 255); red once the
--- run stopped; gone when it's done. Each step's crosshair position on screen (in
--- screen pixels, from the top-left) is saved with the run, for the crops.
+-- Its parts:
+--   1. the crosshair with no target;
+--   2. the icons on a real friendly player target, then its class icon on more
+--      friendly players of other classes nearby (optional, up to
+--      MORE_CLASSES), each checked against the class color its nameplate shows;
+--   3. once you've moved near one, a neutral or enemy NPC (a class icon must
+--      leave the crosshair as it is there), and the other of the two if one is
+--      in range too (optional);
+--   4. the crosshair back once the target is cleared.
+-- Addon code can't select or clear a target, so the run waits for one, and keys
+-- do it from outside, through secure macro buttons (as the reload box's Reload):
+-- TARGET_KEY (/targetfriendplayer, else yourself; again: the next one),
+-- TARGET_ENEMY_KEY (/targetenemy: attackable units, neutral ones too) and
+-- CLEAR_TARGET_KEY (/cleartarget). By hand, select them yourself when the corner
+-- says so. An enemy that pulls you into a fight stops the run.
+--
+-- Screenshots: tests/screenshot_debug.sh (outside the game) starts the run with
+-- START_KEY, presses the target keys when asked, and shoots each step. The square
+-- in the top-left corner says what's on screen:
+--   green    a step, its number in the blue (step x MARKER_BLUE_PER_STEP / 255)
+--   yellow   waiting for the crosshair (touch the controller)
+--   blue     waiting for a friendly player target
+--   navy     waiting for no target
+--   violet   waiting for a neutral or enemy NPC (move near one), or the other kind
+--   red      the run stopped; gone: done
+-- Each step's crosshair position on screen (screen pixels from the top-left) is
+-- saved with the run, for the crops.
 local addon = _G.GamepadCrosshairCustomizer
 local Debug = { SECONDS_PER_STEP = 2.5, RUNS_KEPT = 10, MARKER_BLUE_PER_STEP = 8,
-    -- Starts a run like /gcc debug, for tests/screenshot_debug.sh (keys from outside
-    -- reach the game; typing in its chat isn't tried). Free among the dev tools' keys.
-    START_KEY = "ALT-CTRL-SHIFT-C",
+    -- Keys from outside reach the game; typing in its chat isn't tried. Free among
+    -- the dev tools' keys.
+    START_KEY = "ALT-CTRL-SHIFT-C", TARGET_KEY = "ALT-CTRL-SHIFT-Y", CLEAR_TARGET_KEY = "ALT-CTRL-SHIFT-X",
+    TARGET_ENEMY_KEY = "ALT-CTRL-SHIFT-Z",
+    TARGET_MACRO = "/targetfriendplayer\n/target [noexists] player",
     -- The game hides its crosshair while the cursor shows, and after a reload the
     -- controller UI only comes back with the controller's first input: the run
-    -- waits for the crosshair, up to this long, so the shots show it. (It doesn't
+    -- waits for it (and for each target change) up to WAIT_SECONDS. (It doesn't
     -- switch the controller UI on itself: InputDeviceInterfaceStyle switches the
     -- whole interface, and from addon code that would run the game's switch tainted.)
-    CROSSHAIR_WAIT_SECONDS = 60, CROSSHAIR_POLL_SECONDS = 0.5 }
+    WAIT_SECONDS = 60, POLL_SECONDS = 0.5,
+    MORE_CLASSES = 4,                 -- friendly players of other classes looked for
+    OPTIONAL_WAIT_SECONDS = 12,       -- how long each optional target is looked for
+    NPC_WAIT_SECONDS = 180,           -- time to walk near a neutral or enemy NPC
+    CLASSES = { "WARRIOR", "PALADIN", "HUNTER", "ROGUE", "PRIEST", "DEATHKNIGHT", "SHAMAN", "MAGE", "WARLOCK",
+        "MONK", "DRUID", "DEMONHUNTER", "EVOKER" },
+}
 addon.Debug = Debug
 
 local function say(text) print("|cff88ccffgcc debug|r " .. text) end
@@ -82,9 +112,7 @@ local function gameDot()
     return type(crosshairFrame) == "table" and crosshairFrame.Icons and crosshairFrame.Icons.StandardIcon or nil
 end
 
-local function colorText(region)
-    return addon.FormatColor(region:GetVertexColor())
-end
+local function colorText(region) return addon.FormatColor(region:GetVertexColor()) end
 
 -- Where the crosshair is on screen, in screen pixels from the top-left, and its
 -- width there; nil when it can't be measured (on a nameplate: a restricted region).
@@ -97,69 +125,161 @@ local function crosshairOnScreen(region)
         width = math.floor(region:GetWidth() * pixelsPerUnit + 0.5), screenWidth = screenWidth, screenHeight = screenHeight }
 end
 
--- Applies a look, then checks the game shows it.
-local function checkLook(label, look)
+-- What a step should show, worked out from its own look and the real target (not
+-- from the addon's choice): { icon, texture or atlas, size, tinted }.
+local function expectedLook(step, settings)
+    if step.shows == "targetIcon" then
+        local target = addon.TargetInfo()
+        if settings.targetIcon == "class" then
+            return { icon = "class", atlas = addon.Icons.ClassAtlas(target.classFile), size = settings.iconSize, tinted = false }
+        end
+        return { icon = settings.targetIcon, texture = addon.Icons.Texture(settings.targetIcon, settings.customTexture),
+            size = settings.iconSize, tinted = false }
+    end
+    local icon = settings.icon
+    if step.needsJiberish and not addon.Icons.JiberishInstalled() then icon = "dot" end
+    return { icon = icon, texture = addon.Icons.Texture(icon), size = settings.size, tinted = true }
+end
+
+-- Applies a step's look, then checks the game shows what it should.
+local function checkLook(label, step)
     local settings = addon.Settings()
     for key, value in pairs(addon.DEFAULTS) do settings[key] = value end
-    for key, value in pairs(look) do
-        if addon.DEFAULTS[key] ~= nil then settings[key] = value end
-    end
+    for key, value in pairs(step.look) do settings[key] = value end
     addon.UpdateCrosshair()
 
     local dot, layer, drawn = gameDot(), addon.Crosshair.Layer(), addon.Crosshair.Drawn()
     if not (dot and layer) then return skipCheck(label, "the game's crosshair isn't there") end
-    local step = { label = label }
-    currentRun.steps[#currentRun.steps + 1] = step
+    local record = { label = label }
+    currentRun.steps[#currentRun.steps + 1] = record
 
     if not settings.enabled then
         expectEqual(label .. ": our crosshair hidden", false, layer:IsShown())
         expectNear(label .. ": the game's dot back at its own alpha", addon.Crosshair.GameDotAlpha() or 1, dot:GetAlpha())
-        step.onScreen = crosshairOnScreen(dot)
+        record.onScreen = crosshairOnScreen(dot)
         return
     end
-    local expectedIcon = look.icon or "dot"
-    local expectedTexture = addon.Icons.Texture(expectedIcon, settings.customTexture)
-    if look.expectFallback then expectedIcon, expectedTexture = "dot", addon.Icons.GAME_DOT_TEXTURE end
-    expectEqual(label .. ": icon drawn", expectedIcon, drawn and drawn.icon)
-    expectEqual(label .. ": its file", fileAsGameReportsIt(expectedTexture), layer.shape:GetTexture())
+    local expected = expectedLook(step, settings)
+    expectEqual(label .. ": what's drawn", expected.icon, drawn and drawn.icon)
+    if expected.atlas then
+        expectEqual(label .. ": its atlas", expected.atlas, type(layer.shape.GetAtlas) == "function" and layer.shape:GetAtlas() or drawn.atlas)
+        Debug.CheckNameplateClassColor(label, addon.TargetInfo().classFile)
+    elseif step.shows == "targetIcon" and settings.targetIcon == "class" then
+        recordCheck(label .. ": the class's atlas exists on this client", false, "classicon-<class>", "none")
+    else
+        expectEqual(label .. ": its file", fileAsGameReportsIt(expected.texture), layer.shape:GetTexture())
+    end
     expectEqual(label .. ": our crosshair shown", true, layer:IsShown())
     expectEqual(label .. ": the game's dot see-through", 0, dot:GetAlpha())
-    expectNear(label .. ": size", settings.size, layer.shape:GetWidth())
-    expectEqual(label .. ": color", addon.Color("color"), colorText(layer.shape))
+    expectNear(label .. ": size", expected.size, layer.shape:GetWidth())
+    expectEqual(label .. ": color", expected.tinted and addon.Color("color") or "FFFFFFFF", colorText(layer.shape))
     local borderSize = settings.borderSize
     expectEqual(label .. ": border shown", borderSize > 0, layer.border:IsShown())
     if borderSize > 0 then
-        expectNear(label .. ": border size", settings.size + 2 * borderSize, layer.border:GetWidth())
+        expectNear(label .. ": border size", expected.size + 2 * borderSize, layer.border:GetWidth())
         expectEqual(label .. ": border color", addon.Color("borderColor"), colorText(layer.border))
     end
-    step.onScreen = crosshairOnScreen(layer.shape)
-    step.visible = layer:IsVisible()
+    record.onScreen = crosshairOnScreen(layer.shape)
+    record.visible = layer:IsVisible()
 end
 
--- The steps
+-- The class a player target's nameplate shows: its health bar in the class's
+-- color (read only; skipped without a nameplate, e.g. friendly nameplates off).
+local function classColorText(classFile)
+    local classColors = _G.C_ClassColor
+    local color = type(classColors) == "table" and type(classColors.GetClassColor) == "function"
+        and classColors.GetClassColor(classFile) or (_G.RAID_CLASS_COLORS or {})[classFile]
+    return color and addon.FormatColor(color.r, color.g, color.b, 1) or nil
+end
+
+function Debug.CheckNameplateClassColor(label, classFile)
+    local name = label .. ": its nameplate shows the class's color"
+    local namePlates = _G.C_NamePlate
+    local nameplate = type(namePlates) == "table" and type(namePlates.GetNamePlateForUnit) == "function"
+        and namePlates.GetNamePlateForUnit("target") or nil
+    local healthBar = nameplate and nameplate.UnitFrame and nameplate.UnitFrame.healthBar
+    if not (healthBar and type(healthBar.GetStatusBarColor) == "function") then
+        return skipCheck(name, "no nameplate shown for the target (friendly nameplates off?)")
+    end
+    local succeeded, red, green, blue = pcall(healthBar.GetStatusBarColor, healthBar)
+    local expected = classColorText(classFile)
+    if not (succeeded and tonumber(red) and expected) then return skipCheck(name, "its color can't be read") end
+    local expectedRed, expectedGreen, expectedBlue = addon.ParseColor(expected)
+    local close = math.abs(red - expectedRed) < 0.03 and math.abs(green - expectedGreen) < 0.03 and math.abs(blue - expectedBlue) < 0.03
+    recordCheck(name, close, expected, addon.FormatColor(red, green, blue, 1))
+end
+
+-- The steps: looks (applied and checked), waits (for the crosshair or a target
+-- change), and plain checks.
 
 local STEPS = {}
-local function addLook(label, look) STEPS[#STEPS + 1] = { label = label, look = look } end
+local function addLook(label, look, options)
+    local step = { label = label, look = look, shows = "crosshair" }
+    for key, value in pairs(options or {}) do step[key] = value end
+    STEPS[#STEPS + 1] = step
+end
+-- found: the name its find is kept under (currentRun.found), for steps that require it.
+local function addWait(label, waitFor, found) STEPS[#STEPS + 1] = { label = label, waitFor = waitFor, found = found } end
+local function addCheck(label, check) STEPS[#STEPS + 1] = { label = label, check = check } end
 
+-- 1. No target: the crosshair.
+addWait("clear your target", "noTarget")
 addLook("the game's dot (addon off)", { enabled = false })
 addLook("dot, size 4", {})
 addLook("dot, size 12, red", { size = 12, color = "FF3030FF" })
 addLook("dot, size 24, black border 2", { size = 24, borderSize = 2 })
 addLook("dot, size 24, cyan, white border 4", { size = 24, color = "30D0FFFF", borderSize = 4, borderColor = "FFFFFFFF" })
 addLook("dot, size 24, half see-through", { size = 24, color = "FFFFFF80" })
-for index = 1, 8 do
-    addLook("raid marker " .. index .. ", size 32", { icon = "marker" .. index, size = 32 })
-end
-addLook("skull, size 32, black border 3", { icon = "marker8", size = 32, borderSize = 3 })
-addLook("Jiberish x bold, size 32", { icon = "jiberish:x-bold", size = 32, needsJiberish = true })
+addLook("Jiberish x bold, size 32", { icon = "jiberish:x-bold", size = 32 }, { needsJiberish = true })
 addLook("Jiberish circle thin, size 48, red border 2",
-    { icon = "jiberish:circle-thin", size = 48, borderSize = 2, borderColor = "FF3030FF", needsJiberish = true })
-addLook("custom texture (question mark), size 32",
-    { icon = "custom", customTexture = "Interface\\Icons\\INV_Misc_QuestionMark", size = 32 })
+    { icon = "jiberish:circle-thin", size = 48, borderSize = 2, borderColor = "FF3030FF" }, { needsJiberish = true })
+addLook("no target: the skull chosen, the crosshair stays", { targetIcon = "marker8", size = 12 })
+addCheck("every class has its class icon on this client", function(label)
+    local missing = {}
+    for _, classFile in ipairs(Debug.CLASSES) do
+        if not addon.Icons.ClassAtlas(classFile) then missing[#missing + 1] = classFile end
+    end
+    expectEqual(label, "none missing", #missing == 0 and "none missing" or table.concat(missing, ", "))
+end)
+
+-- 2. A friendly player targeted: the icons on it.
+addWait("select a friendly player", "playerTarget", "class1")
+addLook("target, \"None\": the crosshair stays", { targetIcon = "none", size = 12 })
+addLook("target: its class icon, size 32", { targetIcon = "class", iconSize = 32 }, { shows = "targetIcon", requires = "class1" })
+addLook("target: its class icon, size 48, black border 3", { targetIcon = "class", iconSize = 48, borderSize = 3 },
+    { shows = "targetIcon" })
+for index = 1, 8 do
+    addLook("target: raid marker " .. index .. ", size 32", { targetIcon = "marker" .. index, iconSize = 32 },
+        { shows = "targetIcon" })
+end
+addLook("target: custom texture (question mark), size 32",
+    { targetIcon = "custom", customTexture = "Interface\\Icons\\INV_Misc_QuestionMark", iconSize = 32 }, { shows = "targetIcon" })
+
+for number = 2, 1 + Debug.MORE_CLASSES do
+    local group = "class" .. number
+    addWait("another friendly player, of a class not seen yet (optional)", "newClass", group)
+    addLook("friendly player " .. number .. ": its class icon, size 32", { targetIcon = "class", iconSize = 32 },
+        { shows = "targetIcon", requires = group })
+end
+
+-- 3. A neutral or enemy NPC (move near one first), then the other kind if in range.
+for _, group in ipairs({ "npc1", "npc2" }) do
+    if group == "npc1" then addWait("move near a neutral or enemy NPC", "npcTarget", group)
+    else addWait("the other kind of NPC (neutral or enemy), if one is in range (optional)", "otherReaction", group) end
+    addLook("NPC: class icon chosen, the crosshair stays", { targetIcon = "class", size = 12 }, { requires = group })
+    addLook("NPC: raid marker skull, size 32", { targetIcon = "marker8", iconSize = 32 },
+        { shows = "targetIcon", requires = group })
+end
+
+-- 4. The target cleared: the crosshair back.
+addWait("clear the target", "noTarget")
+addLook("target cleared: the crosshair back", { targetIcon = "marker8", size = 12, borderSize = 2 })
 Debug.STEPS = STEPS
 
 -- The corner square and the step's name next to it
 
+local MARKER_COLORS = { crosshair = { 1, 1, 0 }, playerTarget = { 0, 0, 1 }, newClass = { 0, 0, 1 },
+    noTarget = { 0, 0, 0.5 }, npcTarget = { 0.5, 0, 1 }, otherReaction = { 0.5, 0, 1 } }
 local marker
 local function showMarker(red, green, blue, text)
     if not marker then
@@ -259,23 +379,100 @@ local function finishRun(stopReason)
         .. "Reload to save the findings (or type /reload).", counts.pass, counts.fail, counts.skip))
 end
 
-local function runNextStep()
+-- Waits
+
+local function crosshairOnScreenNow()
+    local crosshairFrame = _G.GamepadReticle
+    return type(crosshairFrame) == "table" and crosshairFrame.Icons ~= nil and crosshairFrame.Icons:IsVisible() == true
+end
+
+local function npcOfKind(kindToAvoid)
+    local target = addon.TargetInfo()
+    return target.exists and not target.isPlayer and (target.reaction == "enemy" or target.reaction == "neutral")
+        and target.reaction ~= kindToAvoid
+end
+local WAIT_CONDITIONS = {
+    crosshair = crosshairOnScreenNow,
+    playerTarget = function() local target = addon.TargetInfo(); return target.exists and target.isPlayer end,
+    newClass = function()
+        local target = addon.TargetInfo()
+        return target.exists and target.isPlayer and target.classFile ~= nil and not currentRun.classesSeen[target.classFile]
+    end,
+    noTarget = function() return not addon.TargetInfo().exists end,
+    npcTarget = function() return npcOfKind(nil) end,
+    otherReaction = function() return npcOfKind(currentRun.found.npc1) end,
+}
+local WAIT_TEXTS = {
+    crosshair = "waiting for the crosshair: touch the controller (the controller UI comes back with its first input)",
+    playerTarget = "select a friendly player (F1: yourself)",
+    newClass = "select a friendly player of another class, if one is near (optional)",
+    noTarget = "clear your target",
+    npcTarget = "move near a neutral or enemy NPC (one that won't attack you): it gets selected (Tab by hand)",
+    otherReaction = "the other kind of NPC (neutral or enemy), if one is in range (optional)",
+}
+local WAIT_LIMITS = { newClass = "OPTIONAL_WAIT_SECONDS", otherReaction = "OPTIONAL_WAIT_SECONDS",
+    npcTarget = "NPC_WAIT_SECONDS" }
+local OPTIONAL_WAITS = { newClass = true, otherReaction = true }
+
+-- What a find is kept as: a player's class, an NPC's reaction.
+local function describeFind(waitFor, target)
+    if waitFor == "newClass" or waitFor == "playerTarget" then return target.classFile or "unknown class" end
+    return target.reaction
+end
+
+local runNextStep
+
+-- Polls until the wait is over, or WAIT_SECONDS; records how it went; goes on.
+local function wait(waitFor, label, secondsWaited, found)
+    if not currentRun then return end
+    -- The class search stops at its first miss: nobody else is near.
+    if waitFor == "newClass" and currentRun.classSearchOver then return runNextStep() end
+    local satisfied = WAIT_CONDITIONS[waitFor]()
+    local limit = Debug[WAIT_LIMITS[waitFor] or "WAIT_SECONDS"]
+    if satisfied or secondsWaited >= limit then
+        if waitFor == "crosshair" then
+            currentRun.environment.crosshairWaitSeconds = secondsWaited
+            currentRun.environment.crosshairOnScreenAtStart = satisfied
+            return runNextStep()
+        end
+        local target = addon.TargetInfo()
+        if OPTIONAL_WAITS[waitFor] then
+            if not satisfied then skipCheck(label, "none in range") end   -- optional: skipped, not failed
+            if not satisfied and waitFor == "newClass" then currentRun.classSearchOver = true end
+        else
+            expectEqual(label .. " (within " .. limit .. " s)", true, satisfied)
+        end
+        if satisfied then
+            if found then currentRun.found[found] = describeFind(waitFor, target) end
+            if target.isPlayer and target.classFile then currentRun.classesSeen[target.classFile] = true end
+        end
+        return C_Timer.After(Debug.SECONDS_PER_STEP, runNextStep)
+    end
+    local color = MARKER_COLORS[waitFor]
+    showMarker(color[1], color[2], color[3], "gcc debug: " .. WAIT_TEXTS[waitFor])
+    C_Timer.After(Debug.POLL_SECONDS, function() wait(waitFor, label, secondsWaited + Debug.POLL_SECONDS, found) end)
+end
+
+runNextStep = function()
     if not currentRun then return end
     currentRun.stepNumber = currentRun.stepNumber + 1
     local step = STEPS[currentRun.stepNumber]
     if not step then return finishRun() end
     local label = currentRun.stepNumber .. "/" .. #STEPS .. ": " .. step.label
-    if step.look.needsJiberish and not addon.Icons.JiberishInstalled() then
-        -- Without the addon its shapes aren't offered: the game's dot shape is drawn instead.
+    if step.waitFor then return wait(step.waitFor, label, 0, step.found) end
+    if step.requires then
+        local find = currentRun.found[step.requires]
+        if not find then
+            -- Nothing of that kind was selected: nothing to check (recorded at its wait).
+            showMarker(0, 1, currentRun.stepNumber * Debug.MARKER_BLUE_PER_STEP / 255, label .. " (skipped)")
+            return C_Timer.After(0.1, runNextStep)
+        end
+        label = label .. " (" .. find .. ")"
+    end
+    if step.needsJiberish and not addon.Icons.JiberishInstalled() then
         label = label .. " (not installed: falls back to the dot)"
-        step.look.expectFallback = true
     end
-    local look = {}
-    for key, value in pairs(step.look) do
-        if addon.DEFAULTS[key] ~= nil then look[key] = value end
-    end
-    look.expectFallback = step.look.expectFallback
-    local succeeded, errorMessage = pcall(checkLook, label, look)
+    local succeeded, errorMessage = pcall(step.check or checkLook, label, step)
     if not succeeded then recordCheck(label, false, "no error", errorMessage) end
     showMarker(0, 1, currentRun.stepNumber * Debug.MARKER_BLUE_PER_STEP / 255, label)
     C_Timer.After(Debug.SECONDS_PER_STEP, runNextStep)
@@ -288,9 +485,8 @@ local function describeEnvironment()
         if succeeded then environment.version, environment.build, environment.interfaceVersion = version, build, interfaceVersion end
     end
     environment.controllerUI = type(InputUtil) == "table" and InputUtil.IsGamepadUIEnabled and InputUtil.IsGamepadUIEnabled() == true
-    environment.crosshairVisible = type(_G.GamepadReticle) == "table" and GamepadReticle:IsVisible() == true
+    environment.crosshairVisible = crosshairOnScreenNow()
     environment.jiberishInstalled = addon.Icons.JiberishInstalled()
-    environment.target = type(UnitExists) == "function" and UnitExists("target") == true
     environment.settings = copyCurrentSettings()
     return environment
 end
@@ -300,30 +496,10 @@ function Debug.Start()
     if InCombatLockdown() then say("not in combat"); return end
     getDebugStore().settingsToRestore = copyCurrentSettings()
     currentRun = { time = type(date) == "function" and date("%Y-%m-%d %H:%M:%S") or nil,
-        environment = describeEnvironment(), checks = {}, steps = {}, stepNumber = 0 }
-    if not currentRun.environment.crosshairVisible then
-        say("the crosshair isn't on screen (controller UI off, or the cursor shows): checks run, screenshots won't show it")
-    end
-    say(string.format("running %d steps, about %d s. Stay still.", #STEPS, math.ceil(#STEPS * Debug.SECONDS_PER_STEP)))
-    Debug.WaitForCrosshair(0)
-end
-
-local function crosshairOnScreenNow()
-    local crosshairFrame = _G.GamepadReticle
-    return type(crosshairFrame) == "table" and crosshairFrame.Icons ~= nil and crosshairFrame.Icons:IsVisible() == true
-end
-
--- Before the first step: waits until the game shows its crosshair (the square
--- yellow meanwhile, which the screenshot script reads as "not started").
-function Debug.WaitForCrosshair(secondsWaited)
-    if not currentRun then return end
-    if crosshairOnScreenNow() or secondsWaited >= Debug.CROSSHAIR_WAIT_SECONDS then
-        currentRun.environment.crosshairWaitSeconds = secondsWaited
-        currentRun.environment.crosshairOnScreenAtStart = crosshairOnScreenNow()
-        return runNextStep()
-    end
-    showMarker(1, 1, 0, "gcc debug: waiting for the crosshair: touch the controller (the controller UI comes back with its first input)")
-    C_Timer.After(Debug.CROSSHAIR_POLL_SECONDS, function() Debug.WaitForCrosshair(secondsWaited + Debug.CROSSHAIR_POLL_SECONDS) end)
+        environment = describeEnvironment(), checks = {}, steps = {}, stepNumber = 0, found = {}, classesSeen = {} }
+    say(string.format("running %d steps, about %d s. Stay still; target a friendly player when asked.", #STEPS,
+        math.ceil(#STEPS * Debug.SECONDS_PER_STEP)))
+    wait("crosshair", "the crosshair on screen", 0)
 end
 
 function Debug.Command(arguments)
@@ -340,16 +516,31 @@ function Debug.Command(arguments)
     end
 end
 
+-- The keys, bound at login (out of combat): a plain button starts a run; two
+-- secure macro buttons select and clear the target, as only a key press can.
+local function bindKeys()
+    if type(SetOverrideBindingClick) ~= "function" then return end
+    local startButton = CreateFrame("Button", "GamepadCrosshairCustomizerDebugStart", UIParent)
+    startButton:SetScript("OnClick", function() Debug.Start() end)
+    SetOverrideBindingClick(startButton, true, Debug.START_KEY, "GamepadCrosshairCustomizerDebugStart", "LeftButton")
+    local function macroButton(name, key, macroText)
+        local button = CreateFrame("Button", name, UIParent, "SecureActionButtonTemplate")
+        button:SetAttribute("type", "macro")
+        button:SetAttribute("macrotext", macroText)
+        button:RegisterForClicks("AnyUp", "AnyDown")
+        SetOverrideBindingClick(button, true, key, name, "LeftButton")
+    end
+    macroButton("GamepadCrosshairCustomizerDebugTarget", Debug.TARGET_KEY, Debug.TARGET_MACRO)
+    macroButton("GamepadCrosshairCustomizerDebugClearTarget", Debug.CLEAR_TARGET_KEY, "/cleartarget")
+    macroButton("GamepadCrosshairCustomizerDebugTargetEnemy", Debug.TARGET_ENEMY_KEY, "/targetenemy")
+end
+
 Debug.eventFrame = CreateFrame("Frame")
 Debug.eventFrame:RegisterEvent("PLAYER_LOGIN")
 Debug.eventFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
 Debug.eventFrame:SetScript("OnEvent", function(self, event)
     if event == "PLAYER_LOGIN" then
-        if type(SetOverrideBindingClick) == "function" then
-            local startButton = CreateFrame("Button", "GamepadCrosshairCustomizerDebugStart", UIParent)
-            startButton:SetScript("OnClick", function() Debug.Start() end)
-            SetOverrideBindingClick(startButton, true, Debug.START_KEY, "GamepadCrosshairCustomizerDebugStart", "LeftButton")
-        end
+        bindKeys()
         local debugStore = getDebugStore()
         if debugStore.settingsToRestore then
             restoreSettings(debugStore.settingsToRestore)

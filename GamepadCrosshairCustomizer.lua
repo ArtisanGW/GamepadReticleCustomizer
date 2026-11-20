@@ -50,7 +50,7 @@ function addon.SetCustomTexture(text)
     text = tostring(text or ""):match("^%s*(.-)%s*$")
     if text == "" then return false end
     addon.Settings().customTexture = text
-    if addon.iconSetting then addon.iconSetting:SetValue("custom") else addon.Settings().icon = "custom" end
+    if addon.targetIconSetting then addon.targetIconSetting:SetValue("custom") else addon.Settings().targetIcon = "custom" end
     addon.UpdateCrosshair()
     return true
 end
@@ -70,10 +70,12 @@ local function sliderOptions(minimum, maximum, step, formatLabel)
     return options
 end
 
-local function iconOptions()
-    local container = Settings.CreateControlTextContainer()
-    for _, icon in ipairs(addon.Icons.List()) do container:Add(icon.id, icon.label) end
-    return container:GetData()
+local function dropdownOptions(list)
+    return function()
+        local container = Settings.CreateControlTextContainer()
+        for _, icon in ipairs(list()) do container:Add(icon.id, icon.label) end
+        return container:GetData()
+    end
 end
 
 function addon.RegisterSettings()
@@ -101,18 +103,18 @@ function addon.RegisterSettings()
         "Draws the controller's aiming dot (the controller UI's crosshair) your way. Turned off, the game's own dot comes back.")
 
     local jiberishInstalled = addon.Icons.JiberishInstalled()
-    addon.iconSetting = addSetting("icon", Settings.VarType.String, "Shape")
-    Settings.CreateDropdown(category, addon.iconSetting, iconOptions,
-        "The crosshair's shape: the game's dot, one of its raid markers, "
-        .. (jiberishInstalled and (addon.Icons.JIBERISH_CREDIT .. " (" .. addon.Icons.JIBERISH_LINK .. "), ") or "")
-        .. "or a texture of your own (Custom texture...). The color tints it: white keeps a marker's own colors.")
+    Settings.CreateDropdown(category, addSetting("icon", Settings.VarType.String, "Crosshair"),
+        dropdownOptions(addon.Icons.CrosshairList),
+        "The crosshair's shape, always shown: the game's dot"
+        .. (jiberishInstalled and (", or one of JiberishUI's crosshairs. " .. addon.Icons.JIBERISH_CREDIT
+            .. " (" .. addon.Icons.JIBERISH_LINK .. ").") or ". More shapes come with JiberishUI Fabled Icons (Get JiberishUI Icons... below)."))
 
     Settings.CreateSlider(category, addSetting("size", Settings.VarType.Number, "Size"),
         sliderOptions(addon.SIZE_MIN, addon.SIZE_MAX, addon.SIZE_STEP, function(value)
             local size = math.floor(value + 0.5)
             return size == addon.DEFAULTS.size and (size .. " (the game's)") or tostring(size)
         end),
-        "The crosshair's width and height. The game's dot is 4; icons read better from about 24.")
+        "The crosshair's width and height. The game's dot is 4.")
 
     if canSwatch then
         addon.PickerSticks.Watch(pickerOwner)
@@ -122,12 +124,21 @@ function addon.RegisterSettings()
             .. "Also from chat: /gcc RRGGBBAA (hex, alpha last), e.g. /gcc FF3030FF.")
     end
 
+    addon.targetIconSetting = addSetting("targetIcon", Settings.VarType.String, "On a target")
+    Settings.CreateDropdown(category, addon.targetIconSetting, dropdownOptions(addon.Icons.TargetList),
+        "What shows instead of the crosshair while you have a target: nothing (the crosshair stays), "
+        .. "a player's class icon (any other target keeps the crosshair), one of the game's raid markers, "
+        .. "or a texture of your own (Custom texture...). Icons keep their own colors.")
+    Settings.CreateSlider(category, addSetting("iconSize", Settings.VarType.Number, "Icon size"),
+        sliderOptions(addon.SIZE_MIN, addon.SIZE_MAX, addon.SIZE_STEP, function(value) return tostring(math.floor(value + 0.5)) end),
+        "The icon's width and height on a target.")
+
     Settings.CreateSlider(category, addSetting("borderSize", Settings.VarType.Number, "Border"),
         sliderOptions(addon.BORDER_MIN, addon.BORDER_MAX, addon.BORDER_STEP, function(value)
             local borderSize = math.floor(value + 0.5)
             return borderSize == 0 and "Off" or tostring(borderSize)
         end),
-        "A border around the crosshair, this wide: the same shape, larger, behind it, in the border color.")
+        "A border around the crosshair or the icon, this wide: the same picture, larger, behind it, in the border color.")
     if canSwatch then
         addSwatch("borderColor", "Border color", "The border's color and opacity.")
     end
@@ -135,13 +146,13 @@ function addon.RegisterSettings()
     if layout and type(CreateSettingsButtonInitializer) == "function" then
         layout:AddInitializer(CreateSettingsButtonInitializer("Custom texture", "Custom texture...",
             function() addon.AskCustomTexture() end,
-            "Type the path of any texture in the game to use it as the crosshair. Also from chat: /gcc texture <path>.",
+            "Type the path of any texture in the game to show it on a target. Also from chat: /gcc texture <path>.",
             true))
         if not jiberishInstalled then
             layout:AddInitializer(CreateSettingsButtonInitializer("More shapes", "Get JiberishUI Icons...",
                 function() addon.ShowJiberishLink() end,
                 "16 more crosshair shapes come with the JiberishUI Fabled Icons addon. "
-                .. "Once it's installed, they're in the Shape list.", true))
+                .. "Once it's installed, they're in the Crosshair list.", true))
         end
     end
 
@@ -159,13 +170,14 @@ end
 local eventFrame = CreateFrame("Frame")
 eventFrame:RegisterEvent("ADDON_LOADED")
 eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+eventFrame:RegisterEvent("PLAYER_TARGET_CHANGED")
 eventFrame:SetScript("OnEvent", function(_, event, name)
     if event == "ADDON_LOADED" then
         if name ~= ADDON_NAME then return end
         eventFrame:UnregisterEvent("ADDON_LOADED")
         addon.Settings()
         pcall(addon.RegisterSettings)
-    elseif event == "PLAYER_ENTERING_WORLD" then
+    elseif event == "PLAYER_ENTERING_WORLD" or event == "PLAYER_TARGET_CHANGED" then
         addon.UpdateCrosshair()
     end
 end)

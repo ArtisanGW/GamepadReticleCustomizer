@@ -6,11 +6,18 @@
 #   default folder: ~/Documents/Coding/WoW/Reports/screenshots/<date> crosshair customizer
 #
 # Needs WoW running with GamepadCrosshairCustomizer and its Debug.lua loaded, the
-# controller UI on (the crosshair only shows then), no target, and you standing
-# still. It presses Debug.lua's START_KEY (Alt+Ctrl+Shift+C) in the game, then
-# screenshots until the corner square shows each step: green with the step
-# number in its blue (step x MARKER_BLUE_PER_STEP), red if the run stopped, gone
-# once it's done. The game then opens the suite's reload box: its Reload writes
+# controller UI on (the crosshair only shows then), friendly players near you
+# (several classes if you can), and you standing still until the game asks you to
+# move near a neutral or enemy NPC. It presses Debug.lua's START_KEY
+# (Alt+Ctrl+Shift+C) in the game, then answers the corner square and screenshots
+# each step:
+#   green   a step, its number in the blue (step x MARKER_BLUE_PER_STEP): shot
+#   yellow  waiting for the crosshair: touch the controller
+#   blue    a friendly player wanted: presses TARGET_KEYS (/targetfriendplayer)
+#   violet  a neutral or enemy NPC wanted: presses TARGET_ENEMY_KEYS (/targetenemy)
+#           while you walk near one
+#   navy    no target wanted: presses CLEAR_TARGET_KEYS (/cleartarget)
+#   red     the run stopped; gone: done The game then opens the suite's reload box: its Reload writes
 # the run (with where the crosshair was on screen each step) to
 # GamepadCrosshairCustomizerDebugDB, and the crops follow those positions. With
 # Later, or no reload within RELOAD_WAIT seconds, it crops around the screen's
@@ -30,7 +37,11 @@ DEV_ADDONS="${DEV_ADDONS:-$SCRIPT_FOLDER/../../devAddons}"
 GAME_FOLDER="${DAYLIGHT_GAME:-/var/mnt/data/Jeux - Installations/World of Warcraft/_forever_}"
 SAVED_VARIABLES="$GAME_FOLDER/WTF/Account/129527646#1/SavedVariables/GamepadCrosshairCustomizer.lua"
 OUTPUT_FOLDER="${1:-$HOME/Documents/Coding/WoW/Reports/screenshots/$(date +%Y-%m-%d) crosshair customizer}"
-START_KEYS="ctrl+alt+shift+c"   # Debug.lua's START_KEY
+START_KEYS="ctrl+alt+shift+c"          # Debug.lua's START_KEY
+TARGET_KEYS="ctrl+alt+shift+y"         # Debug.lua's TARGET_KEY
+TARGET_ENEMY_KEYS="ctrl+alt+shift+z"   # Debug.lua's TARGET_ENEMY_KEY
+CLEAR_TARGET_KEYS="ctrl+alt+shift+x"   # Debug.lua's CLEAR_TARGET_KEY
+TARGET_PRESS_SECONDS=2                 # between presses while a target is wanted
 MARKER_BLUE_PER_STEP=8          # Debug.lua's MARKER_BLUE_PER_STEP
 # How many steps Debug.lua has: loaded here with just enough of a game to count them.
 STEP_COUNT=$(cd "$SCRIPT_FOLDER/.." && luajit -e '
@@ -41,11 +52,11 @@ STEP_COUNT=$(cd "$SCRIPT_FOLDER/.." && luajit -e '
     print(#GamepadCrosshairCustomizer.Debug.STEPS)')
 RELOAD_WAIT="${RELOAD_WAIT:-120}"
 START_RETRY_SECONDS=5
-TIME_LIMIT=$((STEP_COUNT * 3 + 150))
+TIME_LIMIT=$((STEP_COUNT * 3 + 150 + 180 + 5 * 15))   # + walking to an NPC + the optional searches
 mkdir -p "$OUTPUT_FOLDER"
 
 # Prints the corner square's state in a screenshot: "stopped", "waiting" (for the
-# crosshair to show), "step <n>" or "none".
+# crosshair to show), "friendly", "npc", "notarget", "step <n>" or "none".
 read_marker() {
     python3 - "$1" "$MARKER_BLUE_PER_STEP" <<'PY'
 import sys
@@ -57,6 +68,12 @@ elif red > 200 and green < 60:
     print("stopped")
 elif red > 200 and green > 200 and blue < 60:
     print("waiting")
+elif red < 60 and green < 60 and blue > 200:
+    print("friendly")
+elif 100 < red < 160 and green < 60 and blue > 200:
+    print("npc")
+elif red < 60 and green < 60 and 100 < blue < 160:
+    print("notarget")
 elif green > 200 and red < 60 and blue > 0:
     print("step %d" % round(blue / int(sys.argv[2])))
 else:
@@ -78,7 +95,7 @@ if [ "${COMPARE_ONLY:-0}" != 1 ]; then
     # until the square shows (seen: the first press after a reload went nowhere).
     xdotool key --clearmodifiers "$START_KEYS"; last_press=$SECONDS
     echo "/gcc debug: $STEP_COUNT steps. After a reload, touch the controller once so its UI (and the crosshair) comes back; then stay still."
-    started=$SECONDS; last_step=0; probe="$OUTPUT_FOLDER/.probe.png"
+    started=$SECONDS; last_step=0; last_target_press=0; probe="$OUTPUT_FOLDER/.probe.png"
     while :; do
         shoot "$probe"
         marker="$(read_marker "$probe")"
@@ -91,6 +108,16 @@ if [ "${COMPARE_ONLY:-0}" != 1 ]; then
                     last_step=$step
                 fi ;;
             waiting) : ;;   # Debug.lua waits for the crosshair (a touch of the controller)
+            friendly|npc|notarget)
+                if [ $((SECONDS - last_target_press)) -ge "$TARGET_PRESS_SECONDS" ]; then
+                    case "$marker" in
+                        friendly) keys="$TARGET_KEYS" ;;
+                        npc) keys="$TARGET_ENEMY_KEYS"; echo "  move near a neutral or enemy NPC (one that won't attack you)" ;;
+                        notarget) keys="$CLEAR_TARGET_KEYS" ;;
+                    esac
+                    focus_game_with_kwin "$window"; sleep 0.2
+                    xdotool key --clearmodifiers "$keys"; last_target_press=$SECONDS
+                fi ;;
             stopped) echo "The run stopped in the game (a fight?). Shots so far are in $OUTPUT_FOLDER." >&2; exit 6 ;;
             none)
                 if [ "$last_step" -ge "$STEP_COUNT" ]; then break; fi

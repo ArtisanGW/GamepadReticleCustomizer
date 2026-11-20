@@ -1,5 +1,6 @@
--- Draws the customized crosshair on the game's own: a shape (Icons.lua) at its size
--- and color, with a border behind it (the same shape, larger, in the border color).
+-- Draws the customized crosshair on the game's own: its shape (Icons.lua) at its
+-- size and color, or while you have a target the icon chosen for one, with a
+-- border behind either (the same picture, larger, in the border color).
 --
 -- Enhance, don't replace: the drawing is our own frame, a child of the game's
 -- GamepadReticle.Icons, so it shows, hides and fades with the game's dot (the game
@@ -32,13 +33,48 @@ local function buildLayer(dot)
     layer.shape:SetPoint("CENTER", layer, "CENTER")
 end
 
--- What's drawn now, for the tests and /gcc debug: { icon, texture, size, borderSize } or nil.
+-- What's drawn now, for the tests and /gcc debug: { icon, texture or atlas, size, borderSize } or nil.
 local drawn
 function Crosshair.Drawn() return drawn end
 function Crosshair.Layer() return layer end
 function Crosshair.GameDotAlpha() return gameDotAlpha end
 
--- Draws the crosshair from the settings, or puts the game's dot back when off.
+-- What to draw now: the icon for a target while you have one (and it can be
+-- drawn), else the crosshair's shape. { icon, texture or atlas, size, tinted }.
+function Crosshair.Choose(settings, target)
+    local targetIcon = settings.targetIcon
+    if target.exists and targetIcon ~= "none" then
+        local iconSize = addon.Clamp(settings.iconSize, addon.SIZE_MIN, addon.SIZE_MAX, addon.DEFAULTS.iconSize)
+        if targetIcon == "class" then
+            local atlas = target.isPlayer and addon.Icons.ClassAtlas(target.classFile)
+            if atlas then return { icon = "class", atlas = atlas, size = iconSize, tinted = false } end
+        else
+            local texture = addon.Icons.Texture(targetIcon, settings.customTexture)
+            if texture then return { icon = targetIcon, texture = texture, size = iconSize, tinted = false } end
+        end
+    end
+    -- The crosshair: a shape that can't be drawn now (a Jiberish one without the
+    -- addon) falls back to the game's dot.
+    local icon = settings.icon
+    local texture = addon.Icons.IsCrosshairShape(icon) and addon.Icons.Texture(icon)
+    if not texture then icon, texture = "dot", addon.Icons.GAME_DOT_TEXTURE end
+    return { icon = icon, texture = texture, size = addon.Clamp(settings.size, addon.SIZE_MIN, addon.SIZE_MAX,
+        addon.DEFAULTS.size), tinted = true }
+end
+
+-- A texture's picture: an atlas, or a file shown whole (after an atlas, the
+-- texture coordinates are reset).
+local function setPicture(texture, look)
+    if look.atlas then
+        texture:SetAtlas(look.atlas)
+    else
+        texture:SetTexture(look.texture)
+        texture:SetTexCoord(0, 1, 0, 1)
+    end
+end
+
+-- Draws the crosshair from the settings and the target, or puts the game's dot
+-- back when off. Runs on login, on each setting change and when the target changes.
 function addon.UpdateCrosshair()
     local dot = gameDot()
     if not dot then return end
@@ -53,20 +89,18 @@ function addon.UpdateCrosshair()
         return
     end
 
-    -- An icon that can't be drawn now (a Jiberish shape without the addon, a
-    -- custom one with no path) falls back to the game's dot shape.
-    local icon = settings.icon
-    local texture = addon.Icons.Texture(icon, settings.customTexture)
-    if not texture then icon, texture = "dot", addon.Icons.GAME_DOT_TEXTURE end
-    local size = addon.Clamp(settings.size, addon.SIZE_MIN, addon.SIZE_MAX, addon.DEFAULTS.size)
+    local look = Crosshair.Choose(settings, addon.TargetInfo())
     local borderSize = addon.Clamp(settings.borderSize, addon.BORDER_MIN, addon.BORDER_MAX, 0)
-
-    layer.shape:SetTexture(texture)
-    layer.shape:SetSize(size, size)
-    layer.shape:SetVertexColor(addon.ParseColor(addon.Color("color")))
+    setPicture(layer.shape, look)
+    layer.shape:SetSize(look.size, look.size)
+    if look.tinted then
+        layer.shape:SetVertexColor(addon.ParseColor(addon.Color("color")))
+    else
+        layer.shape:SetVertexColor(1, 1, 1, 1)   -- an icon keeps its own colors
+    end
     if borderSize > 0 then
-        layer.border:SetTexture(texture)
-        layer.border:SetSize(size + 2 * borderSize, size + 2 * borderSize)
+        setPicture(layer.border, look)
+        layer.border:SetSize(look.size + 2 * borderSize, look.size + 2 * borderSize)
         layer.border:SetVertexColor(addon.ParseColor(addon.Color("borderColor")))
         layer.border:Show()
     else
@@ -74,5 +108,5 @@ function addon.UpdateCrosshair()
     end
     layer:Show()
     dot:SetAlpha(0)
-    drawn = { icon = icon, texture = texture, size = size, borderSize = borderSize }
+    drawn = { icon = look.icon, texture = look.texture, atlas = look.atlas, size = look.size, borderSize = borderSize }
 end
