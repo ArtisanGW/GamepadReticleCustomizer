@@ -148,7 +148,7 @@ local function expectedLook(step, settings)
             size = settings.iconSize, tinted = false }
     end
     local icon = settings.icon
-    if step.needsJiberish and not addon.Icons.JiberishInstalled() then icon = "dot" end
+    if step.needsJiberish and not addon.Icons.JiberishEnabled() then icon = "dot" end
     return { icon = icon, texture = addon.Icons.Texture(icon), size = settings.size, tinted = true }
 end
 
@@ -523,7 +523,7 @@ runNextStep = function()
         end
         label = label .. " (" .. find .. ")"
     end
-    if step.needsJiberish and not addon.Icons.JiberishInstalled() then
+    if step.needsJiberish and not addon.Icons.JiberishEnabled() then
         label = label .. " (not installed: falls back to the dot)"
     end
     local succeeded, errorMessage = pcall(step.check or checkLook, label, step)
@@ -540,7 +540,7 @@ local function describeEnvironment()
     end
     environment.controllerUI = type(InputUtil) == "table" and InputUtil.IsGamepadUIEnabled and InputUtil.IsGamepadUIEnabled() == true
     environment.crosshairVisible = crosshairOnScreenNow()
-    environment.jiberishInstalled = addon.Icons.JiberishInstalled()
+    environment.jiberishState = addon.Icons.JiberishState()
     environment.settings = copyCurrentSettings()
     return environment
 end

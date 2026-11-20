@@ -73,13 +73,25 @@ local Icons = {
 }
 addon.Icons = Icons
 
--- Whether JiberishUI Fabled Icons is installed (enabled or not).
-function Icons.JiberishInstalled()
+-- JiberishUI Fabled Icons for this character: "missing" (not installed),
+-- "disabled" (installed, turned off in the AddOns list) or "enabled". Its shapes
+-- and styles are offered only when enabled. Its switch is read, not whether it's
+-- loaded: this addon loads before it (GetAddOnEnableState,
+-- AddOnsDocumentation.lua:98, forever branch; 0 is off).
+function Icons.JiberishState()
     local addOns = _G.C_AddOns
-    if type(addOns) ~= "table" or type(addOns.DoesAddOnExist) ~= "function" then return false end
+    if type(addOns) ~= "table" or type(addOns.DoesAddOnExist) ~= "function" then return "missing" end
     local succeeded, exists = pcall(addOns.DoesAddOnExist, Icons.JIBERISH_ADDON)
-    return succeeded and exists == true
+    if not (succeeded and exists == true) then return "missing" end
+    if type(addOns.GetAddOnEnableState) ~= "function" then return "enabled" end
+    local character = type(UnitName) == "function" and UnitName("player") or nil
+    local stateSucceeded, state = pcall(addOns.GetAddOnEnableState, Icons.JIBERISH_ADDON, character)
+    if stateSucceeded and tonumber(state) == 0 then return "disabled" end
+    return "enabled"
 end
+
+-- Whether its shapes and styles can be offered and drawn now.
+function Icons.JiberishEnabled() return Icons.JiberishState() == "enabled" end
 
 -- Whether an id is one of the crosshair's shapes (not an icon for a target).
 function Icons.IsCrosshairShape(iconId)
@@ -89,7 +101,7 @@ end
 -- The crosshair's shapes on offer now, in order: { id, label }.
 function Icons.CrosshairList()
     local list = { { id = "dot", label = "Default dot" } }
-    if Icons.JiberishInstalled() then
+    if Icons.JiberishEnabled() then
         for _, shape in ipairs(Icons.JIBERISH_SHAPES) do
             for _, weight in ipairs(Icons.JIBERISH_WEIGHTS) do
                 list[#list + 1] = { id = "jiberish:" .. shape .. "-" .. weight,
@@ -120,7 +132,7 @@ function Icons.Texture(iconId)
     local markerIndex = tonumber(tostring(iconId):match("^marker(%d)$"))
     if markerIndex and markerIndex >= 1 and markerIndex <= 8 then return Icons.RAID_MARKER_TEXTURE .. markerIndex end
     local jiberishName = tostring(iconId):match("^jiberish:(%l+%-%l+)$")
-    if jiberishName and Icons.JiberishInstalled() then
+    if jiberishName and Icons.JiberishEnabled() then
         return Icons.JIBERISH_FOLDER .. jiberishName .. "-" .. Icons.JIBERISH_FILE_SIZE
     end
     local gameIconKey = tostring(iconId):match("^icon:(%l+)$")
@@ -133,7 +145,7 @@ end
 -- The class icon styles on offer now, in order: { id, label }.
 function Icons.ClassStyleList()
     local list = { { id = "game", label = "Default" } }
-    if Icons.JiberishInstalled() then
+    if Icons.JiberishEnabled() then
         for _, style in ipairs(Icons.JIBERISH_CLASS_STYLES) do
             list[#list + 1] = { id = "jiberish:" .. style.file, label = style.name }
         end
@@ -147,7 +159,7 @@ end
 function Icons.ClassLook(classFile, style)
     local file = tostring(style or ""):match("^jiberish:(%l[%l%d]*)$")
     local cell = Icons.JIBERISH_CLASS_GRID[classFile or ""]
-    if file and cell and Icons.JiberishInstalled() then
+    if file and cell and Icons.JiberishEnabled() then
         local cells = Icons.JIBERISH_CLASS_GRID_CELLS
         return { texture = Icons.JIBERISH_CLASS_FOLDER .. file,
             texCoord = { cell[1] / cells, (cell[1] + 1) / cells, cell[2] / cells, (cell[2] + 1) / cells } }

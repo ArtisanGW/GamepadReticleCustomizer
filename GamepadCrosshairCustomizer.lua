@@ -47,6 +47,11 @@ function addon.ResetColor(key)
     addon.UpdateCrosshair()
 end
 
+function addon.TellToEnableJiberish()
+    addon.TextBox.Tell("JiberishUI Fabled Icons is installed but turned off. To use its shapes and class icons: "
+        .. "open the game menu > AddOns, tick JiberishUI Fabled Icons, then reload (or restart the game).")
+end
+
 function addon.ShowJiberishLink()
     addon.TextBox.Copy("More shapes: install JiberishUI Fabled Icons (copy the link with Ctrl+C), then /reload.",
         addon.Icons.JIBERISH_LINK)
@@ -129,7 +134,8 @@ function addon.RegisterSettings()
     end
 
     -- The crosshair, always shown: its shape, size, color and border.
-    local jiberishInstalled = addon.Icons.JiberishInstalled()
+    local jiberishState = addon.Icons.JiberishState()
+    local jiberishInstalled = jiberishState == "enabled"
     -- The dot and the shapes each keep their own size: switching between them saves
     -- the size of the one left and brings back the other's (a shape starts at 24:
     -- at the dot's 4 it can't be seen).
@@ -192,10 +198,14 @@ function addon.RegisterSettings()
         sliderOptions(addon.SIZE_MIN, addon.SIZE_MAX, addon.SIZE_STEP, function(value) return tostring(math.floor(value + 0.5)) end),
         "The icon's width and height on a target.")
 
-    if not jiberishInstalled then
+    if jiberishState == "missing" then
         addButton("More shapes", "Get JiberishUI Icons...", function() addon.ShowJiberishLink() end,
             "16 more crosshair shapes and 11 class icon styles come with the JiberishUI Fabled Icons addon. "
             .. "Once it's installed (and after /reload), they're in the Crosshair and Class icons choices.")
+    elseif jiberishState == "disabled" then
+        addButton("More shapes", "Enable JiberishUI Icons...", function() addon.TellToEnableJiberish() end,
+            "JiberishUI Fabled Icons is installed but turned off, so its shapes and class icons aren't offered. "
+            .. "Turn it on in the AddOns list, then reload.")
     end
 
     addon.RelatedAddon.AddButton(addButton)

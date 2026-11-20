@@ -132,9 +132,19 @@ local function boot(options)
         game.frames[#game.frames + 1] = frame
         return frame
     end
-    _G.C_AddOns = { DoesAddOnExist = function(name)
-        return (name == "JiberishIcons" and options.jiberish == true) or (name == "GamepadCameraOffset" and options.cameraOffset == true)
-    end }
+    -- options.jiberish: installed; options.jiberishOff: installed but turned off for this character.
+    _G.C_AddOns = {
+        DoesAddOnExist = function(name)
+            return (name == "JiberishIcons" and (options.jiberish == true or options.jiberishOff == true))
+                or (name == "GamepadCameraOffset" and options.cameraOffset == true)
+        end,
+        GetAddOnEnableState = function(name, character)
+            assert(character == "Artio", "asked for this character")
+            if name == "JiberishIcons" and options.jiberishOff then return 0 end
+            return 2
+        end,
+    }
+    _G.UnitName = function(unit) if unit == "player" then return "Artio" end end
     _G.MinimalSliderWithSteppersMixin = { Label = { Right = 2 } }
     local function addControl(kind, setting, extra)
         game.controls[#game.controls + 1] = { kind = kind, setting = setting, extra = extra }
@@ -537,6 +547,23 @@ test("old settings: a marker in the single Shape becomes the icon on a target; a
     eq(GamepadCrosshairCustomizerDB.targetIcon, "none", "the oldest shape setting, custom: none too"); eq(GamepadCrosshairCustomizerDB.icon, "dot")
     boot({ saved = { icon = "jiberish:x-bold" } })
     eq(GamepadCrosshairCustomizerDB.icon, "jiberish:x-bold", "a crosshair shape stays"); eq(GamepadCrosshairCustomizerDB.targetIcon, "none")
+end)
+
+test("JiberishUI installed but turned off: not offered, its choices fall back, a button tells how to turn it on", function()
+    boot({ jiberishOff = true, saved = { icon = "jiberish:x-bold", size = 24, targetIcon = "class", classStyle = "jiberish:fabled" } })
+    eq(table.concat(choiceLabels("Crosshair"), ","), "Default dot", "its shapes aren't offered")
+    eq(table.concat(choiceLabels("Class icons"), ","), "Default", "nor its styles")
+    eq(GamepadCrosshairCustomizer.Crosshair.Drawn().icon, "dot", "a saved Jiberish shape falls back to the dot")
+    setTarget({ isPlayer = true, classFile = "MAGE", reaction = 5 })
+    eq(GamepadCrosshairCustomizer.Crosshair.Drawn().atlas, "classicon-mage", "and a Jiberish class style to the game's")
+    eq(GamepadCrosshairCustomizerDB.icon, "jiberish:x-bold", "your choice kept for when it's on again")
+    local button = control("button", "More shapes")
+    eq(button.extra.buttonText, "Enable JiberishUI Icons...", "not Get: it's installed")
+    button.extra.onClick()
+    local box = GamepadCrosshairCustomizer.TextBox.box
+    eq(box:IsShown(), true)
+    eq(box.title.text:find("turned off", 1, true) ~= nil, true, box.title.text)
+    eq(box.editBox:IsShown(), false, "a message: nothing to copy")
 end)
 
 test("without it: the install button shows the link to copy", function()

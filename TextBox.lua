@@ -2,6 +2,7 @@
 -- so the text is shown selected, ready for Ctrl+C). Our own plain frame, built
 -- once; Escape or Close shuts it.
 --   addon.TextBox.Copy(title, text)
+--   addon.TextBox.Tell(text)          only a message, no line to copy
 local _, addon = ...
 
 local TextBox = {}
@@ -50,6 +51,7 @@ end
 local function open(title, text, onAccept)
     if not box then build() end
     box.title:SetText(title)
+    box.editBox:SetShown(text ~= nil)
     box.editBox:SetText(text or "")
     box.onAccept = onAccept
     box.okButton:SetShown(onAccept ~= nil)
@@ -60,3 +62,4 @@ local function open(title, text, onAccept)
 end
 
 function TextBox.Copy(title, text) open(title, text, nil) end
+function TextBox.Tell(text) open(text, nil, nil) end
