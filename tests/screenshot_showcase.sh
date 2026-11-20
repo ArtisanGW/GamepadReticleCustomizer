@@ -66,6 +66,14 @@ while read -r kind name; do
         shoot "$probe"
         state="$(read_marker "$probe")"
         if [ "$state" = ready ]; then
+            if [ "$kind" = settings ]; then
+                # Down to the page's end and back, with the mouse wheel over the page,
+                # so the game draws every slider's handle.
+                read -r screen_width screen_height < <(xdotool getdisplaygeometry)
+                xdotool mousemove "$((screen_width / 2))" "$((screen_height / 2))"
+                xdotool click --repeat 15 --delay 60 5; sleep 0.4
+                xdotool click --repeat 15 --delay 60 4; sleep 0.6
+            fi
             sleep 0.3; shoot "$file"; echo "shot $file"
             [ "$kind" = settings ] && { xdotool key --clearmodifiers Escape; sleep 0.5; }
             break

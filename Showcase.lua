@@ -1,8 +1,9 @@
 -- Development builds only (never in the release, .pkgmeta): a screenshot tour of
 -- our controller addons, driven from outside the game by tests/screenshot_showcase.sh
 -- with one key, SHOWCASE_KEY. Each press does the next step:
---   settings   opens a settings page (a slash command), scrolled to its end and
---              back so every slider shows its handle (the game draws them late)
+--   settings   opens a settings page (a slash command); the script scrolls it with the
+--              mouse wheel so every slider shows its handle (the game draws them late).
+--              Nothing here touches the game's settings window: that taints it.
 --   target     selects targets with the game's own /targetfriend, /targetfriendplayer
 --              or /targetenemy until the kind wanted comes up (addon code can't target)
 --   look       changes this addon's look on the same target
@@ -77,16 +78,6 @@ local function restore()
     addon.UpdateReticle()
 end
 
--- The settings page now open, scrolled to its end and back to its top.
-local function scrollSettings()
-    local panel = _G.SettingsPanel
-    local list = panel and type(panel.GetSettingsList) == "function" and panel:GetSettingsList()
-    local scrollBox = list and list.ScrollBox
-    if not (scrollBox and type(scrollBox.ScrollToEnd) == "function") then return end
-    scrollBox:ScrollToEnd()
-    C_Timer.After(0.2, function() scrollBox:ScrollToBegin() end)
-end
-
 local function setMacro(step)
     if InCombatLockdown() then return end
     -- A look step runs no macro (the target stays); after the last step, the target is cleared.
@@ -110,9 +101,8 @@ local function check()
         return
     end
     if step.kind == "settings" then
-        scrollSettings()
-        C_Timer.After(0.6, function() setMarker(nil); advance() end)
-        return
+        setMarker(nil)   -- the script scrolls the page (the mouse wheel) before shooting
+        return advance()
     end
     if step.kind == "look" then
         applyLook(step.look)
