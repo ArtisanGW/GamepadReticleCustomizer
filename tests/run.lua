@@ -382,7 +382,7 @@ test("its page under Options > AddOns, in order, with the defaults; /grc opens i
     local saved = GamepadReticleCustomizerDB
     eq(saved.enabled, true); eq(saved.color, "FFFFFFFF"); eq(saved.size, 4); eq(saved.borderSize, 0)
     eq(saved.borderColor, "000000FF"); eq(saved.icon, "dot")
-    eq(saved.targetIcon, "none", "nothing on a target by default"); eq(saved.iconSize, 24)
+    eq(saved.targetIcon, "none", "nothing on a target by default"); eq(saved.iconSize, 32)
     eq(control("slider", "Size").extra.format(4), "4 (default)"); eq(control("slider", "Size").extra.format(24), "24")
     eq(control("slider", "Border").extra.format(0), "Off"); eq(control("slider", "Border").extra.format(3), "3")
     SlashCmdList.GAMEPADRETICLECUSTOMIZER("")
@@ -579,7 +579,7 @@ test("a player's class icon: the game's classicon atlas for players; NPCs, an un
     eq(layer().shape.texture, "classicons-file", "drawn as the atlas's file")
     eq(table.concat(layer().shape.texCoord, ","), "0.5,0.75,0.25,0.5", "and its cell")
     eq(GamepadReticleCustomizer.Reticle.Drawn().icon, "class")
-    eq(layer().shape:GetWidth(), 24)
+    eq(layer().shape:GetWidth(), 32)
     setTarget({ isPlayer = true, classFile = "DRUID", reaction = 2 })
     eq(GamepadReticleCustomizer.Reticle.Drawn().atlas, "classicon-druid", "an enemy player too")
     setTarget({ isPlayer = false, reaction = 4 })
@@ -703,10 +703,10 @@ test("every choice slider's label fits the slider (22 characters, seen cut in ga
     end
 end)
 
-test("the dot and the shapes keep their own sizes: a shape starts at 24, the dot gets its own back", function()
+test("the dot and the shapes keep their own sizes: a shape starts at 32, the dot gets its own back", function()
     boot({ jiberish = true, saved = { size = 6 } })
     choose("icon", "jiberish:x-bold")
-    eq(GamepadReticleCustomizerDB.size, 24, "a shape starts at 24: at the dot's size it can't be seen")
+    eq(GamepadReticleCustomizerDB.size, 32, "a shape starts at 32: at the dot's size it can't be seen")
     setting("size"):SetValue(40)
     choose("icon", "jiberish:plus-thin")
     eq(GamepadReticleCustomizerDB.size, 40, "shape to shape: the size kept")

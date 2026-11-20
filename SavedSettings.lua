@@ -29,7 +29,7 @@ _G.GamepadReticleCustomizer = addon
 --   iconSize:      the icon's width and height.
 --   borderSize:    how far the border reaches out around either (0: no border).
 --   borderColor:   the border's color, "RRGGBBAA".
-addon.DEFAULTS = { enabled = true, icon = "dot", color = "FFFFFFFF", size = 4, dotSize = 4, shapeSize = 24, targetIcon = "none", classStyle = "game", iconSize = 24,
+addon.DEFAULTS = { enabled = true, icon = "dot", color = "FFFFFFFF", size = 4, dotSize = 4, shapeSize = 32, targetIcon = "none", classStyle = "game", iconSize = 32,
     borderSize = 0, borderColor = "000000FF" }
 addon.SIZE_MIN, addon.SIZE_MAX, addon.SIZE_STEP = 2, 64, 1
 addon.BORDER_MIN, addon.BORDER_MAX, addon.BORDER_STEP = 0, 10, 1
