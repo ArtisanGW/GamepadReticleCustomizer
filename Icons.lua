@@ -16,7 +16,7 @@
 --                     triangle, moon, square, cross, skull
 --   "icon:<key>"      one of GAME_ICONS, a hand-picked set of the game's own icons
 -- (No icon picker and no texture path: the game's picker, created by addon code,
--- broke the controller's navigation; a path is too technical.)
+-- breaks the controller's navigation; a path is too technical.)
 local _, addon = ...
 
 local Icons = {
@@ -25,7 +25,6 @@ local Icons = {
     RAID_MARKER_NAMES = { "Star", "Circle", "Diamond", "Triangle", "Moon", "Square", "Cross", "Skull" },
     CLASS_ATLAS_PREFIX = "classicon-",
     -- The game's own icons offered on a target: in the game since its first years.
-    -- /grc debug checks each one exists on this client (GetFileIDFromPath).
     GAME_ICONS = {
         { key = "scope", name = "Sniper scope", file = "Interface\\Icons\\Ability_Hunter_SniperShot" },
         { key = "mark", name = "Hunter's mark", file = "Interface\\Icons\\Ability_Hunter_MarkedForDeath" },
@@ -103,22 +102,6 @@ function Icons.JiberishState()
         if stateSucceeded and tonumber(state) == 0 then return "disabled" end
     end
     return "enabled"
-end
-
--- The raw answers behind JiberishState, for /grc debug's records.
-function Icons.JiberishRawState()
-    local addOns, raw = _G.C_AddOns or {}, {}
-    if type(addOns.GetAddOnInfo) == "function" then
-        local _, _, _, _, loadable, reason = pcall(addOns.GetAddOnInfo, Icons.JIBERISH_ADDON)
-        raw.loadable, raw.reason = tostring(loadable), tostring(reason)
-    end
-    if type(addOns.GetAddOnEnableState) == "function" then
-        raw.character = tostring(Icons.CharacterKey())
-        raw.stateForCharacter = tostring(select(2, pcall(addOns.GetAddOnEnableState, Icons.JIBERISH_ADDON, Icons.CharacterKey())))
-        raw.stateForAll = tostring(select(2, pcall(addOns.GetAddOnEnableState, Icons.JIBERISH_ADDON)))
-    end
-    raw.result = Icons.JiberishState()
-    return raw
 end
 
 -- Whether its shapes and styles can be offered and drawn now.

@@ -11,7 +11,6 @@
 --   PickerSticks.lua  the game's color picker on a controller
 --   Popup.lua         a popup in the game's own style, with a secure Reload when needed
 --   GamepadReticleCustomizer.lua  the settings page, /grc and the events
---   Debug.lua         /grc debug, the in-game test suite (not in the release)
 local _, addon = ...
 _G.GamepadReticleCustomizer = addon
 

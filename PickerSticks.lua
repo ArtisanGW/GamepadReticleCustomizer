@@ -123,7 +123,7 @@ stickDriver:SetScript("OnUpdate", function(self, elapsed)
     if not (colorSelect and picker:IsShown()) then return self:Hide() end
     moveWithSticks(colorSelect, elapsed)
 end)
-PickerSticks.driver = stickDriver   -- for the tests
+PickerSticks.driver = stickDriver
 
 -- The picker's opacity bar, as the game's OnShow shows it when asked (hasOpacity),
 -- on the owner's opacity. The next picker anyone opens sets these again.

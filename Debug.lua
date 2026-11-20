@@ -571,15 +571,31 @@ local function bindKeys()
     macroButton("GamepadReticleCustomizerDebugTargetEnemy", Debug.TARGET_ENEMY_KEY, "/targetenemy")
 end
 
+-- The raw answers behind Icons.JiberishState, for the saved records.
+local function jiberishRawState()
+    local Icons = addon.Icons
+    local addOns, raw = _G.C_AddOns or {}, {}
+    if type(addOns.GetAddOnInfo) == "function" then
+        local _, _, _, _, loadable, reason = pcall(addOns.GetAddOnInfo, Icons.JIBERISH_ADDON)
+        raw.loadable, raw.reason = tostring(loadable), tostring(reason)
+    end
+    if type(addOns.GetAddOnEnableState) == "function" then
+        raw.character = tostring(Icons.CharacterKey())
+        raw.stateForCharacter = tostring(select(2, pcall(addOns.GetAddOnEnableState, Icons.JIBERISH_ADDON, Icons.CharacterKey())))
+        raw.stateForAll = tostring(select(2, pcall(addOns.GetAddOnEnableState, Icons.JIBERISH_ADDON)))
+    end
+    raw.result = Icons.JiberishState()
+    return raw
+end
+
 Debug.eventFrame = CreateFrame("Frame")
 Debug.eventFrame:RegisterEvent("PLAYER_LOGIN")
 Debug.eventFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
 Debug.eventFrame:SetScript("OnEvent", function(self, event)
     if event == "PLAYER_LOGIN" then
         bindKeys()
-        -- What the game says about Jiberish Fabled Icons' switch, at login and when the settings were built.
-        getDebugStore().jiberishAtLogin = addon.Icons.JiberishRawState()
-        getDebugStore().jiberishAtSettings = addon.jiberishAtSettings
+        -- What the game says about Jiberish Fabled Icons' switch, at login.
+        getDebugStore().jiberishAtLogin = jiberishRawState()
         local debugStore = getDebugStore()
         if debugStore.settingsToRestore then
             restoreSettings(debugStore.settingsToRestore)

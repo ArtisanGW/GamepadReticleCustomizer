@@ -13,8 +13,8 @@ local function now() return type(GetTime) == "function" and GetTime() or nil end
 -- picker from the game's code (Settings.CreateColorSwatch, SettingsColorSwatchMixin).
 -- It speaks "AARRGGBB" with alpha always FF: it sets the color only, and the
 -- opacity bar PickerSticks adds sets the alpha. (Opening the picker from addon
--- code instead put its controller bindings on the game's binding stack tainted:
--- the right stick did nothing and the game refused its own
+-- code instead puts its controller bindings on the game's binding stack tainted:
+-- the right stick does nothing and the game refuses its own
 -- SetPreferredGamepadInteractTarget, blaming the addon.)
 local pickerAskedAt    -- when a swatch last read its color: it's about to open the picker
 local pickerColorKey   -- which color that swatch is for: "color" or "borderColor"
@@ -89,7 +89,7 @@ end
 
 -- The shape choices are sliders, not dropdowns: a settings dropdown's menu is
 -- built from the addon's own list, and steered by the controller (SmartNavigation)
--- that list taints the menu's code: picking failed, and closing the page then made
+-- that list taints the menu's code: picking fails, and closing the page then makes
 -- the game refuse SetPreferredGamepadInteractTarget, blaming this addon. A slider holds a plain number, as the game's own sliders do.
 -- Its position (in addon.choices, not saved) picks the id saved under its key.
 addon.choices = {}
@@ -154,7 +154,6 @@ function addon.RegisterSettings()
 
     -- The reticle, always shown: its shape, size, color and border.
     local jiberishState = addon.Icons.JiberishState()
-    addon.jiberishAtSettings = addon.Icons.JiberishRawState()   -- for /grc debug's records
     local jiberishInstalled = jiberishState == "enabled"
     -- The dot and the shapes each keep their own size: switching between them saves
     -- the size of the one left and brings back the other's (a shape starts at 24:
@@ -292,7 +291,7 @@ end)
 
 -- /grc                opens the settings (/gamepadreticlecustomizer works too)
 -- /grc RRGGBBAA       sets the color
--- /grc debug ...      the in-game test suite (Debug.lua, not in the release);
+-- /grc debug ...      development builds only (Debug.lua);
 --                     /grc friendly and /grc monsters run its parts
 SLASH_GAMEPADRETICLECUSTOMIZER1 = "/grc"
 SLASH_GAMEPADRETICLECUSTOMIZER2 = "/gamepadreticlecustomizer"

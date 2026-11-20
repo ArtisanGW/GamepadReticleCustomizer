@@ -38,7 +38,7 @@ local function buildLayer(dot)
     end
 end
 
--- What's drawn now, for the tests and /grc debug: { icon, texture or atlas, size, borderSize } or nil.
+-- What's drawn now: { icon, texture or atlas, size, borderSize } or nil.
 local drawn
 function Reticle.Drawn() return drawn end
 function Reticle.Layer() return layer end
