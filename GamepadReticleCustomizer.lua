@@ -218,22 +218,19 @@ function addon.RegisterSettings()
             "Puts the border's color back to black.")
     end
 
-    -- On a target: the icon instead of the reticle.
-    addon.targetIconSlider = addChoice("targetIcon", "On a target", addon.Icons.TargetList,
-        "What shows instead of the reticle while you have a target.\n\n"
-        .. "• None: the reticle stays\n"
-        .. "• Target Class: a player's class icon (any other target keeps the reticle)\n"
-        .. "• By target: a player's class (the other faction's: their faction), a friendly NPC's job, "
-        .. "a question mark on neutral NPCs, crossed swords on enemy NPCs\n"
-        .. "• Raid marker: one of the game's 8 markers\n"
-        .. "• Icon: one of a set of the game's icons\n\n"
-        .. "Shown only while the reticle sits on the target's nameplate, as Gamepad Reticle On Target puts it; "
-        .. "the game keeps it in the middle of the screen. These keep the reticle "
-        .. "unless their nameplates are on (Options > Nameplates):\n"
-        .. "• Vendors\n"
-        .. "• Guards\n"
-        .. "• Minions\n\n"
-        .. "Icons keep their own colors.")
+    -- On a target: the icon instead of the reticle, one choice per kind of target.
+    if type(CreateSettingsListSectionHeaderInitializer) == "function" then
+        layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("On a target"))
+    end
+    for _, kind in ipairs(addon.TARGET_KINDS) do
+        addChoice(kind.key, kind.label, function() return addon.Icons.TargetList(kind.key) end,
+            "What shows instead of the reticle on these targets. " .. kind.tooltip .. "\n\n"
+            .. "• None: the reticle stays\n"
+            .. "• Raid marker: one of the game's 8 markers\n"
+            .. "• Icon: one of a set of the game's icons\n\n"
+            .. "Shown only while the reticle sits on the target's nameplate, as Gamepad Reticle On Target puts it; "
+            .. "the game keeps it in the middle of the screen. Icons keep their own colors.")
+    end
     if jiberishInstalled then
         addChoice("classStyle", "Class icons", addon.Icons.ClassStyleList,
             "How a player's class icon looks, when On a target is Target Class.\n\n"

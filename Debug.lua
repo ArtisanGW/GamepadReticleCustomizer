@@ -144,14 +144,14 @@ local function expectedLook(step, settings)
         return { icon = icon, texture = addon.Icons.Texture(icon), size = settings.size, tinted = true }
     end
     if step.shows == "targetIcon" then
-        if settings.targetIcon == "class" then
+        local choice = settings[addon.TargetKindKey(target) or ""] or "none"
+        if choice == "class" then
             -- In its style: the game's atlas, or a Jiberish Fabled Icons sheet's cell (the game's without it).
             local classLook = addon.Icons.ClassLook(target.classFile, settings.classStyle) or {}
             return { icon = "class", atlas = classLook.atlas, texture = classLook.texture, texCoord = classLook.texCoord,
                 size = settings.iconSize, tinted = false }
         end
-        return { icon = settings.targetIcon, texture = addon.Icons.Texture(settings.targetIcon),
-            size = settings.iconSize, tinted = false }
+        return { icon = choice, texture = addon.Icons.Texture(choice), size = settings.iconSize, tinted = false }
     end
     local icon = settings.icon
     if step.needsJiberish and not addon.Icons.JiberishEnabled() then icon = "dot" end
@@ -163,6 +163,11 @@ local function checkLook(label, step)
     local settings = addon.Settings()
     for key, value in pairs(addon.DEFAULTS) do settings[key] = value end
     for key, value in pairs(step.look) do settings[key] = value end
+    -- A step's targetIcon is its choice for every kind of target.
+    if settings.targetIcon ~= nil then
+        for _, kind in ipairs(addon.TARGET_KINDS) do settings[kind.key] = settings.targetIcon end
+        settings.targetIcon = nil
+    end
     addon.UpdateReticle()
 
     local dot, layer, drawn = gameDot(), addon.Reticle.Layer(), addon.Reticle.Drawn()

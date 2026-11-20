@@ -134,14 +134,14 @@ local function boot(options)
     _G.UnitReaction = function(unit) return targetField(unit, "reaction") end
     _G.UnitIsUnit = function(unit, other) return other == "target" and game.target ~= nil and unit == game.target.plateUnit end
     -- The game's class atlases: each a cell of one file (as GetAtlasInfo reports them).
-    -- The game's other atlases "By target" uses (none, with options.noByTargetAtlases).
-    local byTargetAtlases = { ["UI-HUD-UnitFrame-Player-PVP-AllianceIcon"] = true, ["UI-HUD-UnitFrame-Player-PVP-HordeIcon"] = true,
-        ["Crosshair_PVP_128"] = true, ["QuestTurnin"] = true, ["Crosshair_Speak_128"] = true }
+    -- The game's atlases for kinds of target (none, with options.noKindAtlases).
+    local kindAtlases = { ["UI-HUD-UnitFrame-Player-PVP-AllianceIcon"] = true, ["UI-HUD-UnitFrame-Player-PVP-HordeIcon"] = true,
+        ["Crosshair_PVP_128"] = true, ["SideInProgressquesticon"] = true, ["Crosshair_Speak_128"] = true }
     _G.C_Texture = { GetAtlasInfo = function(atlas)
         if atlas:find("^classicon%-") and options.classAtlases ~= false then
             return { file = "classicons-file", leftTexCoord = 0.5, rightTexCoord = 0.75, topTexCoord = 0.25, bottomTexCoord = 0.5 }
         end
-        if byTargetAtlases[atlas] and not options.noByTargetAtlases then
+        if kindAtlases[atlas] and not options.noKindAtlases then
             return { file = atlas .. "-file", leftTexCoord = 0, rightTexCoord = 1, topTexCoord = 0, bottomTexCoord = 1 }
         end
     end }
@@ -391,8 +391,8 @@ end
 -- Picks a shape as the slider does: by its step.
 local function choose(key, id)
     local icons = GamepadReticleCustomizer.Icons
-    local lists = { icon = icons.ReticleList, targetIcon = icons.TargetList, classStyle = icons.ClassStyleList }
-    local list = lists[key]()
+    local lists = { icon = icons.ReticleList, classStyle = icons.ClassStyleList }
+    local list = lists[key] and lists[key]() or icons.TargetList(key)   -- else a kind of target's choices
     setting(key .. "Choice"):SetValue(GamepadReticleCustomizer.ChoiceIndex(list, id))
 end
 
@@ -403,18 +403,21 @@ test("its page under Options > AddOns, in order, with the defaults; /grc opens i
     eq(game.category.name, "Gamepad Reticle Customizer")
     eq(controlList(), "checkbox:Enable, slider:Size, swatch:Color, button:(Reset color), slider:Border, "
         .. "swatch:Border color, button:(Reset border color), "
-        .. "slider:On a target, button:Class icons, slider:Icon size, button:Camera over shoulder, button:Reticle on your target",
+        .. "slider:Your faction, slider:Other faction, slider:Friendly NPCs, slider:Neutral NPCs, slider:Enemy NPCs, button:Class icons, slider:Icon size, button:Camera over shoulder, button:Reticle on your target",
         "without Jiberish Fabled Icons: no one-choice Reticle or Class icons slider; its button in the Class icons row")
     boot({ jiberish = true })
     eq(controlList(), "checkbox:Enable, slider:Reticle, slider:Size, swatch:Color, button:(Reset color), slider:Border, "
         .. "swatch:Border color, button:(Reset border color), "
-        .. "slider:On a target, slider:Class icons, slider:Icon size, button:Camera over shoulder, button:Reticle on your target",
+        .. "slider:Your faction, slider:Other faction, slider:Friendly NPCs, slider:Neutral NPCs, slider:Enemy NPCs, slider:Class icons, slider:Icon size, button:Camera over shoulder, button:Reticle on your target",
         "with it: both sliders, no button")
     boot()
     local saved = GamepadReticleCustomizerDB
     eq(saved.enabled, true); eq(saved.color, "FFFFFFFF"); eq(saved.size, 4); eq(saved.borderSize, 0)
     eq(saved.borderColor, "000000FF"); eq(saved.icon, "dot")
-    eq(saved.targetIcon, "none", "nothing on a target by default"); eq(saved.iconSize, 32)
+    for _, key in ipairs({ "friendlyPlayerIcon", "otherFactionIcon", "friendlyNpcIcon", "neutralNpcIcon", "enemyNpcIcon" }) do
+        eq(saved[key], "none", key .. ": nothing on a target by default")
+    end
+    eq(saved.iconSize, 32)
     eq(control("slider", "Size").extra.format(4), "4 (default)"); eq(control("slider", "Size").extra.format(24), "24")
     eq(control("slider", "Border").extra.format(0), "Off"); eq(control("slider", "Border").extra.format(3), "3")
     SlashCmdList.GAMEPADRETICLECUSTOMIZER("")
@@ -573,20 +576,25 @@ test("with Jiberish Fabled Icons installed: its 16 reticles listed and drawn fro
         "credited, as its license asks")
 end)
 
-test("choices are sliders (a dropdown's menu breaks on the controller): on a target, none, a player's class, by target, the 8 raid markers, then the game's icons", function()
+test("choices are sliders (a dropdown's menu breaks on the controller): each kind of target, None, its own icon, the 8 raid markers, then the game's icons", function()
     boot()
-    local labels = choiceLabels("On a target")
-    eq(#labels, 11 + 12)
-    eq(labels[1], "None"); eq(labels[2], "Target Class"); eq(labels[3], "By target")
-    eq(labels[11], "Raid marker: Skull"); eq(labels[12], "Icon: Sniper scope"); eq(labels[23], "Icon: Holy")
-    choose("targetIcon", "marker8")
-    eq(GamepadReticleCustomizerDB.targetIcon, "marker8")
+    local labels = choiceLabels("Your faction")
+    eq(#labels, 2 + 8 + 12)
+    eq(labels[1], "None"); eq(labels[2], "Class")
+    eq(labels[10], "Raid marker: Skull"); eq(labels[11], "Icon: Sniper scope"); eq(labels[22], "Icon: Holy")
+    eq(table.concat(choiceLabels("Other faction"), ","):sub(1, 18), "None,Faction,Class")
+    eq(choiceLabels("Friendly NPCs")[2], "Their job"); eq(choiceLabels("Neutral NPCs")[2], "Question mark")
+    eq(choiceLabels("Enemy NPCs")[2], "Crossed swords")
+    choose("enemyNpcIcon", "marker8")
+    eq(GamepadReticleCustomizerDB.enemyNpcIcon, "marker8")
     setTarget({ isPlayer = false, reaction = 2 })
-    choose("targetIcon", "icon:scope")
+    choose("enemyNpcIcon", "icon:scope")
     eq(layer().shape.texture, "Interface\\Icons\\Ability_Hunter_SniperShot", "a game icon on the target")
+    setTarget({ isPlayer = false, reaction = 5 })
+    eq(layer().shape.texture, "Interface\\CharacterFrame\\TempPortraitAlphaMask", "another kind, still None: the reticle")
 
-    boot({ saved = { targetIcon = "class", icon = "dot" } })
-    eq(GamepadReticleCustomizer.choices.targetIcon, 2, "the slider starts at your saved choice")
+    boot({ saved = { friendlyPlayerIcon = "class", icon = "dot" } })
+    eq(GamepadReticleCustomizer.choices.friendlyPlayerIcon, 2, "the slider starts at your saved choice")
 end)
 
 test("icons show only while you have a target, at the icon size, in their own colors; the reticle comes back", function()
@@ -651,15 +659,25 @@ test("a client without an atlas file: SetAtlas, after resetting the cell a Jiber
     eq(table.concat(layer().shape.texCoord, ","), "0,1,0,1", "reset before SetAtlas")
 end)
 
-test("old settings: a marker in the single Shape becomes the icon on a target; a custom texture becomes none", function()
+-- Every kind of target's choice, in TARGET_KINDS' order.
+local function kindChoices()
+    local saved, choices = GamepadReticleCustomizerDB, {}
+    for _, kind in ipairs(GamepadReticleCustomizer.TARGET_KINDS) do choices[#choices + 1] = saved[kind.key] end
+    return table.concat(choices, " ")
+end
+
+test("saved settings in older forms: a marker in the shape, one choice for every target, a custom texture", function()
     boot({ saved = { icon = "marker2" } })
-    eq(GamepadReticleCustomizerDB.icon, "dot"); eq(GamepadReticleCustomizerDB.targetIcon, "marker2")
+    eq(GamepadReticleCustomizerDB.icon, "dot"); eq(kindChoices(), "marker2 marker2 marker2 marker2 marker2", "on every kind")
+    eq(GamepadReticleCustomizerDB.targetIcon, nil)
+    boot({ saved = { targetIcon = "class" } })
+    eq(kindChoices(), "class class none none none", "a class: on players only")
     boot({ saved = { targetIcon = "custom", customTexture = "Interface\\Icons\\INV_Misc_QuestionMark" } })
-    eq(GamepadReticleCustomizerDB.targetIcon, "none", "no texture paths any more"); eq(GamepadReticleCustomizerDB.customTexture, nil)
+    eq(kindChoices(), "none none none none none", "no texture paths"); eq(GamepadReticleCustomizerDB.customTexture, nil)
     boot({ saved = { icon = "custom", customTexture = 136243 } })
-    eq(GamepadReticleCustomizerDB.targetIcon, "none", "the oldest shape setting, custom: none too"); eq(GamepadReticleCustomizerDB.icon, "dot")
+    eq(kindChoices(), "none none none none none"); eq(GamepadReticleCustomizerDB.icon, "dot")
     boot({ saved = { icon = "jiberish:x-bold" } })
-    eq(GamepadReticleCustomizerDB.icon, "jiberish:x-bold", "a reticle shape stays"); eq(GamepadReticleCustomizerDB.targetIcon, "none")
+    eq(GamepadReticleCustomizerDB.icon, "jiberish:x-bold", "a reticle shape stays"); eq(kindChoices(), "none none none none none")
 end)
 
 test("Jiberish Fabled Icons installed but turned off: not offered, its choices fall back, a button tells how to turn it on", function()
@@ -728,7 +746,7 @@ end)
 test("every choice slider's label fits the slider (22 characters, seen cut in game beyond)", function()
     boot({ jiberish = true })
     local maxLength = GamepadReticleCustomizer.Icons.LABEL_MAX_LENGTH
-    for _, slider in ipairs({ "Reticle", "On a target", "Class icons" }) do
+    for _, slider in ipairs({ "Reticle", "Your faction", "Other faction", "Friendly NPCs", "Neutral NPCs", "Enemy NPCs", "Class icons" }) do
         for _, label in ipairs(choiceLabels(slider)) do
             eq(#label <= maxLength, true, slider .. ": \"" .. label .. "\" is " .. #label .. " characters")
         end
@@ -868,9 +886,9 @@ test("the preview shows beside our settings page only, with the reticle and the 
     eq(preview.reticle.realShape:GetWidth(), 20, "redrawn on a change")
     near(preview.reticle.border:GetWidth(), 96, "the zoomed view still fills the cell")
     eq(preview:GetWidth(), width); eq(preview:GetHeight(), height, "the window keeps its size")
-    choose("targetIcon", "class")
+    choose("friendlyPlayerIcon", "class")
     eq(preview.onTarget.shape.texture, "classicons-file", "a player's class: your own as the example")
-    choose("targetIcon", "none")
+    choose("friendlyPlayerIcon", "none")
     eq(preview.onTarget.label.text, "On a target: the reticle stays")
     eq(preview.onTarget.shape.texture, "Interface\\CharacterFrame\\TempPortraitAlphaMask")
     setting("enabled"):SetValue(false)
@@ -938,7 +956,7 @@ test("/grc debug: every look checked, on 3 friendly classes and both NPC kinds, 
         eq(run.steps[3].onScreen.x, 1200, "where the reticle is, in screen pixels")
         eq(debugSuite.marker:IsShown(), false, "the square gone: done")
         eq(GamepadReticleCustomizerDB.color, "3961CDFF", "your settings back")
-        eq(GamepadReticleCustomizerDB.size, 7); eq(GamepadReticleCustomizerDB.targetIcon, "marker2")
+        eq(GamepadReticleCustomizerDB.size, 7); eq(GamepadReticleCustomizerDB.enemyNpcIcon, "marker2")
         eq(GamepadReticleCustomizerDebugDB.settingsToRestore, nil)
         eq(popup():IsShown(), true, "the reload popup")
         eq(popupButtons(), "Later, [secure] Reload")
@@ -1158,27 +1176,34 @@ test("a Get button for each missing sibling, in order, each with its own CurseFo
     eq(control("button", "Camera over shoulder") ~= nil, true, "the other one still offered")
 end)
 
--- "By target": an icon by kind of target.
+-- Each kind of target's own icon.
 local function drawnLook() local look = GamepadReticleCustomizer.Reticle.Drawn(); return look.atlas or look.texture end
+local function ownIcons() return { friendlyPlayerIcon = "class", otherFactionIcon = "faction", friendlyNpcIcon = "job",
+    neutralNpcIcon = "question", enemyNpcIcon = "swords" } end
 
-test("By target: players their class, enemy players their faction, enemy NPCs crossed swords, neutral NPCs a question mark", function()
-    boot({ saved = { targetIcon = "bytarget" } })
+test("each kind its own icon: your faction their class, the other faction theirs, enemy NPCs crossed swords, neutral NPCs a gray question mark", function()
+    boot({ saved = ownIcons() })
     setTarget({ isPlayer = true, classFile = "MAGE", reaction = 5, faction = "Horde" })
-    eq(drawnLook(), "classicon-mage", "a friendly player: the class")
+    eq(drawnLook(), "classicon-mage", "your faction: the class")
     setTarget({ isPlayer = true, classFile = "MAGE", reaction = 2, faction = "Alliance" })
-    eq(drawnLook(), "UI-HUD-UnitFrame-Player-PVP-AllianceIcon", "an enemy player: the faction")
+    eq(drawnLook(), "UI-HUD-UnitFrame-Player-PVP-AllianceIcon", "the other faction: its badge")
     setTarget({ isPlayer = true, classFile = "PRIEST", reaction = 4, faction = "Alliance" })
-    eq(drawnLook(), "UI-HUD-UnitFrame-Player-PVP-AllianceIcon", "the other faction, unflagged on a PvE realm (neutral): still its faction")
+    eq(drawnLook(), "UI-HUD-UnitFrame-Player-PVP-AllianceIcon", "the other faction, unflagged on a PvE realm (neutral): still its badge")
     setTarget({ isPlayer = true, classFile = "PRIEST", reaction = 1, faction = "Horde" })
     eq(drawnLook(), "classicon-priest", "your own faction, hostile (a duel): its class")
     setTarget({ isPlayer = false, reaction = 2 })
     eq(drawnLook(), "Crosshair_PVP_128", "an enemy NPC: crossed swords")
     setTarget({ isPlayer = false, reaction = 4 })
-    eq(drawnLook(), "QuestTurnin", "a neutral NPC: a question mark")
+    eq(drawnLook(), "SideInProgressquesticon", "a neutral NPC: the game's gray question mark")
+    boot({ saved = { otherFactionIcon = "class" } })
+    setTarget({ isPlayer = true, classFile = "MAGE", reaction = 2, faction = "Alliance" })
+    eq(drawnLook(), "classicon-mage", "the other faction can show their class instead")
+    setTarget({ isPlayer = false, reaction = 2 })
+    eq(GamepadReticleCustomizer.Reticle.Drawn().icon, "dot", "enemy NPCs still None: the reticle")
 end)
 
-test("By target, friendly NPCs: their job's tracking icon, a class trainer's class, other trainers the profession one, else a speech bubble", function()
-    boot({ saved = { targetIcon = "bytarget" } })
+test("friendly NPCs, Their job: its tracking icon, a class trainer's class, other trainers the profession one, else a speech bubble", function()
+    boot({ saved = ownIcons() })
     setTarget({ isPlayer = false, reaction = 5, title = "Stable Master" })
     eq(drawnLook(), 136466, "the game's Stable Master tracking icon")
     setTarget({ isPlayer = false, reaction = 5, title = "Food & Drink" })
@@ -1195,12 +1220,12 @@ test("By target, friendly NPCs: their job's tracking icon, a class trainer's cla
     eq(GamepadReticleCustomizer.Reticle.Drawn().icon, "dot", "another player's pet: the reticle")
 end)
 
-test("By target on a client without those atlases: the game's icon files instead", function()
-    boot({ noByTargetAtlases = true, saved = { targetIcon = "bytarget" } })
+test("on a client without those atlases: the game's icon files instead", function()
+    boot({ noKindAtlases = true, saved = ownIcons() })
     setTarget({ isPlayer = false, reaction = 2 })
     eq(drawnLook(), "Interface\\Icons\\Ability_DualWield")
     setTarget({ isPlayer = false, reaction = 4 })
-    eq(drawnLook(), "Interface\\Icons\\INV_Misc_QuestionMark")
+    eq(drawnLook(), "Interface\\GossipFrame\\IncompleteQuestIcon")
     setTarget({ isPlayer = false, reaction = 5 })
     eq(drawnLook(), "Interface\\GossipFrame\\GossipGossipIcon")
     setTarget({ isPlayer = true, classFile = "MAGE", reaction = 2, faction = "Alliance" })

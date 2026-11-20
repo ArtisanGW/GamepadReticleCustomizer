@@ -7,14 +7,15 @@
 --                     files from its folder either way). Named here only as text:
 --                     nothing calls it or depends on it, nothing is copied, and
 --                     its shapes are credited (its license asks for that).
--- The icons shown instead while you have a target (setting "targetIcon"):
+-- The icons shown instead on a target (a setting per kind of target, addon.TARGET_KINDS):
 --   "none"            none: the reticle stays
 --   "class"           a player target's class, in a class icon style (setting
 --                     "classStyle"): "game" (the game's classicon-<class> atlases), or
 --                     "jiberish:<style>", a Jiberish Fabled Icons class sheet when installed
---   "bytarget"        by kind of target (Icons.ByTargetLook): a friendly player's class,
---                     the other faction's players their faction, a friendly NPC's job (NpcJobs.lua) or a
---                     speech bubble, a question mark on neutral NPCs, crossed swords on enemy NPCs
+--   "faction"         a player's faction (the other faction's players)
+--   "job"             a friendly NPC's job (NpcJobs.lua), else a speech bubble
+--   "question"        the game's gray question mark (neutral NPCs)
+--   "swords"          crossed swords (enemy NPCs)
 --   "marker1".."8"    the game's raid target markers: star, circle, diamond,
 --                     triangle, moon, square, cross, skull
 --   "icon:<key>"      one of GAME_ICONS, a hand-picked set of the game's own icons
@@ -27,12 +28,13 @@ local Icons = {
     RAID_MARKER_TEXTURE = "Interface\\TargetingFrame\\UI-RaidTargetingIcon_",
     RAID_MARKER_NAMES = { "Star", "Circle", "Diamond", "Triangle", "Moon", "Square", "Cross", "Skull" },
     CLASS_ATLAS_PREFIX = "classicon-",
-    -- "By target": the game's own icons, each with a file to fall back on should
-    -- this client not have the atlas.
+    -- Icons for kinds of target: the game's own, each with a file to fall back on
+    -- should this client not have the atlas.
     FACTION_ATLASES = { Alliance = "UI-HUD-UnitFrame-Player-PVP-AllianceIcon", Horde = "UI-HUD-UnitFrame-Player-PVP-HordeIcon" },
-    BY_TARGET = {
-        enemyNpc = { atlas = "Crosshair_PVP_128", file = "Interface\\Icons\\Ability_DualWield" },     -- crossed swords
-        neutralNpc = { atlas = "QuestTurnin", file = "Interface\\Icons\\INV_Misc_QuestionMark" },     -- a question mark
+    KIND_ICONS = {
+        swords = { atlas = "Crosshair_PVP_128", file = "Interface\\Icons\\Ability_DualWield" },     -- crossed swords
+        -- a gray question mark: the game's quest-in-progress one (QuestUtils.lua:199), not a quest to hand in
+        question = { atlas = "SideInProgressquesticon", file = "Interface\\GossipFrame\\IncompleteQuestIcon" },
         talk = { atlas = "Crosshair_Speak_128", file = "Interface\\GossipFrame\\GossipGossipIcon" }, -- a speech bubble
     },
     -- The game's own icons offered on a target: in the game since its first years.
@@ -137,10 +139,20 @@ function Icons.ReticleList()
     return list
 end
 
--- The icons for a target, in order: { id, label }.
-function Icons.TargetList()
-    local list = { { id = "none", label = "None" }, { id = "class", label = "Target Class" },
-        { id = "bytarget", label = "By target" } }
+-- Each kind of target's own choices, after None (addon.TARGET_KINDS' keys).
+Icons.KIND_CHOICES = {
+    friendlyPlayerIcon = { { id = "class", label = "Class" } },
+    otherFactionIcon = { { id = "faction", label = "Faction" }, { id = "class", label = "Class" } },
+    friendlyNpcIcon = { { id = "job", label = "Their job" } },
+    neutralNpcIcon = { { id = "question", label = "Question mark" } },
+    enemyNpcIcon = { { id = "swords", label = "Crossed swords" } },
+}
+
+-- A kind of target's choices, in order: None, its own, the raid markers, the
+-- game's icons. { id, label }.
+function Icons.TargetList(kindKey)
+    local list = { { id = "none", label = "None" } }
+    for _, choice in ipairs(Icons.KIND_CHOICES[kindKey] or {}) do list[#list + 1] = choice end
     for index = 1, 8 do
         list[#list + 1] = { id = "marker" .. index,
             label = "Raid marker: " .. (_G["RAID_TARGET_" .. index] or Icons.RAID_MARKER_NAMES[index]) }
@@ -210,29 +222,25 @@ function Icons.AtlasLook(atlas)
     return { atlas = atlas }
 end
 
--- One of BY_TARGET's icons: its atlas, else its file.
-local function byTargetIcon(key)
-    local entry = Icons.BY_TARGET[key]
+-- One of KIND_ICONS: its atlas, else its file.
+local function kindIcon(key)
+    local entry = Icons.KIND_ICONS[key]
     return Icons.AtlasLook(entry.atlas) or { texture = entry.file }
 end
 
--- The "By target" icon for a target (from addon.TargetInfo), or nil to keep the
--- reticle (another player's pet, or a target whose side isn't known).
-function Icons.ByTargetLook(target, classStyle)
-    if target.isPlayer then
-        -- The other faction's players, by faction, not reaction: on PvE realms they
-        -- read as neutral until flagged for PvP.
-        if target.otherFaction then return Icons.AtlasLook(Icons.FACTION_ATLASES[target.faction or ""]) end
-        return Icons.ClassLook(target.classFile, classStyle)
-    end
-    if target.controlledByPlayer then return nil end
-    if target.reaction == "enemy" then return byTargetIcon("enemyNpc") end
-    if target.reaction == "neutral" then return byTargetIcon("neutralNpc") end
-    if target.reaction == "friendly" then
+-- What a choice shows on a target (from addon.TargetInfo): { atlas } or
+-- { texture, texCoord }, or nil to keep the reticle (a class choice on an NPC,
+-- or an icon this client can't draw).
+function Icons.TargetLook(choice, target, classStyle)
+    if choice == "class" then return target.isPlayer and Icons.ClassLook(target.classFile, classStyle) or nil end
+    if choice == "faction" then return Icons.AtlasLook(Icons.FACTION_ATLASES[target.faction or ""]) end
+    if choice == "job" then
         local jobLook = addon.NpcJobs and addon.NpcJobs.Look("target", classStyle)   -- NpcJobs.lua
-        return jobLook or byTargetIcon("talk")
+        return jobLook or kindIcon("talk")
     end
-    return nil
+    if choice == "question" or choice == "swords" then return kindIcon(choice) end
+    local texture = Icons.Texture(choice)
+    return texture and { texture = texture } or nil
 end
 
 -- The game's atlas for a class ("WARRIOR" -> "classicon-warrior"), or nil if

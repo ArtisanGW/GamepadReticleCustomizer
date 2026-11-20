@@ -1,4 +1,4 @@
--- A friendly NPC's job, and the game's icon for it, for the "By target" icon.
+-- A friendly NPC's job, and the game's icon for it (the "Their job" choice for friendly NPCs).
 --
 -- The job is the NPC's title, the line under its name in its tooltip ("Stable
 -- Master", "Food & Drink"; without a title that line is its level, which has a

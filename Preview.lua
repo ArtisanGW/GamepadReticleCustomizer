@@ -84,7 +84,7 @@ local function build(settingsPanel)
     Preview.frame = frame
 end
 
--- The example target for the "On a target" cell: a player of your own class.
+-- The example target for the "On a target" cell: a player of your own class and faction.
 local function exampleTarget()
     local classFile
     if type(UnitClass) == "function" then classFile = select(2, UnitClass("player")) end
@@ -110,7 +110,7 @@ function Preview.Refresh()
     local settings = addon.Settings()
     paintCell(frame.reticle, addon.Reticle.Choose(settings, { exists = false }))
     paintCell(frame.onTarget, addon.Reticle.Choose(settings, exampleTarget()))
-    frame.onTarget.label:SetText(settings.targetIcon == "none" and "On a target: the reticle stays" or "On a target")
+    frame.onTarget.label:SetText(settings.friendlyPlayerIcon == "none" and "On a target: the reticle stays" or "On a target")
     -- The addon off: the game's own dot; shown dimmed so the page still previews your choices.
     frame:SetAlpha(settings.enabled and 1 or 0.5)
 end

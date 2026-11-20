@@ -82,3 +82,16 @@ function addon.TargetInfo()
         faction = type(faction) == "string" and faction or nil, controlledByPlayer = controlledByPlayer,
         otherFaction = type(faction) == "string" and type(playerFaction) == "string" and faction ~= playerFaction }
 end
+
+-- The setting for a target's kind (addon.TARGET_KINDS), or nil: a player of your
+-- faction or the other; a friendly, neutral or enemy NPC. Players' pets,
+-- guardians and totems have none: they keep the reticle.
+function addon.TargetKindKey(target)
+    if not target.exists then return nil end
+    if target.isPlayer then return target.otherFaction and "otherFactionIcon" or "friendlyPlayerIcon" end
+    if target.controlledByPlayer then return nil end
+    if target.reaction == "enemy" then return "enemyNpcIcon" end
+    if target.reaction == "neutral" then return "neutralNpcIcon" end
+    if target.reaction == "friendly" then return "friendlyNpcIcon" end
+    return nil
+end

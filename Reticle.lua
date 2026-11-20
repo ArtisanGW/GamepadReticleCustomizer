@@ -44,7 +44,7 @@ function Reticle.Drawn() return drawn end
 function Reticle.Layer() return layer end
 function Reticle.GameDotAlpha() return gameDotAlpha end
 
--- What to draw now: the icon for a target while you have one whose nameplate is
+-- What to draw now: the icon chosen for the target's kind while you have one whose nameplate is
 -- on screen and the reticle sits on a nameplate (and it can be drawn), else the
 -- reticle's shape. A target without a nameplate (a vendor, a guard or a minion
 -- with their nameplates off, as by default, or one off screen) keeps the reticle:
@@ -52,23 +52,14 @@ function Reticle.GameDotAlpha() return gameDotAlpha end
 -- the middle of the screen, where the game puts it: an icon there would mark
 -- nothing. { icon, texture or atlas, size, tinted }.
 function Reticle.Choose(settings, target)
-    local targetIcon = settings.targetIcon
-    if target.exists and target.hasNameplate and target.reticleOnNameplate and targetIcon ~= "none" then
-        local iconSize = addon.Clamp(settings.iconSize, addon.SIZE_MIN, addon.SIZE_MAX, addon.DEFAULTS.iconSize)
-        if targetIcon == "class" or targetIcon == "bytarget" then
-            local look
-            if targetIcon == "class" then
-                look = target.isPlayer and addon.Icons.ClassLook(target.classFile, settings.classStyle)
-            else
-                look = addon.Icons.ByTargetLook(target, settings.classStyle)
-            end
-            if look then
-                return { icon = targetIcon, atlas = look.atlas, texture = look.texture, texCoord = look.texCoord,
-                    size = iconSize, tinted = false }
-            end
-        else
-            local texture = addon.Icons.Texture(targetIcon)
-            if texture then return { icon = targetIcon, texture = texture, size = iconSize, tinted = false } end
+    local kindKey = addon.TargetKindKey(target)
+    local choice = kindKey and settings[kindKey] or "none"
+    if target.hasNameplate and target.reticleOnNameplate and choice ~= "none" then
+        local look = addon.Icons.TargetLook(choice, target, settings.classStyle)
+        if look then
+            local iconSize = addon.Clamp(settings.iconSize, addon.SIZE_MIN, addon.SIZE_MAX, addon.DEFAULTS.iconSize)
+            return { icon = choice, atlas = look.atlas, texture = look.texture, texCoord = look.texCoord,
+                size = iconSize, tinted = false }
         end
     end
     -- The reticle: a shape that can't be drawn now (a Jiberish one without the

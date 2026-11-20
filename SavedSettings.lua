@@ -21,15 +21,28 @@ _G.GamepadReticleCustomizer = addon
 --   size:          its width and height, in the reticle's own units (the game's dot is 4).
 --   dotSize, shapeSize: the size each kind had when last left (the dot's, a shape's),
 --                  brought back when switching to it.
---   targetIcon:    what shows instead while you have a target: "none" (the reticle
---                  stays), "class" (a player's class; others keep the reticle), a raid
---                  marker or one of the game's icons. Icons keep their own colors.
+--   friendlyPlayerIcon, otherFactionIcon, friendlyNpcIcon, neutralNpcIcon, enemyNpcIcon:
+--                  what shows instead of the reticle on each kind of target
+--                  (addon.TARGET_KINDS; its choices: Icons.TargetList): "none" (the
+--                  reticle stays), its own icon ("class", "faction", "job", "question",
+--                  "swords"), a raid marker or one of the game's icons. Icons keep their
+--                  own colors.
 --   classStyle:    the class icon's style (Icons.lua): "game" or a Jiberish Fabled Icons class sheet.
 --   iconSize:      the icon's width and height.
 --   borderSize:    how far the border reaches out around either (0: no border).
 --   borderColor:   the border's color, "RRGGBBAA".
-addon.DEFAULTS = { enabled = true, icon = "dot", color = "FFFFFFFF", size = 4, dotSize = 4, shapeSize = 32, targetIcon = "none", classStyle = "game", iconSize = 32,
+addon.DEFAULTS = { enabled = true, icon = "dot", color = "FFFFFFFF", size = 4, dotSize = 4, shapeSize = 32, classStyle = "game", iconSize = 32,
+    friendlyPlayerIcon = "none", otherFactionIcon = "none", friendlyNpcIcon = "none", neutralNpcIcon = "none",
+    enemyNpcIcon = "none",
     borderSize = 0, borderColor = "000000FF" }
+-- The kinds of target, in the settings page's order: { key (its setting), label, tooltip }.
+addon.TARGET_KINDS = {
+    { key = "friendlyPlayerIcon", label = "Your faction", tooltip = "Players of your faction." },
+    { key = "otherFactionIcon", label = "Other faction", tooltip = "Players of the other faction, PvP flagged or not." },
+    { key = "friendlyNpcIcon", label = "Friendly NPCs", tooltip = "Friendly NPCs, like vendors, trainers and guards." },
+    { key = "neutralNpcIcon", label = "Neutral NPCs", tooltip = "Neutral NPCs and critters." },
+    { key = "enemyNpcIcon", label = "Enemy NPCs", tooltip = "The NPCs you fight." },
+}
 addon.SIZE_MIN, addon.SIZE_MAX, addon.SIZE_STEP = 2, 64, 1
 addon.BORDER_MIN, addon.BORDER_MAX, addon.BORDER_STEP = 0, 10, 1
 
@@ -37,14 +50,23 @@ addon.BORDER_MIN, addon.BORDER_MAX, addon.BORDER_STEP = 0, 10, 1
 function addon.Settings()
     if type(GamepadReticleCustomizerDB) ~= "table" then GamepadReticleCustomizerDB = {} end
     local settings = GamepadReticleCustomizerDB
-    -- Before targets had their own icon, one Shape held markers and custom
-    -- textures too: those are icons on a target now.
+    -- A shape setting holding a marker or a game icon: that's an icon on a target.
     if settings.targetIcon == nil and settings.icon ~= nil and not addon.Icons.IsReticleShape(settings.icon) then
         settings.targetIcon, settings.icon = settings.icon, "dot"
     end
-    -- A custom texture path (and the icon picker's file ids) are gone: that icon becomes none.
+    -- A custom texture path: none.
     if settings.targetIcon == "custom" then settings.targetIcon = "none" end
     settings.customTexture = nil
+    -- One choice for every target ("targetIcon"): copied to each kind it fits.
+    if settings.targetIcon ~= nil then
+        local choice = settings.targetIcon
+        if choice == "class" then
+            settings.friendlyPlayerIcon, settings.otherFactionIcon = "class", "class"
+        elseif choice ~= "none" then
+            for _, kind in ipairs(addon.TARGET_KINDS) do settings[kind.key] = choice end
+        end
+        settings.targetIcon = nil
+    end
     for key, defaultValue in pairs(addon.DEFAULTS) do
         if settings[key] == nil then settings[key] = defaultValue end
     end
