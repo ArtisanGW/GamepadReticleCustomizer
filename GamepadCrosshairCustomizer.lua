@@ -221,6 +221,7 @@ function addon.RegisterSettings()
     end
 
     Settings.RegisterAddOnCategory(category)
+    addon.Preview.Watch()
 end
 
 function addon.Open()

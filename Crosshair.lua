@@ -80,6 +80,29 @@ local function setPicture(texture, look)
     end
 end
 
+-- Paints a look (from Choose) on a shape texture and the border texture behind it,
+-- in the saved colors and border size (also the settings page's preview).
+-- Returns the border size used.
+function Crosshair.Paint(shape, border, look)
+    local borderSize = addon.Clamp(addon.Settings().borderSize, addon.BORDER_MIN, addon.BORDER_MAX, 0)
+    setPicture(shape, look)
+    shape:SetSize(look.size, look.size)
+    if look.tinted then
+        shape:SetVertexColor(addon.ParseColor(addon.Color("color")))
+    else
+        shape:SetVertexColor(1, 1, 1, 1)   -- an icon keeps its own colors
+    end
+    if borderSize > 0 then
+        setPicture(border, look)
+        border:SetSize(look.size + 2 * borderSize, look.size + 2 * borderSize)
+        border:SetVertexColor(addon.ParseColor(addon.Color("borderColor")))
+        border:Show()
+    else
+        border:Hide()
+    end
+    return borderSize
+end
+
 -- Draws the crosshair from the settings and the target, or puts the game's dot
 -- back when off. Runs on login, on each setting change and when the target changes.
 function addon.UpdateCrosshair()
@@ -93,28 +116,15 @@ function addon.UpdateCrosshair()
         layer:Hide()
         dot:SetAlpha(gameDotAlpha)
         drawn = nil
+        if addon.Preview then addon.Preview.Refresh() end
         return
     end
 
     local look = Crosshair.Choose(settings, addon.TargetInfo())
-    local borderSize = addon.Clamp(settings.borderSize, addon.BORDER_MIN, addon.BORDER_MAX, 0)
-    setPicture(layer.shape, look)
-    layer.shape:SetSize(look.size, look.size)
-    if look.tinted then
-        layer.shape:SetVertexColor(addon.ParseColor(addon.Color("color")))
-    else
-        layer.shape:SetVertexColor(1, 1, 1, 1)   -- an icon keeps its own colors
-    end
-    if borderSize > 0 then
-        setPicture(layer.border, look)
-        layer.border:SetSize(look.size + 2 * borderSize, look.size + 2 * borderSize)
-        layer.border:SetVertexColor(addon.ParseColor(addon.Color("borderColor")))
-        layer.border:Show()
-    else
-        layer.border:Hide()
-    end
+    local borderSize = Crosshair.Paint(layer.shape, layer.border, look)
     layer:Show()
     dot:SetAlpha(0)
     drawn = { icon = look.icon, texture = look.texture, atlas = look.atlas, texCoord = look.texCoord, size = look.size,
         borderSize = borderSize }
+    if addon.Preview then addon.Preview.Refresh() end
 end

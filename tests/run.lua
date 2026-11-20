@@ -56,7 +56,9 @@ local function newRegion(parent)
     function region:GetVertexColor() return unpack(self.color) end
     function region:GetEffectiveScale() return 1 end
     function region:GetCenter() return 640, 400 end
-    function region:SetFrameStrata() end
+    function region:SetFrameStrata(strata) self.strata = strata end
+    function region:GetFrameStrata() return self.strata or "MEDIUM" end
+    function region:SetClampedToScreen() end
     function region:EnableMouse() end
     function region:SetText(text) self.text = text end
     function region:GetText() return self.text end
@@ -91,7 +93,10 @@ local function boot(options)
     local function targetField(unit, field) if unit == "target" and game.target then return game.target[field] end end
     _G.UnitExists = function(unit) return unit == "target" and game.target ~= nil end
     _G.UnitIsPlayer = function(unit) return targetField(unit, "isPlayer") == true end
-    _G.UnitClass = function(unit) local classFile = targetField(unit, "classFile"); return classFile and classFile:lower(), classFile end
+    _G.UnitClass = function(unit)
+        local classFile = unit == "player" and "SHAMAN" or targetField(unit, "classFile")
+        return classFile and classFile:lower(), classFile
+    end
     _G.UnitReaction = function(unit) return targetField(unit, "reaction") end
     _G.UnitIsUnit = function(unit, other) return other == "target" and game.target ~= nil and unit == game.target.plateUnit end
     _G.C_Texture = { GetAtlasInfo = function(atlas) if atlas:find("^classicon%-") and options.classAtlases ~= false then return {} end end }
@@ -202,6 +207,11 @@ local function boot(options)
         return { name = name, buttonText = buttonText, onClick = onClick, tooltip = tooltip }
     end
     _G.SlashCmdList = {}
+    -- The game's settings window: shown or not, and the page it shows (game.currentCategory).
+    _G.SettingsPanel = newRegion(nil)
+    SettingsPanel.shown = false
+    function SettingsPanel:GetCurrentCategory() return game.currentCategory end
+    SettingsPanel.strata = "HIGH"
     game.bindings = {}
     _G.SetOverrideBindingClick = function(_, _, key, buttonName) game.bindings[key] = buttonName end
     -- The controller UI's crosshair: Blizzard's dot, white, never tinted by the game.
@@ -616,6 +626,41 @@ test("class icon styles: the game's, or a JiberishUI class sheet's cell for the 
     eq(layer().shape.atlas, "classicon-mage", "a Jiberish style without the addon: the game's icon")
 end)
 
+-- The preview beside the settings page
+
+local function showPage(category)
+    SettingsPanel.shown, game.currentCategory = category ~= nil, category
+    local watcher = GamepadCrosshairCustomizer.Preview.watcher
+    watcher.scripts.OnUpdate(watcher, 1)
+end
+
+test("the preview shows beside our settings page only, with the crosshair and the icon on a target as drawn", function()
+    boot({ saved = { color = "FF3030FF", size = 10, targetIcon = "marker8", iconSize = 30, borderSize = 2 } })
+    local preview = GamepadCrosshairCustomizer.Preview.frame
+    eq(preview.parent, SettingsPanel, "on the settings window")
+    eq(preview:IsShown(), false, "hidden until the page opens")
+    showPage({ name = "Another page" })
+    eq(preview:IsShown(), false, "another page: hidden")
+    showPage(game.category)
+    eq(preview:IsShown(), true, "our page: shown")
+    eq(preview.crosshair.shape.texture, "Interface\\CharacterFrame\\TempPortraitAlphaMask")
+    eq(preview.crosshair.shape:GetWidth(), 10); eq(colorOf(preview.crosshair.shape), "1.00 0.19 0.19 1.00")
+    eq(preview.crosshair.border:GetWidth(), 14, "with its border")
+    eq(preview.onTarget.shape.texture, "Interface\\TargetingFrame\\UI-RaidTargetingIcon_8")
+    eq(preview.onTarget.shape:GetWidth(), 30)
+    setting("size"):SetValue(20)
+    eq(preview.crosshair.shape:GetWidth(), 20, "redrawn on a change")
+    choose("targetIcon", "class")
+    eq(preview.onTarget.shape.atlas, "classicon-shaman", "a player's class: your own as the example")
+    choose("targetIcon", "none")
+    eq(preview.onTarget.label.text, "On a target: the crosshair stays")
+    eq(preview.onTarget.shape.texture, "Interface\\CharacterFrame\\TempPortraitAlphaMask")
+    setting("enabled"):SetValue(false)
+    eq(preview.alpha, 0.5, "the addon off: dimmed")
+    showPage(nil)
+    eq(preview:IsShown(), false, "the window closed: hidden")
+end)
+
 -- /gcc debug, run here against the fake game
 
 local function failedChecks(run)
@@ -812,7 +857,7 @@ end)
 test("the release leaves Debug.lua out: ignored by .pkgmeta, and gone from the release .toc", function()
     assert(readFile(".pkgmeta"):find("\n  %- Debug%.lua\n"), ".pkgmeta ignores Debug.lua, alone on its line")
     eq(table.concat(tocFiles(true), ","),
-        "SavedSettings.lua,Color.lua,Icons.lua,Target.lua,Crosshair.lua,PickerSticks.lua,TextBox.lua,IconPicker.lua,GamepadCrosshairCustomizer.lua")
+        "SavedSettings.lua,Color.lua,Icons.lua,Target.lua,Crosshair.lua,PickerSticks.lua,TextBox.lua,IconPicker.lua,Preview.lua,GamepadCrosshairCustomizer.lua")
     eq(tocFiles()[#tocFiles()], "Debug.lua", "the repo's .toc loads it last")
 end)
 
