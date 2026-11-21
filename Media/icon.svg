@@ -1,12 +1,21 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <!-- Gamepad Reticle Customizer: the game's white dot inside four corner brackets, as when editing it. -->
+  <!-- Gamepad Reticle Customizer: the game's white dot inside four rounded corner brackets, as when editing it,
+       each bracket and each color pick around the dot in its own pastel color (palette as Alt Courier's icon, plus lilac). -->
   <rect x="0" y="0" width="512" height="512" fill="#15202E"/>
-  <g fill="#5BE0C8">
-    <rect x="112" y="112" width="96" height="20"/><rect x="112" y="112" width="20" height="96"/>
-    <rect x="304" y="112" width="96" height="20"/><rect x="380" y="112" width="20" height="96"/>
-    <rect x="112" y="380" width="96" height="20"/><rect x="112" y="304" width="20" height="96"/>
-    <rect x="304" y="380" width="96" height="20"/><rect x="380" y="304" width="20" height="96"/>
+  <!-- the corner brackets, round at the corner and at the ends -->
+  <g fill="none" stroke-width="16" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M 112 196 V 156 Q 112 112 156 112 H 196" stroke="#F4A7B9"/>
+    <path d="M 316 112 H 356 Q 400 112 400 156 V 196" stroke="#F6D98B"/>
+    <path d="M 400 316 V 356 Q 400 400 356 400 H 316" stroke="#5BE0C8"/>
+    <path d="M 196 400 H 156 Q 112 400 112 356 V 316" stroke="#BBA9F0"/>
   </g>
+  <!-- a ring in four arcs, with a color pick in each gap -->
+  <circle cx="256" cy="256" r="58" fill="none" stroke="#5BE0C8" stroke-width="8" stroke-linecap="round"
+          stroke-dasharray="64 27" transform="rotate(14 256 256)"/>
+  <circle cx="256" cy="198" r="9" fill="#F4A7B9"/>
+  <circle cx="314" cy="256" r="9" fill="#F6D98B"/>
+  <circle cx="256" cy="314" r="9" fill="#5BE0C8"/>
+  <circle cx="198" cy="256" r="9" fill="#BBA9F0"/>
   <!-- the reticle: the game's white dot -->
-  <circle cx="256" cy="256" r="34" fill="#FFFFFF"/>
+  <circle cx="256" cy="256" r="26" fill="#FFFFFF"/>
 </svg>
