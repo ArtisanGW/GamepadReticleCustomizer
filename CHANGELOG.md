@@ -1,5 +1,9 @@
 # Gamepad Reticle Customizer
 
+## 1.1.1
+
+- New icon: rounded corner brackets and a ring of color picks around the dot
+
 ## 1.1.0
 
 - On a target: a choice for each kind of target, each starting at None
