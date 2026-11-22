@@ -536,6 +536,40 @@ test("controller: while the picker is open for our color, the sticks and D-pad d
     eq(driver.shown, false, "picker shut: nothing runs")
 end)
 
+test("controller: the D-pad up/down icon under the opacity bar, pressed while held", function()
+    boot()
+    local driver = GamepadReticleCustomizer.PickerSticks.driver
+    _G.InputIconTextureSetUtility = {
+        GetActiveInputIconButtonTextures = function(key)
+            if key == "DIRPADVERTICAL" then return { "dpadupdown-normal", "over", "dpadupdown-down", "focus", "disabled" } end
+        end,
+    }
+    local icon
+    ColorPickerFrame.CreateTexture = function()
+        icon = { shown = false }
+        function icon:SetAtlas(atlas) self.atlas = atlas end
+        function icon:SetSize() end
+        function icon:ClearAllPoints() end
+        function icon:SetPoint(...) self.point = { ... } end
+        function icon:Show() self.shown = true end
+        function icon:Hide() self.shown = false end
+        function icon:IsShown() return self.shown end
+        return icon
+    end
+    control("swatch", "Color").setting.getValue()
+    ColorPickerFrame:Show()
+    eq(icon.shown, true, "shown")
+    eq(icon.atlas, "dpadupdown-normal", "the game's art for the controller in use")
+    eq(icon.point[2], ColorPickerFrame.Content.ColorPicker.Alpha, "under the opacity bar")
+    game.padUp = true; driver.scripts.OnUpdate(driver, 0.1)
+    eq(icon.atlas, "dpadupdown-down", "pressed while held")
+    game.padUp = false; driver.scripts.OnUpdate(driver, 0.1)
+    eq(icon.atlas, "dpadupdown-normal", "back when let go")
+    ColorPickerFrame:Hide()
+    eq(icon.shown, false, "hidden with the picker")
+    _G.InputIconTextureSetUtility, ColorPickerFrame.CreateTexture = nil, nil
+end)
+
 test("keyboard: the picker gets the opacity bar but no stick driver", function()
     boot({ keyboard = true })
     control("swatch", "Color").setting.getValue()

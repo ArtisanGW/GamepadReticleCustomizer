@@ -1,5 +1,9 @@
 # Gamepad Reticle Customizer
 
+## 1.1.2
+
+- In the color picker on a controller, the D-pad up/down icon under the opacity bar shows how to change it, and lights up while you hold it
+
 ## 1.1.1
 
 - New icon: rounded corner brackets and a ring of color picks around the dot

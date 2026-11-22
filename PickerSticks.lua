@@ -1,28 +1,37 @@
 -- The game's color picker (ColorPickerFrame) on a controller, while it's open for
--- this addon's color.
+-- this addon's color: a snippet to copy as is into an addon (devAddons/luaSnippets;
+-- README.md there says how to use it).
 --
 -- Opened for an addon's setting, the picker's own stick bindings never work (the
--- game refuses them, while the same picker opened from the chat settings works). So while it's open for our color, as the game's own bindings would:
+-- game refuses them, while the same picker opened from the chat settings works).
+-- So while it's open for our color, as the game's own bindings would:
 --   the left stick moves the point on the color wheel (direction = hue, distance
 --   from the middle = saturation; ColorPickerSoftCursor_OnUpdate's mapping);
 --   the right stick's up and down change the brightness;
 --   the D-pad's up and down change the opacity, on the picker's own opacity bar,
---   which the settings swatch doesn't ask for, so it's put on the picker here.
+--   which the settings swatch doesn't ask for, so it's put on the picker here,
+--   with the controller's D-pad up/down icon under it, pressed while held (the
+--   game's own footer hint for it shows only when the picker opens with its
+--   opacity: refreshing that footer from addon code would taint its bindings,
+--   so the icon is ours, the game's art for the controller in use).
 -- Nothing runs while the picker is shut, or open for anything else.
 --
--- It knows nothing of the reticle: PickerSticks.Watch(owner) takes an owner with
+-- It knows nothing of the color it's for: PickerSticks.Watch(owner) takes an owner with
 --   owner.OpenedThePicker() -- whether the picker now showing was opened for it
 --   owner.Opacity()         -- its opacity, 0 to 1, for the opacity bar
 --   owner.SetOpacity(alpha) -- the bar or the D-pad changed it
-local _, addon = ...
+local _, addonTable = ...
 
 local PickerSticks = {
     BRIGHTNESS_PER_SECOND = 0.6,   -- full stick: dark to bright in under two seconds
     WHEEL_PER_SECOND = 0.8,        -- full stick: the middle to the wheel's edge in about a second
     OPACITY_PER_SECOND = 0.5,      -- D-pad held: see-through to solid in two seconds (the game's: 0.01 per 0.02 s)
     STICK_DEAD_ZONE = 0.2,
+    OPACITY_ICON_SIZE = 28,
+    OPACITY_ICON_KEY = "DIRPADVERTICAL",   -- GAMEPAD_DPAD_VERTICAL (GamepadConstants.lua:14)
+    ICON_NORMAL = 1, ICON_PRESSED = 3,     -- InputIconTextureState (InputIconTexture.lua:25-31)
 }
-addon.PickerSticks = PickerSticks
+addonTable.PickerSticks = PickerSticks
 
 local function isControllerUIOn()
     return type(InputUtil) == "table" and type(InputUtil.IsGamepadUIEnabled) == "function"
@@ -80,7 +89,28 @@ function PickerSticks.WheelColor(x, y)
     return hue % 360, distance
 end
 
-local owner   -- set by PickerSticks.Watch
+local owner        -- set by PickerSticks.Watch
+local opacityIcon  -- our D-pad icon under the opacity bar, made the first time it's needed
+
+-- The game's art for a controller key in a state, for the controller in use
+-- (InputIconTextureSetUtility, forever branch InputIconTexture.lua:556-567): an
+-- atlas name, or nil.
+function PickerSticks.IconAtlas(key, state)
+    local utility = rawget(_G, "InputIconTextureSetUtility")
+    if type(utility) ~= "table" or type(utility.GetActiveInputIconButtonTextures) ~= "function" then return nil end
+    local succeeded, textures = pcall(utility.GetActiveInputIconButtonTextures, key)
+    local atlas = succeeded and type(textures) == "table" and textures[state] or nil
+    return type(atlas) == "string" and atlas or nil
+end
+
+-- The icon as pressed (D-pad held) or not.
+local function showIconPressed(pressed)
+    if not (opacityIcon and opacityIcon:IsShown()) or opacityIcon.pressed == pressed then return end
+    local atlas = PickerSticks.IconAtlas(PickerSticks.OPACITY_ICON_KEY,
+        pressed and PickerSticks.ICON_PRESSED or PickerSticks.ICON_NORMAL)
+    if atlas then opacityIcon:SetAtlas(atlas) end
+    opacityIcon.pressed = pressed
+end
 
 local function colorSelectOf(picker)
     return type(picker) == "table" and picker.Content and picker.Content.ColorPicker
@@ -103,8 +133,9 @@ local function moveWithSticks(colorSelect, elapsed)
     if newHue ~= hue or newSaturation ~= saturation or newValue ~= value then
         colorSelect:SetColorHSV(newHue, newSaturation, newValue)
     end
-    local opacityDirection = (PickerSticks.PadButtonDown("PADDUP") and 1 or 0)
-        - (PickerSticks.PadButtonDown("PADDDOWN") and 1 or 0)
+    local upHeld, downHeld = PickerSticks.PadButtonDown("PADDUP"), PickerSticks.PadButtonDown("PADDDOWN")
+    showIconPressed(upHeld or downHeld)
+    local opacityDirection = (upHeld and 1 or 0) - (downHeld and 1 or 0)
     if opacityDirection ~= 0 and type(colorSelect.GetColorAlpha) == "function" then
         local alpha = colorSelect:GetColorAlpha() or 1
         local newAlpha = math.max(0, math.min(1, alpha + opacityDirection * PickerSticks.OPACITY_PER_SECOND * elapsed))
@@ -144,6 +175,27 @@ function PickerSticks.AddOpacityBar(picker)
     if picker.SetWidth then picker:SetWidth(388) end
 end
 
+-- The D-pad up/down icon under the opacity bar, on a controller only.
+function PickerSticks.ShowOpacityHint(picker)
+    local colorSelect = colorSelectOf(picker)
+    local bar = colorSelect and colorSelect.Alpha
+    local atlas = PickerSticks.IconAtlas(PickerSticks.OPACITY_ICON_KEY, PickerSticks.ICON_NORMAL)
+    if not (bar and atlas and type(picker.CreateTexture) == "function") then return end
+    if not opacityIcon then
+        opacityIcon = picker:CreateTexture(nil, "OVERLAY")
+        opacityIcon:SetSize(PickerSticks.OPACITY_ICON_SIZE, PickerSticks.OPACITY_ICON_SIZE)
+    end
+    opacityIcon:SetAtlas(atlas)   -- each time: the controller may have changed
+    opacityIcon.pressed = false
+    opacityIcon:ClearAllPoints()
+    opacityIcon:SetPoint("TOP", bar, "BOTTOM", 0, -4)
+    opacityIcon:Show()
+end
+
+function PickerSticks.HideOpacityHint()
+    if opacityIcon then opacityIcon:Hide() end
+end
+
 -- Watches the game's picker (post-hooks only) for the given owner. Once.
 function PickerSticks.Watch(pickerOwner)
     local picker = _G.ColorPickerFrame
@@ -152,7 +204,16 @@ function PickerSticks.Watch(pickerOwner)
     picker:HookScript("OnShow", function()
         local ours = owner.OpenedThePicker()
         if ours then PickerSticks.AddOpacityBar(picker) end
-        if ours and isControllerUIOn() then stickDriver:Show() else stickDriver:Hide() end
+        if ours and isControllerUIOn() then
+            stickDriver:Show()
+            PickerSticks.ShowOpacityHint(picker)
+        else
+            stickDriver:Hide()
+            PickerSticks.HideOpacityHint()
+        end
     end)
-    picker:HookScript("OnHide", function() stickDriver:Hide() end)
+    picker:HookScript("OnHide", function()
+        stickDriver:Hide()
+        PickerSticks.HideOpacityHint()
+    end)
 end
