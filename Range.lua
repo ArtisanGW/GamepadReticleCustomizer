@@ -1,14 +1,15 @@
--- The sword on a target (Icons.lua "swords") is gray while none of your action
--- bar spells can reach it, and in its colors once one can. Each action slot is
+-- The sword, the paw and the shield on a target (Icons.lua) are gray while
+-- none of your action bar spells can reach it, and in color once one can. Each action slot is
 -- asked with the game's IsActionInRange (forever branch
 -- Blizzard_APIDocumentationGenerated/ActionBarFrameDocumentation.lua:624): true
 -- in range, false out of range, nil when that slot can't tell (no spell, a
 -- spell without range, one that can't target it). When no slot can tell, the
--- sword keeps its colors. Checked every CHECK_SECONDS while a sword is drawn.
+-- icon keeps its colors. Checked every CHECK_SECONDS while one is drawn.
 local _, addon = ...
 
 local Range = {
     CHECK_SECONDS = 0.25,
+    ICONS = { swords = true, paw = true, shield = true },   -- the choices drawn gray out of reach
     LAST_SLOT = 180,   -- every action bar's slots, the bonus ones (forms, vehicles) too
 }
 addon.Range = Range
@@ -33,12 +34,12 @@ function Range.TargetInReach()
     return nil
 end
 
--- Out of reach: the sword drawn gray.
-function Range.SwordGray(choice)
-    return choice == "swords" and Range.TargetInReach() == false
+-- Out of reach: the icon drawn gray.
+function Range.IconGray(choice)
+    return Range.ICONS[choice] == true and Range.TargetInReach() == false
 end
 
--- While a sword is drawn, it's drawn again when its reach changes.
+-- While such an icon is drawn, it's drawn again when its reach changes.
 local watcher = CreateFrame("Frame")
 watcher:Hide()
 Range.watcher = watcher
@@ -47,7 +48,7 @@ watcher:SetScript("OnUpdate", function(_, elapsed)
     untilCheck = untilCheck - elapsed
     if untilCheck > 0 then return end
     untilCheck = Range.CHECK_SECONDS
-    local gray = Range.SwordGray("swords")
+    local gray = Range.TargetInReach() == false
     if gray ~= lastGray then
         lastGray = gray
         addon.UpdateReticle()
@@ -55,7 +56,7 @@ watcher:SetScript("OnUpdate", function(_, elapsed)
 end)
 
 -- Reticle.lua, after each draw.
-function Range.Watch(swordDrawn, gray)
+function Range.Watch(choice, gray)
     lastGray = gray
-    if swordDrawn then watcher:Show() else watcher:Hide() end
+    if Range.ICONS[choice] then watcher:Show() else watcher:Hide() end
 end

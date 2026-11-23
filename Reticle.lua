@@ -10,7 +10,9 @@
 -- when the addon is switched off. Nothing here is protected, so it works in combat.
 local _, addon = ...
 
-local Reticle = {}
+local Reticle = {
+    GRAY = { 0.6, 0.6, 0.6 },   -- a colored white icon (the paw) out of reach
+}
 addon.Reticle = Reticle
 
 local layer          -- our frame: layer.shape, layer.border
@@ -50,7 +52,7 @@ function Reticle.GameDotAlpha() return gameDotAlpha end
 -- with their nameplates off, as by default, or one off screen) keeps the reticle:
 -- the icon follows what your nameplate settings show. So does a reticle left in
 -- the middle of the screen, where the game puts it: an icon there would mark
--- nothing. { icon, texture or atlas, size, tinted, gray }.
+-- nothing. { icon, texture or atlas, size, tinted, color (an icon drawn in color), gray }.
 function Reticle.Choose(settings, target)
     local kindKey = addon.TargetKindKey(target)
     local choice = kindKey and settings[kindKey] or "none"
@@ -59,8 +61,8 @@ function Reticle.Choose(settings, target)
         if look then
             local iconSize = addon.Clamp(settings.iconSize, addon.SIZE_MIN, addon.SIZE_MAX, addon.DEFAULTS.iconSize)
             return { icon = choice, atlas = look.atlas, texture = look.texture, texCoord = look.texCoord,
-                cursorUnit = look.cursorUnit, size = iconSize, tinted = false,
-                gray = addon.Range and addon.Range.SwordGray(choice) or false }   -- Range.lua
+                cursorUnit = look.cursorUnit, size = iconSize, tinted = false, color = look.color,
+                gray = addon.Range and addon.Range.IconGray(choice) or false }   -- Range.lua
         end
     end
     -- The reticle: a shape that can't be drawn now (a Jiberish one without the
@@ -103,10 +105,13 @@ function Reticle.Paint(shape, border, look, zoom)
     shape:SetSize(look.size * zoom, look.size * zoom)
     if look.tinted then
         shape:SetVertexColor(addon.ParseColor(addon.Color("color")))
+    elseif look.color then
+        local gray = look.gray and Reticle.GRAY or look.color   -- a white icon drawn in color (the paw)
+        shape:SetVertexColor(gray[1], gray[2], gray[3], 1)
     else
         shape:SetVertexColor(1, 1, 1, 1)   -- an icon keeps its own colors
     end
-    shape:SetDesaturated(look.gray == true)   -- a sword out of reach (Range.lua)
+    shape:SetDesaturated(look.gray == true)   -- out of reach (Range.lua)
     if borderSize > 0 then
         setPicture(border, look)
         border:SetSize((look.size + 2 * borderSize) * zoom, (look.size + 2 * borderSize) * zoom)
@@ -171,6 +176,6 @@ function addon.UpdateReticle()
     drawn = { icon = look.icon, texture = look.texture, atlas = look.atlas, texCoord = look.texCoord, size = look.size,
         cursorUnit = look.cursorUnit, gray = look.gray,
         borderSize = borderSize }
-    if addon.Range then addon.Range.Watch(look.icon == "swords", look.gray) end
+    if addon.Range then addon.Range.Watch(look.icon, look.gray) end
     if addon.Preview then addon.Preview.Refresh() end
 end

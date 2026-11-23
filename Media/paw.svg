@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- A paw for neutral NPCs: white, so the reticle tints it (yellow). -->
+  <g fill="#ffffff">
+    <path d="M64 62 C80 62 98 80 98 96 C98 110 86 114 76 110 C70 108 66 106 64 106 C62 106 58 108 52 110 C42 114 30 110 30 96 C30 80 48 62 64 62 Z"/>
+    <ellipse cx="25" cy="58" rx="11" ry="14" transform="rotate(-25 25 58)"/>
+    <ellipse cx="47" cy="34" rx="12" ry="16" transform="rotate(-8 47 34)"/>
+    <ellipse cx="81" cy="34" rx="12" ry="16" transform="rotate(8 81 34)"/>
+    <ellipse cx="103" cy="58" rx="11" ry="14" transform="rotate(25 103 58)"/>
+  </g>
+</svg>

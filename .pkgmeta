@@ -11,6 +11,8 @@ ignore:
   - Showcase.lua
   # the icon's source and its CurseForge size; the game uses Media/icon-64.png
   - Media/icon.svg
+  # the paw's source; the game uses Media/paw.png
+  - Media/paw.svg
   - Media/icon-400.png
   # earlier icon drafts, kept for reference
   - Media/alternatives

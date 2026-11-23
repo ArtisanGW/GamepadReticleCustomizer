@@ -17,6 +17,9 @@
 --                     as the game shows it; the reticle when there's nothing to interact
 --                     with; a speech bubble when the game doesn't say
 --   "dots"            the game's gray "..." bubble (neutral NPCs)
+--   "paw"             our own paw (Media/paw.png), yellow like neutral (neutral NPCs),
+--                     gray while none of your spells reach the target (Range.lua)
+--   "shield"          the game's neutral shield (neutral NPCs), gray out of reach too
 --   "swords"          a sword, the game's attack cursor (enemy and neutral NPCs),
 --                     gray while none of your spells reach the target (Range.lua)
 --   "marker1".."8"    the game's raid target markers: star, circle, diamond,
@@ -37,6 +40,9 @@ local Icons = {
     KIND_ICONS = {
         -- the game's attack cursor (its atlas Crosshair_PVP_128 is the PvP cursor, a shield)
         swords = { file = "Interface\\Cursor\\Attack" },
+        -- white, drawn in color: the game's tiny pet paw atlas blurs at reticle sizes
+        paw = { file = "Interface\\AddOns\\GamepadReticleCustomizer\\Media\\paw", color = { 1, 0.82, 0 } },
+        shield = { atlas = "honorsystem-portrait-neutral", file = "Interface\\AddOns\\GamepadReticleCustomizer\\Media\\paw" },
         -- a gray "..." bubble: the game's quest-in-progress icon (QuestUtils.lua:199)
         dots = { atlas = "SideInProgressquesticon", file = "Interface\\GossipFrame\\IncompleteQuestIcon" },
         talk = { atlas = "Crosshair_Speak_128", file = "Interface\\GossipFrame\\GossipGossipIcon" }, -- a speech bubble
@@ -148,7 +154,8 @@ Icons.KIND_CHOICES = {
     friendlyPlayerIcon = { { id = "faction", label = "Faction" }, { id = "class", label = "Class" } },
     otherFactionIcon = { { id = "faction", label = "Faction" }, { id = "class", label = "Class" } },
     friendlyNpcIcon = { { id = "job", label = "Their job" } },
-    neutralNpcIcon = { { id = "dots", label = "Gray dots" }, { id = "swords", label = "Sword" } },
+    neutralNpcIcon = { { id = "dots", label = "Gray dots" }, { id = "paw", label = "Paw" }, { id = "shield", label = "Shield" },
+        { id = "swords", label = "Sword" } },
     enemyNpcIcon = { { id = "swords", label = "Sword" } },
 }
 
@@ -250,7 +257,7 @@ end
 -- One of KIND_ICONS: its atlas, else its file.
 local function kindIcon(key)
     local entry = Icons.KIND_ICONS[key]
-    return Icons.AtlasLook(entry.atlas) or { texture = entry.file }
+    return Icons.AtlasLook(entry.atlas) or { texture = entry.file, color = entry.color }
 end
 
 -- What a choice shows on a target (from addon.TargetInfo): { atlas } or
@@ -265,7 +272,7 @@ function Icons.TargetLook(choice, target, classStyle)
         if interaction == "nothing" then return nil end   -- nothing to interact with: the reticle
         return kindIcon("talk")
     end
-    if choice == "dots" or choice == "swords" then return kindIcon(choice) end
+    if Icons.KIND_ICONS[choice] then return kindIcon(choice) end
     local texture = Icons.Texture(choice)
     return texture and { texture = texture } or nil
 end

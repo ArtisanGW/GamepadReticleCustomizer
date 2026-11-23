@@ -141,7 +141,7 @@ local function boot(options)
     -- The game's class atlases: each a cell of one file (as GetAtlasInfo reports them).
     -- The game's atlases for kinds of target (none, with options.noKindAtlases).
     local kindAtlases = { ["UI-HUD-UnitFrame-Player-PVP-AllianceIcon"] = true, ["UI-HUD-UnitFrame-Player-PVP-HordeIcon"] = true,
-        ["Crosshair_PVP_128"] = true, ["SideInProgressquesticon"] = true, ["Crosshair_Speak_128"] = true }
+        ["honorsystem-portrait-neutral"] = true, ["SideInProgressquesticon"] = true, ["Crosshair_Speak_128"] = true }
     _G.C_Texture = { GetAtlasInfo = function(atlas)
         if atlas:find("^classicon%-") and options.classAtlases ~= false then
             return { file = "classicons-file", leftTexCoord = 0.5, rightTexCoord = 0.75, topTexCoord = 0.25, bottomTexCoord = 0.5 }
@@ -1264,6 +1264,21 @@ test("the sword: gray while none of your spells reach the target, in color once 
     eq(layer().shape.desaturated, false, "no spell can tell: colored")
     setTarget({ isPlayer = true, classFile = "MAGE", reaction = 5, faction = "Horde" })
     eq(layer().shape.desaturated, false, "not a sword: never gray")
+end)
+
+test("neutral NPCs: a yellow paw or the neutral shield, gray out of reach like the sword", function()
+    boot({ saved = { neutralNpcIcon = "paw" } })
+    game.actions = { [1] = true }
+    setTarget({ isPlayer = false, reaction = 4 })
+    eq(drawnLook(), "Interface\\AddOns\\GamepadReticleCustomizer\\Media\\paw")
+    eq(colorOf(layer().shape), "1.00 0.82 0.00 1.00", "in reach: yellow")
+    game.actions = { [1] = false }
+    setTarget({ isPlayer = false, reaction = 4 })
+    eq(colorOf(layer().shape), "0.60 0.60 0.60 1.00", "out of reach: gray")
+    boot({ saved = { neutralNpcIcon = "shield" } })
+    game.actions = { [1] = false }
+    setTarget({ isPlayer = false, reaction = 4 })
+    eq(layer().shape.desaturated, true, "the shield: gray out of reach")
 end)
 
 test("on a client without those atlases: the game's icon files instead", function()
