@@ -1,9 +1,5 @@
 # Gamepad Reticle Customizer
 
-## 1.1.4
-
-- Neutral and enemy NPCs: Beast family, a beast's own family icon (cat, bird of prey, kodo...), round, gray out of reach like the sword; other targets get the paw or the sword
-
 ## 1.1.3
 
 - Enemy NPCs: a sword, the game's attack cursor, instead of a shield that looked out of place

@@ -22,10 +22,6 @@
 --   "shield"          the game's neutral shield (neutral NPCs), gray out of reach too
 --   "swords"          a sword, the game's attack cursor (enemy and neutral NPCs),
 --                     gray while none of your spells reach the target (Range.lua)
---   "family"          a beast's family icon (cat, bird of prey, kodo...), the game's own
---                     (C_CreatureInfo.GetCreatureFamilyInfo, forever branch
---                     CreatureInfoDocumentation.lua:137), its edge trimmed, cut round;
---                     other targets get FAMILY_FALLBACK's icon. Gray out of reach too.
 --   "marker1".."8"    the game's raid target markers: star, circle, diamond,
 --                     triangle, moon, square, cross, skull
 --   "icon:<key>"      one of GAME_ICONS, a hand-picked set of the game's own icons
@@ -51,10 +47,6 @@ local Icons = {
         dots = { atlas = "SideInProgressquesticon", file = "Interface\\GossipFrame\\IncompleteQuestIcon" },
         talk = { atlas = "Crosshair_Speak_128", file = "Interface\\GossipFrame\\GossipGossipIcon" }, -- a speech bubble
     },
-    -- "family" on a target that isn't a beast: the kind's own icon instead.
-    FAMILY_FALLBACK = { neutralNpcIcon = "paw", enemyNpcIcon = "swords" },
-    -- A family icon is a painted square: its thin edge trimmed, then cut round.
-    FAMILY_CROP = { 0.08, 0.92, 0.08, 0.92 },
     -- The game's own icons offered on a target: in the game since its first years.
     GAME_ICONS = {
         { key = "scope", name = "Sniper scope", file = "Interface\\Icons\\Ability_Hunter_SniperShot" },
@@ -163,8 +155,8 @@ Icons.KIND_CHOICES = {
     otherFactionIcon = { { id = "faction", label = "Faction" }, { id = "class", label = "Class" } },
     friendlyNpcIcon = { { id = "job", label = "Their job" } },
     neutralNpcIcon = { { id = "dots", label = "Gray dots" }, { id = "paw", label = "Paw" }, { id = "shield", label = "Shield" },
-        { id = "swords", label = "Sword" }, { id = "family", label = "Beast family" } },
-    enemyNpcIcon = { { id = "swords", label = "Sword" }, { id = "family", label = "Beast family" } },
+        { id = "swords", label = "Sword" } },
+    enemyNpcIcon = { { id = "swords", label = "Sword" } },
 }
 
 -- A kind of target's choices, in order: None, its own, the raid markers, the
@@ -271,21 +263,7 @@ end
 -- What a choice shows on a target (from addon.TargetInfo): { atlas } or
 -- { texture, texCoord }, or nil to keep the reticle (a class choice on an NPC,
 -- or an icon this client can't draw).
--- A beast family's icon, round, or nil when the game has none for it.
-function Icons.FamilyLook(familyID)
-    local creatureInfo = _G.C_CreatureInfo
-    if not familyID or type(creatureInfo) ~= "table" or type(creatureInfo.GetCreatureFamilyInfo) ~= "function" then return nil end
-    local succeeded, info = pcall(creatureInfo.GetCreatureFamilyInfo, familyID)
-    if not (succeeded and type(info) == "table" and info.iconFile) then return nil end
-    return { texture = info.iconFile, texCoord = Icons.FAMILY_CROP, round = true }
-end
-
--- kindKey: the target's kind (addon.TARGET_KINDS), for "family"'s fallback.
-function Icons.TargetLook(choice, target, classStyle, kindKey)
-    if choice == "family" then
-        local fallback = Icons.FAMILY_FALLBACK[kindKey or ""] or "swords"
-        return Icons.FamilyLook(target.familyID) or kindIcon(fallback)
-    end
+function Icons.TargetLook(choice, target, classStyle)
     if choice == "class" then return target.isPlayer and Icons.ClassLook(target.classFile, classStyle) or nil end
     if choice == "faction" then return Icons.AtlasLook(Icons.FACTION_ATLASES[target.faction or ""]) end
     if choice == "job" then

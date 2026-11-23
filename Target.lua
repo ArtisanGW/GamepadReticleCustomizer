@@ -63,8 +63,7 @@ end
 --   reticleOnNameplate = true/false, faction = "Alliance"/"Horde" or nil,
 --   otherFaction = true/false (its faction isn't yours: on PvE realms such a player
 --   reads as neutral, not enemy, until flagged for PvP),
---   controlledByPlayer = true/false (a player's pet, guardian or totem, or a player),
---   familyID = a beast's family (cat, bird of prey, kodo...) or nil }
+--   controlledByPlayer = true/false (a player's pet, guardian or totem, or a player) }
 function addon.TargetInfo()
     local exists = type(UnitExists) == "function" and readable(UnitExists("target")) == true
     if not exists then return { exists = false, isPlayer = false } end
@@ -78,12 +77,10 @@ function addon.TargetInfo()
     local faction = type(UnitFactionGroup) == "function" and readable((UnitFactionGroup("target"))) or nil
     local playerFaction = type(UnitFactionGroup) == "function" and readable((UnitFactionGroup("player"))) or nil
     local controlledByPlayer = type(UnitPlayerControlled) == "function" and readable(UnitPlayerControlled("target")) == true
-    local familyID = type(UnitCreatureFamily) == "function" and readable(select(2, UnitCreatureFamily("target"))) or nil
     return { exists = true, isPlayer = isPlayer, classFile = type(classFile) == "string" and classFile or nil,
         reaction = reaction, hasNameplate = addon.TargetHasNameplate(), reticleOnNameplate = addon.ReticleOnNameplate(),
         faction = type(faction) == "string" and faction or nil, controlledByPlayer = controlledByPlayer,
-        otherFaction = type(faction) == "string" and type(playerFaction) == "string" and faction ~= playerFaction,
-        familyID = type(familyID) == "number" and familyID or nil }
+        otherFaction = type(faction) == "string" and type(playerFaction) == "string" and faction ~= playerFaction }
 end
 
 -- The setting for a target's kind (addon.TARGET_KINDS), or nil: a player of your

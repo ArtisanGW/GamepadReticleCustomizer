@@ -89,10 +89,6 @@ local function newRegion(parent)
     function region:SetAttribute(key, value) self.attributes = self.attributes or {}; self.attributes[key] = value end
     function region:RegisterForClicks() end
     function region:CreateTexture() return newRegion(self) end
-    function region:CreateMaskTexture() return newRegion(self) end
-    function region:GetParent() return self.parent end
-    function region:AddMaskTexture(mask) self.mask = mask end
-    function region:RemoveMaskTexture(mask) if self.mask == mask then self.mask = nil end end
     function region:CreateFontString() return newRegion(self) end
     function region:Click() if self.scripts and self.scripts.OnClick then self.scripts.OnClick(self) end end
     return region
@@ -1283,28 +1279,6 @@ test("neutral NPCs: a yellow paw or the neutral shield, gray out of reach like t
     game.actions = { [1] = false }
     setTarget({ isPlayer = false, reaction = 4 })
     eq(layer().shape.desaturated, true, "the shield: gray out of reach")
-end)
-
-test("Beast family: a beast's own family icon, round, its edge trimmed, gray out of reach", function()
-    boot({ saved = { neutralNpcIcon = "family", enemyNpcIcon = "family" } })
-    _G.C_CreatureInfo = { GetCreatureFamilyInfo = function(familyID)
-        if familyID == 2 then return { id = 2, name = "Cat", iconFile = 132185 } end
-    end }
-    _G.UnitCreatureFamily = function(unit) if unit == "target" and game.target then return game.target.family, game.target.familyID end end
-    game.actions = { [1] = true }
-    setTarget({ isPlayer = false, reaction = 4, family = "Cat", familyID = 2 })
-    eq(drawnLook(), 132185, "the cat's icon")
-    eq(layer().shape.mask ~= nil, true, "cut round")
-    eq(table.concat(layer().shape.texCoord, " "), "0.08 0.92 0.08 0.92", "its edge trimmed")
-    game.actions = { [1] = false }
-    setTarget({ isPlayer = false, reaction = 2, family = "Cat", familyID = 2 })
-    eq(layer().shape.desaturated, true, "out of reach: gray")
-    setTarget({ isPlayer = false, reaction = 4 })
-    eq(drawnLook(), "Interface\\AddOns\\GamepadReticleCustomizer\\Media\\paw.png", "a neutral non-beast: the paw")
-    eq(layer().shape.mask, nil, "not round")
-    setTarget({ isPlayer = false, reaction = 2, family = "Bat", familyID = 99 })
-    eq(drawnLook(), "Interface\\Cursor\\Attack", "an enemy whose family has no icon: the sword")
-    _G.C_CreatureInfo, _G.UnitCreatureFamily = nil, nil
 end)
 
 test("on a client without those atlases: the game's icon files instead", function()
