@@ -1281,7 +1281,7 @@ test("neutral NPCs: a yellow paw or the neutral shield, gray out of reach like t
     setTarget({ isPlayer = false, reaction = 4 })
     eq(layer().shape.desaturated, true, "the shield: gray out of reach")
     for choice, atlas in pairs({ allianceShield = "honorsystem-portrait-alliance", hordeShield = "honorsystem-portrait-horde",
-        ffaBadge = "UI-HUD-UnitFrame-Player-PVP-FFAIcon", warMode = "pvptalents-warmode-swords" }) do
+        ffaBadge = "Interface\\TargetingFrame\\UI-PVP-FFA", warMode = "pvptalents-warmode-swords" }) do
         boot({ saved = { neutralNpcIcon = choice } })
         game.actions = { [1] = false }
         setTarget({ isPlayer = false, reaction = 4 })
