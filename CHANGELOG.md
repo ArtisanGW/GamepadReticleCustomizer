@@ -1,5 +1,9 @@
 # Gamepad Reticle Customizer
 
+## 1.1.4
+
+- Neutral NPCs: three more icons, the game's Alliance shield, Horde shield and PvP badge, each gray out of reach like the sword
+
 ## 1.1.3
 
 - Enemy NPCs: a sword, the game's attack cursor, instead of a shield that looked out of place

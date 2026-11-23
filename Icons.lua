@@ -20,6 +20,9 @@
 --   "paw"             our own paw (Media/paw.png), yellow like neutral (neutral NPCs),
 --                     gray while none of your spells reach the target (Range.lua)
 --   "shield"          the game's neutral shield (neutral NPCs), gray out of reach too
+--   "allianceShield", "hordeShield", "ffaBadge"
+--                     the game's Alliance and Horde shields and its free-for-all PvP
+--                     badge (neutral NPCs), gray out of reach too
 --   "swords"          a sword, the game's attack cursor (enemy and neutral NPCs),
 --                     gray while none of your spells reach the target (Range.lua)
 --   "marker1".."8"    the game's raid target markers: star, circle, diamond,
@@ -43,6 +46,9 @@ local Icons = {
         -- white, drawn in color: the game's tiny pet paw atlas blurs at reticle sizes
         paw = { file = "Interface\\AddOns\\GamepadReticleCustomizer\\Media\\paw.png", color = { 1, 0.82, 0 } },
         shield = { atlas = "honorsystem-portrait-neutral", file = "Interface\\AddOns\\GamepadReticleCustomizer\\Media\\paw.png" },
+        allianceShield = { atlas = "honorsystem-portrait-alliance", file = "Interface\\TargetingFrame\\UI-PVP-Alliance" },
+        hordeShield = { atlas = "honorsystem-portrait-horde", file = "Interface\\TargetingFrame\\UI-PVP-Horde" },
+        ffaBadge = { atlas = "UI-HUD-UnitFrame-Player-PVP-FFAIcon", file = "Interface\\TargetingFrame\\UI-PVP-FFA" },
         -- a gray "..." bubble: the game's quest-in-progress icon (QuestUtils.lua:199)
         dots = { atlas = "SideInProgressquesticon", file = "Interface\\GossipFrame\\IncompleteQuestIcon" },
         talk = { atlas = "Crosshair_Speak_128", file = "Interface\\GossipFrame\\GossipGossipIcon" }, -- a speech bubble
@@ -155,7 +161,8 @@ Icons.KIND_CHOICES = {
     otherFactionIcon = { { id = "faction", label = "Faction" }, { id = "class", label = "Class" } },
     friendlyNpcIcon = { { id = "job", label = "Their job" } },
     neutralNpcIcon = { { id = "dots", label = "Gray dots" }, { id = "paw", label = "Paw" }, { id = "shield", label = "Shield" },
-        { id = "swords", label = "Sword" } },
+        { id = "allianceShield", label = "Alliance shield" }, { id = "hordeShield", label = "Horde shield" },
+        { id = "ffaBadge", label = "PvP badge" }, { id = "swords", label = "Sword" } },
     enemyNpcIcon = { { id = "swords", label = "Sword" } },
 }
 

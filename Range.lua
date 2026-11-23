@@ -1,4 +1,4 @@
--- The sword, the paw and the shield on a target (Icons.lua) are gray while
+-- The sword, the paw and the shields on a target (Icons.lua) are gray while
 -- none of your action bar spells can reach it, and in color once one can. Each action slot is
 -- asked with the game's IsActionInRange (forever branch
 -- Blizzard_APIDocumentationGenerated/ActionBarFrameDocumentation.lua:624): true
@@ -9,7 +9,7 @@ local _, addon = ...
 
 local Range = {
     CHECK_SECONDS = 0.25,
-    ICONS = { swords = true, paw = true, shield = true },   -- the choices drawn gray out of reach
+    ICONS = { swords = true, paw = true, shield = true, allianceShield = true, hordeShield = true, ffaBadge = true },   -- the choices drawn gray out of reach
     LAST_SLOT = 180,   -- every action bar's slots, the bonus ones (forms, vehicles) too
 }
 addon.Range = Range

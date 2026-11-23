@@ -141,7 +141,8 @@ local function boot(options)
     -- The game's class atlases: each a cell of one file (as GetAtlasInfo reports them).
     -- The game's atlases for kinds of target (none, with options.noKindAtlases).
     local kindAtlases = { ["UI-HUD-UnitFrame-Player-PVP-AllianceIcon"] = true, ["UI-HUD-UnitFrame-Player-PVP-HordeIcon"] = true,
-        ["honorsystem-portrait-neutral"] = true, ["SideInProgressquesticon"] = true, ["Crosshair_Speak_128"] = true }
+        ["honorsystem-portrait-neutral"] = true, ["honorsystem-portrait-alliance"] = true,
+        ["honorsystem-portrait-horde"] = true, ["UI-HUD-UnitFrame-Player-PVP-FFAIcon"] = true, ["SideInProgressquesticon"] = true, ["Crosshair_Speak_128"] = true }
     _G.C_Texture = { GetAtlasInfo = function(atlas)
         if atlas:find("^classicon%-") and options.classAtlases ~= false then
             return { file = "classicons-file", leftTexCoord = 0.5, rightTexCoord = 0.75, topTexCoord = 0.25, bottomTexCoord = 0.5 }
@@ -1279,6 +1280,14 @@ test("neutral NPCs: a yellow paw or the neutral shield, gray out of reach like t
     game.actions = { [1] = false }
     setTarget({ isPlayer = false, reaction = 4 })
     eq(layer().shape.desaturated, true, "the shield: gray out of reach")
+    for choice, atlas in pairs({ allianceShield = "honorsystem-portrait-alliance", hordeShield = "honorsystem-portrait-horde",
+        ffaBadge = "UI-HUD-UnitFrame-Player-PVP-FFAIcon" }) do
+        boot({ saved = { neutralNpcIcon = choice } })
+        game.actions = { [1] = false }
+        setTarget({ isPlayer = false, reaction = 4 })
+        eq(drawnLook(), atlas, choice)
+        eq(layer().shape.desaturated, true, choice .. ": gray out of reach")
+    end
 end)
 
 test("on a client without those atlases: the game's icon files instead", function()
