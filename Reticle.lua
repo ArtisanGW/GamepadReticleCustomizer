@@ -57,11 +57,11 @@ function Reticle.Choose(settings, target)
     local kindKey = addon.TargetKindKey(target)
     local choice = kindKey and settings[kindKey] or "none"
     if target.hasNameplate and target.reticleOnNameplate and choice ~= "none" then
-        local look = addon.Icons.TargetLook(choice, target, addon.ClassStyleFor(settings, kindKey))
+        local look = addon.Icons.TargetLook(choice, target, addon.ClassStyleFor(settings, kindKey), kindKey)
         if look then
             local iconSize = addon.Clamp(settings.iconSize, addon.SIZE_MIN, addon.SIZE_MAX, addon.DEFAULTS.iconSize)
             return { icon = choice, atlas = look.atlas, texture = look.texture, texCoord = look.texCoord,
-                cursorUnit = look.cursorUnit, size = iconSize, tinted = false, color = look.color,
+                cursorUnit = look.cursorUnit, size = iconSize, tinted = false, color = look.color, round = look.round,
                 gray = addon.Range and addon.Range.IconGray(choice) or false }   -- Range.lua
         end
     end
@@ -94,6 +94,25 @@ local function setPicture(texture, look)
     end
 end
 
+-- A round look (a beast's family icon) is cut round by a mask, made once per
+-- texture and taken off again for any other look.
+Reticle.ROUND_MASK = "Interface\\CharacterFrame\\TempPortraitAlphaMask"
+local function setRound(texture, round)
+    if round and not texture.roundMask then
+        local mask = texture:GetParent():CreateMaskTexture()
+        mask:SetTexture(Reticle.ROUND_MASK, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+        mask:SetAllPoints(texture)
+        texture.roundMask = mask
+    end
+    if round and not texture.roundMaskOn then
+        texture:AddMaskTexture(texture.roundMask)
+        texture.roundMaskOn = true
+    elseif not round and texture.roundMaskOn then
+        texture:RemoveMaskTexture(texture.roundMask)
+        texture.roundMaskOn = false
+    end
+end
+
 -- Paints a look (from Choose) on a shape texture and the border texture behind it,
 -- in the saved colors and border size (also the settings page's preview).
 -- zoom (optional, 1 by default): the preview's magnified view, size and border alike.
@@ -102,6 +121,7 @@ function Reticle.Paint(shape, border, look, zoom)
     zoom = zoom or 1
     local borderSize = addon.Clamp(addon.Settings().borderSize, addon.BORDER_MIN, addon.BORDER_MAX, 0)
     setPicture(shape, look)
+    setRound(shape, look.round == true)
     shape:SetSize(look.size * zoom, look.size * zoom)
     if look.tinted then
         shape:SetVertexColor(addon.ParseColor(addon.Color("color")))
@@ -114,6 +134,7 @@ function Reticle.Paint(shape, border, look, zoom)
     shape:SetDesaturated(look.gray == true)   -- out of reach (Range.lua)
     if borderSize > 0 then
         setPicture(border, look)
+        setRound(border, look.round == true)
         border:SetSize((look.size + 2 * borderSize) * zoom, (look.size + 2 * borderSize) * zoom)
         border:SetVertexColor(addon.ParseColor(addon.Color("borderColor")))
         border:Show()
@@ -174,7 +195,7 @@ function addon.UpdateReticle()
     layer:Show()
     dot:SetAlpha(0)
     drawn = { icon = look.icon, texture = look.texture, atlas = look.atlas, texCoord = look.texCoord, size = look.size,
-        cursorUnit = look.cursorUnit, gray = look.gray,
+        cursorUnit = look.cursorUnit, gray = look.gray, round = look.round,
         borderSize = borderSize }
     if addon.Range then addon.Range.Watch(look.icon, look.gray) end
     if addon.Preview then addon.Preview.Refresh() end
