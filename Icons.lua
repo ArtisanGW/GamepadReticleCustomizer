@@ -17,7 +17,7 @@
 --                     as the game shows it; the reticle when there's nothing to interact
 --                     with; a speech bubble when the game doesn't say
 --   "dots"            the game's gray "..." bubble (neutral NPCs)
---   "swords"          crossed swords (enemy NPCs)
+--   "swords"          a sword, the game's attack cursor (enemy NPCs)
 --   "marker1".."8"    the game's raid target markers: star, circle, diamond,
 --                     triangle, moon, square, cross, skull
 --   "icon:<key>"      one of GAME_ICONS, a hand-picked set of the game's own icons
@@ -34,7 +34,8 @@ local Icons = {
     -- should this client not have the atlas.
     FACTION_ATLASES = { Alliance = "UI-HUD-UnitFrame-Player-PVP-AllianceIcon", Horde = "UI-HUD-UnitFrame-Player-PVP-HordeIcon" },
     KIND_ICONS = {
-        swords = { atlas = "Crosshair_PVP_128", file = "Interface\\Icons\\Ability_DualWield" },     -- crossed swords
+        -- the game's attack cursor (its atlas Crosshair_PVP_128 is the PvP cursor, a shield)
+        swords = { file = "Interface\\Cursor\\Attack" },
         -- a gray "..." bubble: the game's quest-in-progress icon (QuestUtils.lua:199)
         dots = { atlas = "SideInProgressquesticon", file = "Interface\\GossipFrame\\IncompleteQuestIcon" },
         talk = { atlas = "Crosshair_Speak_128", file = "Interface\\GossipFrame\\GossipGossipIcon" }, -- a speech bubble
@@ -147,7 +148,7 @@ Icons.KIND_CHOICES = {
     otherFactionIcon = { { id = "faction", label = "Faction" }, { id = "class", label = "Class" } },
     friendlyNpcIcon = { { id = "job", label = "Their job" } },
     neutralNpcIcon = { { id = "dots", label = "Gray dots" } },
-    enemyNpcIcon = { { id = "swords", label = "Crossed swords" } },
+    enemyNpcIcon = { { id = "swords", label = "Sword" } },
 }
 
 -- A kind of target's choices, in order: None, its own, the raid markers, the
