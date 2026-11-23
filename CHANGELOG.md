@@ -3,6 +3,8 @@
 ## 1.1.3
 
 - Enemy NPCs: a sword, the game's attack cursor, instead of a shield that looked out of place
+- The sword is gray while none of your action bar spells can reach the target, and in color once one can
+- Neutral NPCs can have the sword too
 
 ## 1.1.2
 

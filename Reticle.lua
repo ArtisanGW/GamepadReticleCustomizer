@@ -50,7 +50,7 @@ function Reticle.GameDotAlpha() return gameDotAlpha end
 -- with their nameplates off, as by default, or one off screen) keeps the reticle:
 -- the icon follows what your nameplate settings show. So does a reticle left in
 -- the middle of the screen, where the game puts it: an icon there would mark
--- nothing. { icon, texture or atlas, size, tinted }.
+-- nothing. { icon, texture or atlas, size, tinted, gray }.
 function Reticle.Choose(settings, target)
     local kindKey = addon.TargetKindKey(target)
     local choice = kindKey and settings[kindKey] or "none"
@@ -59,7 +59,8 @@ function Reticle.Choose(settings, target)
         if look then
             local iconSize = addon.Clamp(settings.iconSize, addon.SIZE_MIN, addon.SIZE_MAX, addon.DEFAULTS.iconSize)
             return { icon = choice, atlas = look.atlas, texture = look.texture, texCoord = look.texCoord,
-                cursorUnit = look.cursorUnit, size = iconSize, tinted = false }
+                cursorUnit = look.cursorUnit, size = iconSize, tinted = false,
+                gray = addon.Range and addon.Range.SwordGray(choice) or false }   -- Range.lua
         end
     end
     -- The reticle: a shape that can't be drawn now (a Jiberish one without the
@@ -105,6 +106,7 @@ function Reticle.Paint(shape, border, look, zoom)
     else
         shape:SetVertexColor(1, 1, 1, 1)   -- an icon keeps its own colors
     end
+    shape:SetDesaturated(look.gray == true)   -- a sword out of reach (Range.lua)
     if borderSize > 0 then
         setPicture(border, look)
         border:SetSize((look.size + 2 * borderSize) * zoom, (look.size + 2 * borderSize) * zoom)
@@ -167,7 +169,8 @@ function addon.UpdateReticle()
     layer:Show()
     dot:SetAlpha(0)
     drawn = { icon = look.icon, texture = look.texture, atlas = look.atlas, texCoord = look.texCoord, size = look.size,
-        cursorUnit = look.cursorUnit,
+        cursorUnit = look.cursorUnit, gray = look.gray,
         borderSize = borderSize }
+    if addon.Range then addon.Range.Watch(look.icon == "swords", look.gray) end
     if addon.Preview then addon.Preview.Refresh() end
 end

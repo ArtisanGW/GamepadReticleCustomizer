@@ -17,7 +17,8 @@
 --                     as the game shows it; the reticle when there's nothing to interact
 --                     with; a speech bubble when the game doesn't say
 --   "dots"            the game's gray "..." bubble (neutral NPCs)
---   "swords"          a sword, the game's attack cursor (enemy NPCs)
+--   "swords"          a sword, the game's attack cursor (enemy and neutral NPCs),
+--                     gray while none of your spells reach the target (Range.lua)
 --   "marker1".."8"    the game's raid target markers: star, circle, diamond,
 --                     triangle, moon, square, cross, skull
 --   "icon:<key>"      one of GAME_ICONS, a hand-picked set of the game's own icons
@@ -147,7 +148,7 @@ Icons.KIND_CHOICES = {
     friendlyPlayerIcon = { { id = "faction", label = "Faction" }, { id = "class", label = "Class" } },
     otherFactionIcon = { { id = "faction", label = "Faction" }, { id = "class", label = "Class" } },
     friendlyNpcIcon = { { id = "job", label = "Their job" } },
-    neutralNpcIcon = { { id = "dots", label = "Gray dots" } },
+    neutralNpcIcon = { { id = "dots", label = "Gray dots" }, { id = "swords", label = "Sword" } },
     enemyNpcIcon = { { id = "swords", label = "Sword" } },
 }
 

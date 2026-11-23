@@ -16,6 +16,7 @@ SavedSettings.lua
 Color.lua
 Icons.lua
 Target.lua
+Range.lua
 Reticle.lua
 PickerSticks.lua
 Popup.lua

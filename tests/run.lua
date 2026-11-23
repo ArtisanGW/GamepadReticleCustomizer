@@ -65,6 +65,7 @@ local function newRegion(parent)
     function region:GetTexture() return self.texture end
     function region:SetColorTexture(red, green, blue, alpha) self.color = { red, green, blue, alpha } end
     function region:SetVertexColor(red, green, blue, alpha) self.color = { red, green, blue, alpha or 1 } end
+    function region:SetDesaturated(desaturated) self.desaturated = desaturated end
     function region:GetVertexColor() return unpack(self.color) end
     function region:GetEffectiveScale() return 1 end
     function region:GetCenter() return 640, 400 end
@@ -96,6 +97,10 @@ end
 local function boot(options)
     options = options or {}
     game = { frames = {}, settings = {}, callbacks = {}, controls = {}, time = 100, printed = {}, timers = {} }
+    -- Action slots: game.actions[slot] = true (in range), false (out), "unknown" (can't tell).
+    game.actions = {}
+    _G.HasAction = function(slot) return game.actions[slot] ~= nil end
+    _G.IsActionInRange = function(slot) local inRange = game.actions[slot]; if inRange == "unknown" then return nil end; return inRange end
     -- Something putting the reticle under the target's nameplate as the target or
     -- the plates change (the game lets any addon move it), unless
     -- options.reticleOnTarget == false: then it stays where the game puts it.
@@ -1127,7 +1132,7 @@ end)
 test("the release leaves Debug.lua out: ignored by .pkgmeta, and gone from the release .toc", function()
     assert(readFile(".pkgmeta"):find("\n  %- Debug%.lua\n"), ".pkgmeta ignores Debug.lua, alone on its line")
     eq(table.concat(tocFiles(true), ","),
-        "SavedSettings.lua,Color.lua,Icons.lua,Target.lua,Reticle.lua,PickerSticks.lua,Popup.lua,Preview.lua,RelatedAddons.lua,GamepadReticleCustomizer.lua")
+        "SavedSettings.lua,Color.lua,Icons.lua,Target.lua,Range.lua,Reticle.lua,PickerSticks.lua,Popup.lua,Preview.lua,RelatedAddons.lua,GamepadReticleCustomizer.lua")
     eq(tocFiles()[#tocFiles()], "Debug.lua", "the repo's .toc loads it last")
 end)
 
@@ -1242,6 +1247,23 @@ test("friendly NPCs, Their job: the game's own interaction icon for them, else a
     eq(GamepadReticleCustomizer.Reticle.Drawn().icon, "dot", "nothing to interact with (the plain pointer): the reticle")
     setTarget({ isPlayer = false, reaction = 5, controlled = true }); runUntilNoTimersLeft()
     eq(GamepadReticleCustomizer.Reticle.Drawn().icon, "dot", "another player's pet: the reticle")
+end)
+
+test("the sword: gray while none of your spells reach the target, in color once one does", function()
+    boot({ saved = { enemyNpcIcon = "swords", neutralNpcIcon = "swords" } })
+    game.actions = { [1] = false, [2] = "unknown" }
+    setTarget({ isPlayer = false, reaction = 2 })
+    eq(layer().shape.desaturated, true, "out of reach: gray")
+    local watcher = GamepadReticleCustomizer.Range.watcher
+    game.actions[5] = true
+    watcher.scripts.OnUpdate(watcher, 1)
+    eq(layer().shape.desaturated, false, "a spell reaches it: colored")
+    game.actions = { [2] = "unknown" }
+    setTarget({ isPlayer = false, reaction = 4 })
+    eq(drawnLook(), "Interface\\Cursor\\Attack", "a neutral NPC can have the sword too")
+    eq(layer().shape.desaturated, false, "no spell can tell: colored")
+    setTarget({ isPlayer = true, classFile = "MAGE", reaction = 5, faction = "Horde" })
+    eq(layer().shape.desaturated, false, "not a sword: never gray")
 end)
 
 test("on a client without those atlases: the game's icon files instead", function()
