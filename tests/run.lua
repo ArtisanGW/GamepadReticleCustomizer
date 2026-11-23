@@ -1270,7 +1270,7 @@ test("neutral NPCs: a yellow paw or the neutral shield, gray out of reach like t
     boot({ saved = { neutralNpcIcon = "paw" } })
     game.actions = { [1] = true }
     setTarget({ isPlayer = false, reaction = 4 })
-    eq(drawnLook(), "Interface\\AddOns\\GamepadReticleCustomizer\\Media\\paw")
+    eq(drawnLook(), "Interface\\AddOns\\GamepadReticleCustomizer\\Media\\paw.png")
     eq(colorOf(layer().shape), "1.00 0.82 0.00 1.00", "in reach: yellow")
     game.actions = { [1] = false }
     setTarget({ isPlayer = false, reaction = 4 })

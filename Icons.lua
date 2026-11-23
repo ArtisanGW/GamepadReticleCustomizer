@@ -41,8 +41,8 @@ local Icons = {
         -- the game's attack cursor (its atlas Crosshair_PVP_128 is the PvP cursor, a shield)
         swords = { file = "Interface\\Cursor\\Attack" },
         -- white, drawn in color: the game's tiny pet paw atlas blurs at reticle sizes
-        paw = { file = "Interface\\AddOns\\GamepadReticleCustomizer\\Media\\paw", color = { 1, 0.82, 0 } },
-        shield = { atlas = "honorsystem-portrait-neutral", file = "Interface\\AddOns\\GamepadReticleCustomizer\\Media\\paw" },
+        paw = { file = "Interface\\AddOns\\GamepadReticleCustomizer\\Media\\paw.png", color = { 1, 0.82, 0 } },
+        shield = { atlas = "honorsystem-portrait-neutral", file = "Interface\\AddOns\\GamepadReticleCustomizer\\Media\\paw.png" },
         -- a gray "..." bubble: the game's quest-in-progress icon (QuestUtils.lua:199)
         dots = { atlas = "SideInProgressquesticon", file = "Interface\\GossipFrame\\IncompleteQuestIcon" },
         talk = { atlas = "Crosshair_Speak_128", file = "Interface\\GossipFrame\\GossipGossipIcon" }, -- a speech bubble
