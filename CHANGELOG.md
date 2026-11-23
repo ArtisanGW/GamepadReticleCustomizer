@@ -4,6 +4,7 @@
 
 - Neutral NPCs: three more icons, the game's Alliance shield, Horde shield and PvP badge, each gray out of reach like the sword
 - Neutral and enemy NPCs: the game's War Mode crossed swords, gray out of reach too
+- The border is an outline now, so open shapes like a cross get it on every side
 
 ## 1.1.3
 

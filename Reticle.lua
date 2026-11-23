@@ -1,6 +1,7 @@
 -- Draws the customized reticle on the game's own: its shape (Icons.lua) at its
 -- size and color, or while you have a target the icon chosen for one, with a
--- border behind either (the same picture, larger, in the border color).
+-- border behind either (an outline: the same picture in the border color, shifted
+-- out in 8 directions, so open shapes like a cross get it on every side too).
 --
 -- Enhance, don't replace: the drawing is our own frame, a child of the game's
 -- GamepadReticle.Icons, so it shows, hides and fades with the game's dot (the game
@@ -94,6 +95,24 @@ local function setPicture(texture, look)
     end
 end
 
+-- The outline's 8 shifts, around a circle: a larger copy behind the shape (as
+-- before) left open shapes bare inside and along their sides. Where copies
+-- overlap, a see-through border color shows a little darker.
+Reticle.OUTLINE_DIRECTIONS = { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 },
+    { 0.7071, 0.7071 }, { -0.7071, 0.7071 }, { 0.7071, -0.7071 }, { -0.7071, -0.7071 } }
+
+-- The border texture and its 7 sibling copies, made once (same layer, same parent).
+local function outlineCopies(border)
+    if not border.outlineCopies then
+        local copies = { border }
+        for index = 2, #Reticle.OUTLINE_DIRECTIONS do
+            copies[index] = border:GetParent():CreateTexture(nil, "BORDER")
+        end
+        border.outlineCopies = copies
+    end
+    return border.outlineCopies
+end
+
 -- Paints a look (from Choose) on a shape texture and the border texture behind it,
 -- in the saved colors and border size (also the settings page's preview).
 -- zoom (optional, 1 by default): the preview's magnified view, size and border alike.
@@ -112,13 +131,19 @@ function Reticle.Paint(shape, border, look, zoom)
         shape:SetVertexColor(1, 1, 1, 1)   -- an icon keeps its own colors
     end
     shape:SetDesaturated(look.gray == true)   -- out of reach (Range.lua)
-    if borderSize > 0 then
-        setPicture(border, look)
-        border:SetSize((look.size + 2 * borderSize) * zoom, (look.size + 2 * borderSize) * zoom)
-        border:SetVertexColor(addon.ParseColor(addon.Color("borderColor")))
-        border:Show()
-    else
-        border:Hide()
+    local copies = outlineCopies(border)
+    for index, copy in ipairs(copies) do
+        if borderSize > 0 then
+            local direction = Reticle.OUTLINE_DIRECTIONS[index]
+            setPicture(copy, look)
+            copy:SetSize(look.size * zoom, look.size * zoom)
+            copy:ClearAllPoints()
+            copy:SetPoint("CENTER", shape, "CENTER", direction[1] * borderSize * zoom, direction[2] * borderSize * zoom)
+            copy:SetVertexColor(addon.ParseColor(addon.Color("borderColor")))
+            copy:Show()
+        else
+            copy:Hide()
+        end
     end
     return borderSize
 end

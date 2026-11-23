@@ -211,7 +211,7 @@ function addon.RegisterSettings()
         "A border around the reticle or the icon.\n\n"
         .. "• Off: no border\n"
         .. "• 1 to 10: how wide it is\n\n"
-        .. "It's the same picture, larger, behind it, in the border color.")
+        .. "An outline around it, in the border color.")
     if canSwatch then
         addSwatch("borderColor", "Border color", "The border's color and opacity.")
         addButton(" ", "Reset border color", function() addon.ResetColor("borderColor") end,

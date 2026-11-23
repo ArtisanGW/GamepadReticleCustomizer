@@ -211,7 +211,9 @@ local function checkLook(label, step)
     local borderSize = settings.borderSize
     expectEqual(label .. ": border shown", borderSize > 0, layer.border:IsShown())
     if borderSize > 0 then
-        expectNear(label .. ": border size", expected.size + 2 * borderSize, layer.border:GetWidth())
+        -- an outline: copies at the shape's size, the first shifted right by the border
+        expectNear(label .. ": border size", expected.size, layer.border:GetWidth())
+        expectNear(label .. ": border shift", borderSize, select(4, layer.border:GetPoint(1)) or 0)
         expectEqual(label .. ": border color", addon.Color("borderColor"), colorText(layer.border))
     end
     record.onScreen = reticleOnScreen(layer.shape)

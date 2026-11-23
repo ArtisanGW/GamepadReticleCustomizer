@@ -27,15 +27,18 @@ end
 
 -- Fake regions: frames, textures, font strings and edit boxes, with what the addon uses.
 local game
+local function outlined(border) return border:GetWidth() + 2 * border.offset[1] end
+
 local function newRegion(parent)
     local region = { parent = parent, shown = true, alpha = 1, width = 0, height = 0, color = { 1, 1, 1, 1 } }
-    function region:SetPoint(_, relativeTo) self.relativeTo = relativeTo end
+    function region:SetPoint(_, relativeTo, _, x, y) self.relativeTo, self.offset = relativeTo, { x or 0, y or 0 } end
+    function region:GetParent() return self.parent end
     -- As the game: anchored to a restricted region (a nameplate), it can't be measured.
     function region:GetPoint()
         if type(self.relativeTo) == "table" and self.relativeTo.restricted then
             error("GetPoint(): Action[FrameMeasurement] failed because[Can't measure restricted regions]")
         end
-        if self.relativeTo then return "CENTER", self.relativeTo, "CENTER", 0, 0 end
+        if self.relativeTo then return "CENTER", self.relativeTo, "CENTER", (self.offset or {})[1] or 0, (self.offset or {})[2] or 0 end
     end
     function region:SetAllPoints() end
     function region:SetSize(width, height) self.width, self.height = width, height end
@@ -450,11 +453,17 @@ test("size and border: the slider values, clamped; border 0 hides it", function(
     eq(layer().shape:GetWidth(), 24); eq(layer().shape:GetHeight(), 24)
     setting("borderSize"):SetValue(3)
     eq(layer().border:IsShown(), true)
-    eq(layer().border:GetWidth(), 30, "the size plus the border on each side")
-    eq(layer().border.texture, layer().shape.texture, "the same shape, behind it")
-    eq(colorOf(layer().border), "0.00 0.00 0.00 1.00", "black by default")
+    local copies = layer().border.outlineCopies
+    eq(#copies, 8, "an outline: 8 copies")
+    eq(layer().border:GetWidth(), layer().shape:GetWidth(), "each the shape's own size")
+    eq(table.concat(copies[1].offset, " "), "3 0", "shifted out by the border")
+    eq(table.concat(copies[4].offset, " "), "0 -3")
+    eq(copies[8].relativeTo, layer().shape, "around the shape")
+    eq(copies[8].texture, layer().shape.texture, "the same shape, behind it")
+    eq(colorOf(copies[8]), "0.00 0.00 0.00 1.00", "black by default")
     setting("borderSize"):SetValue(0)
     eq(layer().border:IsShown(), false)
+    eq(copies[8]:IsShown(), false, "all of it")
     setting("size"):SetValue(500)
     eq(layer().shape:GetWidth(), 64, "clamped to the slider's end")
     setting("size"):SetValue("nonsense")
@@ -635,7 +644,8 @@ test("icons show only while you have a target, at the icon size, in their own co
     eq(layer().shape.texture, "Interface\\TargetingFrame\\UI-RaidTargetingIcon_8", "a target: the skull")
     eq(layer().shape:GetWidth(), 30, "at the icon size")
     eq(colorOf(layer().shape), "1.00 1.00 1.00 1.00", "in its own colors")
-    eq(layer().border:GetWidth(), 34, "the border around it")
+    eq(layer().border:GetWidth(), 30, "the border: an outline, copies at its size")
+    eq(layer().border.offset[1], 2, "shifted out by the border")
     eq(layer().shape.texCoord[2], 1, "shown whole")
     setTarget(nil)
     eq(layer().shape.texture, "Interface\\CharacterFrame\\TempPortraitAlphaMask", "target gone: the reticle back")
@@ -905,16 +915,17 @@ test("the preview shows beside our settings page only, with the reticle and the 
     local width, height = preview:GetWidth(), preview:GetHeight()
     eq(preview.reticle.shape.texture, "Interface\\CharacterFrame\\TempPortraitAlphaMask")
     -- Zoomed: the reticle and its border fill 80% of the 120 cell (96): 10 + 2 x 2 = 14 wide becomes 96.
-    near(preview.reticle.border:GetWidth(), 96, "zoomed to fill the cell"); near(preview.reticle.shape:GetWidth(), 96 * 10 / 14)
+    near(preview.reticle.shape:GetWidth(), 96 * 10 / 14, "zoomed to fill the cell")
+    near(preview.reticle.border.offset[1], 2 * 96 / 14, "the outline zoomed too")
     eq(colorOf(preview.reticle.shape), "1.00 0.19 0.19 1.00")
     eq(preview.reticle.realShape:GetWidth(), 10, "and at its real size in the corner")
-    eq(preview.reticle.realBorder:GetWidth(), 14)
+    eq(preview.reticle.realBorder:GetWidth(), 10)
     eq(preview.onTarget.shape.texture, "Interface\\TargetingFrame\\UI-RaidTargetingIcon_8")
-    near(preview.onTarget.border:GetWidth(), 96, "an icon zoomed the same")
-    near(preview.onTarget.realBorder:GetWidth(), 32, "an icon bigger than the corner: shrunk to fit it (40 x 80%)")
+    near(outlined(preview.onTarget.border), 96, "an icon zoomed the same")
+    near(outlined(preview.onTarget.realBorder), 32, "an icon bigger than the corner: shrunk to fit it (40 x 80%)")
     setting("size"):SetValue(20)
     eq(preview.reticle.realShape:GetWidth(), 20, "redrawn on a change")
-    near(preview.reticle.border:GetWidth(), 96, "the zoomed view still fills the cell")
+    near(outlined(preview.reticle.border), 96, "the zoomed view still fills the cell")
     eq(preview:GetWidth(), width); eq(preview:GetHeight(), height, "the window keeps its size")
     choose("friendlyPlayerIcon", "class")
     eq(preview.onTarget.shape.texture, "classicons-file", "a player's class: your own as the example")
