@@ -49,8 +49,7 @@ local Icons = {
         shield = { atlas = "honorsystem-portrait-neutral", file = "Interface\\AddOns\\GamepadReticleCustomizer\\Media\\paw.png" },
         allianceShield = { atlas = "honorsystem-portrait-alliance", file = "Interface\\TargetingFrame\\UI-PVP-Alliance" },
         hordeShield = { atlas = "honorsystem-portrait-horde", file = "Interface\\TargetingFrame\\UI-PVP-Horde" },
-        -- the older file, not the UI-HUD-UnitFrame-Player-PVP-FFAIcon atlas: too small to stay sharp
-        ffaBadge = { file = "Interface\\TargetingFrame\\UI-PVP-FFA" },
+        ffaBadge = { atlas = "UI-HUD-UnitFrame-Player-PVP-FFAIcon", file = "Interface\\TargetingFrame\\UI-PVP-FFA" },
         warMode = { atlas = "pvptalents-warmode-swords", file = "Interface\\Cursor\\Attack" },
         -- a gray "..." bubble: the game's quest-in-progress icon (QuestUtils.lua:199)
         dots = { atlas = "SideInProgressquesticon", file = "Interface\\GossipFrame\\IncompleteQuestIcon" },
