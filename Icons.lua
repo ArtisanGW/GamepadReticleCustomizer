@@ -23,6 +23,7 @@
 --   "allianceShield", "hordeShield", "ffaBadge"
 --                     the game's Alliance and Horde shields and its free-for-all PvP
 --                     badge (neutral NPCs), gray out of reach too
+--   "warMode"         the game's War Mode crossed swords (enemy and neutral NPCs), gray out of reach too
 --   "swords"          a sword, the game's attack cursor (enemy and neutral NPCs),
 --                     gray while none of your spells reach the target (Range.lua)
 --   "marker1".."8"    the game's raid target markers: star, circle, diamond,
@@ -49,6 +50,7 @@ local Icons = {
         allianceShield = { atlas = "honorsystem-portrait-alliance", file = "Interface\\TargetingFrame\\UI-PVP-Alliance" },
         hordeShield = { atlas = "honorsystem-portrait-horde", file = "Interface\\TargetingFrame\\UI-PVP-Horde" },
         ffaBadge = { atlas = "UI-HUD-UnitFrame-Player-PVP-FFAIcon", file = "Interface\\TargetingFrame\\UI-PVP-FFA" },
+        warMode = { atlas = "pvptalents-warmode-swords", file = "Interface\\Cursor\\Attack" },
         -- a gray "..." bubble: the game's quest-in-progress icon (QuestUtils.lua:199)
         dots = { atlas = "SideInProgressquesticon", file = "Interface\\GossipFrame\\IncompleteQuestIcon" },
         talk = { atlas = "Crosshair_Speak_128", file = "Interface\\GossipFrame\\GossipGossipIcon" }, -- a speech bubble
@@ -162,8 +164,8 @@ Icons.KIND_CHOICES = {
     friendlyNpcIcon = { { id = "job", label = "Their job" } },
     neutralNpcIcon = { { id = "dots", label = "Gray dots" }, { id = "paw", label = "Paw" }, { id = "shield", label = "Shield" },
         { id = "allianceShield", label = "Alliance shield" }, { id = "hordeShield", label = "Horde shield" },
-        { id = "ffaBadge", label = "PvP badge" }, { id = "swords", label = "Sword" } },
-    enemyNpcIcon = { { id = "swords", label = "Sword" } },
+        { id = "ffaBadge", label = "PvP badge" }, { id = "swords", label = "Sword" }, { id = "warMode", label = "War Mode swords" } },
+    enemyNpcIcon = { { id = "swords", label = "Sword" }, { id = "warMode", label = "War Mode swords" } },
 }
 
 -- A kind of target's choices, in order: None, its own, the raid markers, the

@@ -142,7 +142,7 @@ local function boot(options)
     -- The game's atlases for kinds of target (none, with options.noKindAtlases).
     local kindAtlases = { ["UI-HUD-UnitFrame-Player-PVP-AllianceIcon"] = true, ["UI-HUD-UnitFrame-Player-PVP-HordeIcon"] = true,
         ["honorsystem-portrait-neutral"] = true, ["honorsystem-portrait-alliance"] = true,
-        ["honorsystem-portrait-horde"] = true, ["UI-HUD-UnitFrame-Player-PVP-FFAIcon"] = true, ["SideInProgressquesticon"] = true, ["Crosshair_Speak_128"] = true }
+        ["honorsystem-portrait-horde"] = true, ["UI-HUD-UnitFrame-Player-PVP-FFAIcon"] = true, ["pvptalents-warmode-swords"] = true, ["SideInProgressquesticon"] = true, ["Crosshair_Speak_128"] = true }
     _G.C_Texture = { GetAtlasInfo = function(atlas)
         if atlas:find("^classicon%-") and options.classAtlases ~= false then
             return { file = "classicons-file", leftTexCoord = 0.5, rightTexCoord = 0.75, topTexCoord = 0.25, bottomTexCoord = 0.5 }
@@ -1281,7 +1281,7 @@ test("neutral NPCs: a yellow paw or the neutral shield, gray out of reach like t
     setTarget({ isPlayer = false, reaction = 4 })
     eq(layer().shape.desaturated, true, "the shield: gray out of reach")
     for choice, atlas in pairs({ allianceShield = "honorsystem-portrait-alliance", hordeShield = "honorsystem-portrait-horde",
-        ffaBadge = "UI-HUD-UnitFrame-Player-PVP-FFAIcon" }) do
+        ffaBadge = "UI-HUD-UnitFrame-Player-PVP-FFAIcon", warMode = "pvptalents-warmode-swords" }) do
         boot({ saved = { neutralNpcIcon = choice } })
         game.actions = { [1] = false }
         setTarget({ isPlayer = false, reaction = 4 })

@@ -9,7 +9,7 @@ local _, addon = ...
 
 local Range = {
     CHECK_SECONDS = 0.25,
-    ICONS = { swords = true, paw = true, shield = true, allianceShield = true, hordeShield = true, ffaBadge = true },   -- the choices drawn gray out of reach
+    ICONS = { swords = true, paw = true, shield = true, allianceShield = true, hordeShield = true, ffaBadge = true, warMode = true },   -- the choices drawn gray out of reach
     LAST_SLOT = 180,   -- every action bar's slots, the bonus ones (forms, vehicles) too
 }
 addon.Range = Range
