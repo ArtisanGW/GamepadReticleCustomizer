@@ -642,7 +642,7 @@ end)
 Debug.eventFrame = CreateFrame("Frame")
 Debug.eventFrame:RegisterEvent("PLAYER_LOGIN")
 Debug.eventFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
-Debug.eventFrame:SetScript("OnEvent", function(self, event)
+Debug.eventFrame:SetScript("OnEvent", function(_, event)
     if event == "PLAYER_LOGIN" then
         bindKeys()
         -- What the game says about Jiberish Fabled Icons' switch, at login.
