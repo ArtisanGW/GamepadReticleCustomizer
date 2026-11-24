@@ -4,13 +4,15 @@
 local reportLine = print   -- the tests replace print to read what the addon says
 local failed, passed = 0, 0
 local only = os.getenv("GRC_TEST")   -- run only the tests whose name holds this
-local function test(name, fn)
+local function test(name, testBody)
     if only and not name:find(only, 1, true) then return end
-    local ok, err = xpcall(fn, debug.traceback)
+    local ok, err = xpcall(testBody, debug.traceback)
     if ok then passed = passed + 1 else failed = failed + 1; reportLine("FAIL " .. name .. "\n" .. err) end
 end
-local function eq(a, b, msg) if a ~= b then error((msg or "") .. ": expected " .. tostring(b) .. ", got " .. tostring(a), 2) end end
-local function near(a, b, msg) if math.abs(a - b) > 0.01 then error((msg or "") .. ": expected " .. b .. ", got " .. a, 2) end end
+local function expectEqual(actual, expected, message)
+    if actual ~= expected then error((message or "") .. ": expected " .. tostring(expected) .. ", got " .. tostring(actual), 2) end
+end
+local function near(actual, expected, message) if math.abs(actual - expected) > 0.01 then error((message or "") .. ": expected " .. expected .. ", got " .. actual, 2) end end
 local function readFile(path) local file = assert(io.open(path)); local text = file:read("*a"); file:close(); return text end
 
 -- The files the .toc loads, in its order; releaseBuild: as the packager makes it
@@ -62,8 +64,8 @@ local function newRegion(parent)
     function region:SetTexCoord(...) self.texCoord = { ... } end
     -- As the game: the four corners, upper left, lower left, upper right, lower right.
     function region:GetTexCoord()
-        local c = self.texCoord or { 0, 1, 0, 1 }   -- left, right, top, bottom as set
-        return c[1], c[3], c[1], c[4], c[2], c[3], c[2], c[4]
+        local coords = self.texCoord or { 0, 1, 0, 1 }   -- left, right, top, bottom as set
+        return coords[1], coords[3], coords[1], coords[4], coords[2], coords[3], coords[2], coords[4]
     end
     function region:GetTexture() return self.texture end
     function region:SetColorTexture(red, green, blue, alpha) self.color = { red, green, blue, alpha } end
@@ -125,7 +127,7 @@ local function boot(options)
         local original = object[method]
         object[method] = function(...) local result = original(...); hook(...); return result end
     end
-    _G.C_Timer = { After = function(_, fn) game.timers[#game.timers + 1] = fn end }
+    _G.C_Timer = { After = function(_, callback) game.timers[#game.timers + 1] = callback end }
     _G.InCombatLockdown = function() return game.combat == true end
     _G.UIParent = newRegion(nil)
     function UIParent:GetHeight() return 768 end
@@ -239,7 +241,7 @@ local function boot(options)
             game.settings[variable] = setting
             return setting
         end,
-        SetOnValueChangedCallback = function(variable, fn) game.callbacks[variable] = fn end,
+        SetOnValueChangedCallback = function(variable, callback) game.callbacks[variable] = callback end,
         RegisterProxySetting = function(_, variable, _, label, _, getValue, setValue)
             local setting = { variable = variable, label = label, getValue = getValue, setValue = setValue }
             game.settings[variable] = setting
@@ -248,7 +250,7 @@ local function boot(options)
         CreateCheckbox = function(_, setting, tooltip) addControl("checkbox", setting, { tooltip = tooltip }) end,
         CreateSlider = function(_, setting, sliderOptions, tooltip) sliderOptions.tooltip = tooltip; addControl("slider", setting, sliderOptions) end,
         CreateSliderOptions = function(minimum, maximum, step)
-            return { minimum = minimum, maximum = maximum, step = step, SetLabelFormatter = function(self, _, fn) self.format = fn end }
+            return { minimum = minimum, maximum = maximum, step = step, SetLabelFormatter = function(self, _, formatter) self.format = formatter end }
         end,
         CreateControlTextContainer = function()
             local container = { data = {} }
@@ -291,15 +293,15 @@ local function boot(options)
     game.picker = { hooks = {}, hsv = { 120, 1, 0.5 } }
     _G.ColorPickerFrame = {
         IsShown = function() return game.picker.shown == true end,
-        HookScript = function(_, script, fn) game.picker.hooks[script] = fn end,
+        HookScript = function(_, script, hook) game.picker.hooks[script] = hook end,
         Show = function() game.picker.shown = true; if game.picker.hooks.OnShow then game.picker.hooks.OnShow() end end,
         Hide = function() game.picker.shown = false; if game.picker.hooks.OnHide then game.picker.hooks.OnHide() end end,
         Content = {
             ColorPicker = {
                 GetColorHSV = function() return game.picker.hsv[1], game.picker.hsv[2], game.picker.hsv[3] end,
-                SetColorHSV = function(_, h, s, v) game.picker.hsv = { h, s, v } end,
+                SetColorHSV = function(_, hue, saturation, brightness) game.picker.hsv = { hue, saturation, brightness } end,
                 GetColorAlpha = function() return game.picker.alpha end,
-                SetColorAlpha = function(_, a) game.picker.alpha = a end,
+                SetColorAlpha = function(_, alpha) game.picker.alpha = alpha end,
                 SetWidth = function() end,
                 Alpha = { Show = function() game.picker.barShown = true end },
                 AlphaThumb = { Show = function() end },
@@ -321,7 +323,7 @@ local function boot(options)
     _G.GamepadReticleCustomizerDB = options.saved
     _G.GamepadReticleCustomizerDebugDB = options.debugSaved
     _G.GamepadReticleCustomizerPopup = nil
-    _G.print = function(t) game.printed[#game.printed + 1] = t end
+    _G.print = function(text) game.printed[#game.printed + 1] = text end
     local namespace = {}
     for _, fileName in ipairs(tocFiles(options.releaseBuild)) do assert(loadfile(fileName))("GamepadReticleCustomizer", namespace) end
     fire("ADDON_LOADED", "GamepadReticleCustomizer")
@@ -330,9 +332,9 @@ local function boot(options)
 end
 -- Changes the target as the game does: then PLAYER_TARGET_CHANGED.
 local function setTarget(target) game.target = target; game.fire("PLAYER_TARGET_CHANGED") end
-local function frame() local timers = game.timers; game.timers = {}; for _, fn in ipairs(timers) do fn() end end
+local function runNextFrame() local timers = game.timers; game.timers = {}; for _, timer in ipairs(timers) do timer() end end
 local function runUntilNoTimersLeft()
-    for _ = 1, 5000 do if #game.timers == 0 then return end; frame() end
+    for _ = 1, 5000 do if #game.timers == 0 then return end; runNextFrame() end
     error("the timers never ended")
 end
 
@@ -398,76 +400,76 @@ end
 
 test("its page under Options > AddOns, in order, with the defaults; /grc opens it", function()
     boot()
-    eq(game.category.name, "Gamepad Reticle Customizer")
-    eq(controlList(), "checkbox:Enable, slider:Size, swatch:Color, button:(Reset color), slider:Border, "
+    expectEqual(game.category.name, "Gamepad Reticle Customizer")
+    expectEqual(controlList(), "checkbox:Enable, slider:Size, swatch:Color, button:(Reset color), slider:Border, "
         .. "swatch:Border color, button:(Reset border color), "
         .. "slider:Icon size, slider:Horde players, slider:Alliance players, slider:Friendly NPCs, slider:Neutral NPCs, slider:Enemy NPCs, button:More looks, button:Camera over shoulder, button:Reticle on your target",
         "without Jiberish Fabled Icons: no one-choice Reticle or Class icons slider; its button, More looks")
     boot({ jiberish = true })
-    eq(controlList(), "checkbox:Enable, slider:Reticle, slider:Size, swatch:Color, button:(Reset color), slider:Border, "
+    expectEqual(controlList(), "checkbox:Enable, slider:Reticle, slider:Size, swatch:Color, button:(Reset color), slider:Border, "
         .. "swatch:Border color, button:(Reset border color), "
         .. "slider:Icon size, slider:Horde players, slider:Horde class icons, slider:Alliance players, slider:Alliance class icons, "
         .. "slider:Friendly NPCs, slider:Neutral NPCs, slider:Enemy NPCs, button:Camera over shoulder, button:Reticle on your target",
         "with it: the shapes, and each player row's class style right under it, always")
     boot()
     local saved = GamepadReticleCustomizerDB
-    eq(saved.enabled, true); eq(saved.color, "FFFFFFFF"); eq(saved.size, 4); eq(saved.borderSize, 0)
-    eq(saved.borderColor, "000000FF"); eq(saved.icon, "dot")
+    expectEqual(saved.enabled, true); expectEqual(saved.color, "FFFFFFFF"); expectEqual(saved.size, 4); expectEqual(saved.borderSize, 0)
+    expectEqual(saved.borderColor, "000000FF"); expectEqual(saved.icon, "dot")
     for _, key in ipairs({ "friendlyPlayerIcon", "otherFactionIcon", "friendlyNpcIcon", "neutralNpcIcon", "enemyNpcIcon" }) do
-        eq(saved[key], "none", key .. ": nothing on a target by default")
+        expectEqual(saved[key], "none", key .. ": nothing on a target by default")
     end
-    eq(saved.iconSize, 32)
-    eq(control("slider", "Size").extra.format(4), "4 (default)"); eq(control("slider", "Size").extra.format(24), "24")
-    eq(control("slider", "Border").extra.format(0), "Off"); eq(control("slider", "Border").extra.format(3), "3")
+    expectEqual(saved.iconSize, 32)
+    expectEqual(control("slider", "Size").extra.format(4), "4 (default)"); expectEqual(control("slider", "Size").extra.format(24), "24")
+    expectEqual(control("slider", "Border").extra.format(0), "Off"); expectEqual(control("slider", "Border").extra.format(3), "3")
     SlashCmdList.GAMEPADRETICLECUSTOMIZER("")
-    eq(game.opened, 42)
+    expectEqual(game.opened, 42)
 end)
 
 -- Drawing
 
 test("at login: our reticle drawn on the game's, the game's dot see-through, your settings on it", function()
     boot({ saved = { color = "C351B4E4", size = 10 } })
-    eq(layer().parent, GamepadReticle.Icons, "a child of the game's Icons: shows, hides and fades with it")
-    eq(layer().relativeTo, GamepadReticle.Icons.StandardIcon, "centered on the game's dot")
-    eq(layer():IsShown(), true)
-    eq(GamepadReticle.Icons.StandardIcon:GetAlpha(), 0, "the game's dot see-through, not hidden or changed")
-    eq(GamepadReticle.Icons.StandardIcon.texture, "Interface\\CharacterFrame\\TempPortraitAlphaMask", "its texture untouched")
-    eq(layer().shape.texture, "Interface\\CharacterFrame\\TempPortraitAlphaMask", "the game's dot shape")
-    eq(layer().shape:GetWidth(), 10)
-    eq(colorOf(layer().shape), string.format("%.2f %.2f %.2f %.2f", 0xC3 / 255, 0x51 / 255, 0xB4 / 255, 0xE4 / 255))
-    eq(layer().border:IsShown(), false, "no border by default")
+    expectEqual(layer().parent, GamepadReticle.Icons, "a child of the game's Icons: shows, hides and fades with it")
+    expectEqual(layer().relativeTo, GamepadReticle.Icons.StandardIcon, "centered on the game's dot")
+    expectEqual(layer():IsShown(), true)
+    expectEqual(GamepadReticle.Icons.StandardIcon:GetAlpha(), 0, "the game's dot see-through, not hidden or changed")
+    expectEqual(GamepadReticle.Icons.StandardIcon.texture, "Interface\\CharacterFrame\\TempPortraitAlphaMask", "its texture untouched")
+    expectEqual(layer().shape.texture, "Interface\\CharacterFrame\\TempPortraitAlphaMask", "the game's dot shape")
+    expectEqual(layer().shape:GetWidth(), 10)
+    expectEqual(colorOf(layer().shape), string.format("%.2f %.2f %.2f %.2f", 0xC3 / 255, 0x51 / 255, 0xB4 / 255, 0xE4 / 255))
+    expectEqual(layer().border:IsShown(), false, "no border by default")
 end)
 
 test("Enable off puts the game's dot back at its own alpha; on draws ours again", function()
     boot({ gameDotAlpha = 0.7 })
     setting("enabled"):SetValue(false)
-    eq(layer():IsShown(), false)
-    eq(GamepadReticle.Icons.StandardIcon:GetAlpha(), 0.7, "the alpha it had before we first drew")
+    expectEqual(layer():IsShown(), false)
+    expectEqual(GamepadReticle.Icons.StandardIcon:GetAlpha(), 0.7, "the alpha it had before we first drew")
     setting("enabled"):SetValue(true)
-    eq(layer():IsShown(), true); eq(GamepadReticle.Icons.StandardIcon:GetAlpha(), 0)
+    expectEqual(layer():IsShown(), true); expectEqual(GamepadReticle.Icons.StandardIcon:GetAlpha(), 0)
 end)
 
 test("size and border: the slider values, clamped; border 0 hides it", function()
     boot()
     setting("size"):SetValue(24)
-    eq(layer().shape:GetWidth(), 24); eq(layer().shape:GetHeight(), 24)
+    expectEqual(layer().shape:GetWidth(), 24); expectEqual(layer().shape:GetHeight(), 24)
     setting("borderSize"):SetValue(3)
-    eq(layer().border:IsShown(), true)
+    expectEqual(layer().border:IsShown(), true)
     local copies = layer().border.outlineCopies
-    eq(#copies, 8, "an outline: 8 copies")
-    eq(layer().border:GetWidth(), layer().shape:GetWidth(), "each the shape's own size")
-    eq(table.concat(copies[1].offset, " "), "3 0", "shifted out by the border")
-    eq(table.concat(copies[4].offset, " "), "0 -3")
-    eq(copies[8].relativeTo, layer().shape, "around the shape")
-    eq(copies[8].texture, layer().shape.texture, "the same shape, behind it")
-    eq(colorOf(copies[8]), "0.00 0.00 0.00 1.00", "black by default")
+    expectEqual(#copies, 8, "an outline: 8 copies")
+    expectEqual(layer().border:GetWidth(), layer().shape:GetWidth(), "each the shape's own size")
+    expectEqual(table.concat(copies[1].offset, " "), "3 0", "shifted out by the border")
+    expectEqual(table.concat(copies[4].offset, " "), "0 -3")
+    expectEqual(copies[8].relativeTo, layer().shape, "around the shape")
+    expectEqual(copies[8].texture, layer().shape.texture, "the same shape, behind it")
+    expectEqual(colorOf(copies[8]), "0.00 0.00 0.00 1.00", "black by default")
     setting("borderSize"):SetValue(0)
-    eq(layer().border:IsShown(), false)
-    eq(copies[8]:IsShown(), false, "all of it")
+    expectEqual(layer().border:IsShown(), false)
+    expectEqual(copies[8]:IsShown(), false, "all of it")
     setting("size"):SetValue(500)
-    eq(layer().shape:GetWidth(), 64, "clamped to the slider's end")
+    expectEqual(layer().shape:GetWidth(), 64, "clamped to the slider's end")
     setting("size"):SetValue("nonsense")
-    eq(layer().shape:GetWidth(), 4, "not a number: the default")
+    expectEqual(layer().shape:GetWidth(), 4, "not a number: the default")
 end)
 
 -- Colors
@@ -475,28 +477,28 @@ end)
 test("the color: 32 bits RRGGBBAA from /grc, six digits opaque, a wrong one changes nothing", function()
     boot()
     SlashCmdList.GAMEPADRETICLECUSTOMIZER("FF3030CC")
-    eq(GamepadReticleCustomizerDB.color, "FF3030CC")
-    eq(colorOf(layer().shape), "1.00 0.19 0.19 0.80", "drawn at once")
-    eq(game.printed[#game.printed]:find("FF3030CC", 1, true) ~= nil, true, "and says so")
+    expectEqual(GamepadReticleCustomizerDB.color, "FF3030CC")
+    expectEqual(colorOf(layer().shape), "1.00 0.19 0.19 0.80", "drawn at once")
+    expectEqual(game.printed[#game.printed]:find("FF3030CC", 1, true) ~= nil, true, "and says so")
     SlashCmdList.GAMEPADRETICLECUSTOMIZER("nonsense")
-    eq(GamepadReticleCustomizerDB.color, "FF3030CC", "a wrong color changes nothing")
-    eq(game.printed[#game.printed]:find("usage", 1, true) ~= nil, true, "and says how")
+    expectEqual(GamepadReticleCustomizerDB.color, "FF3030CC", "a wrong color changes nothing")
+    expectEqual(game.printed[#game.printed]:find("usage", 1, true) ~= nil, true, "and says how")
     SlashCmdList.GAMEPADRETICLECUSTOMIZER("#00ff00")
-    eq(GamepadReticleCustomizerDB.color, "00FF00FF", "six digits: opaque")
+    expectEqual(GamepadReticleCustomizerDB.color, "00FF00FF", "six digits: opaque")
 end)
 
 test("the two swatches speak AARRGGBB, each for its own color; the opacity is kept", function()
     boot({ saved = { color = "00FF0066", borderSize = 2 } })
     local colorSwatch, borderSwatch = control("swatch", "Color").setting, control("swatch", "Border color").setting
-    eq(colorSwatch.getValue(), "FF00FF00", "alpha FF, the color")
+    expectEqual(colorSwatch.getValue(), "FF00FF00", "alpha FF, the color")
     colorSwatch.setValue("ff0000ff")
-    eq(GamepadReticleCustomizerDB.color, "0000FF66", "the picked color, the opacity kept")
+    expectEqual(GamepadReticleCustomizerDB.color, "0000FF66", "the picked color, the opacity kept")
     colorSwatch.setValue("nonsense")
-    eq(GamepadReticleCustomizerDB.color, "0000FF66", "a wrong value changes nothing")
+    expectEqual(GamepadReticleCustomizerDB.color, "0000FF66", "a wrong value changes nothing")
     borderSwatch.setValue("ffffffff")
-    eq(GamepadReticleCustomizerDB.borderColor, "FFFFFFFF", "the border's own color")
-    eq(GamepadReticleCustomizerDB.color, "0000FF66", "the reticle's untouched")
-    eq(colorOf(layer().border), "1.00 1.00 1.00 1.00", "drawn at once")
+    expectEqual(GamepadReticleCustomizerDB.borderColor, "FFFFFFFF", "the border's own color")
+    expectEqual(GamepadReticleCustomizerDB.color, "0000FF66", "the reticle's untouched")
+    expectEqual(colorOf(layer().border), "1.00 1.00 1.00 1.00", "drawn at once")
 end)
 
 test("the picker's opacity bar is for the color whose swatch opened it", function()
@@ -505,8 +507,8 @@ test("the picker's opacity bar is for the color whose swatch opened it", functio
     ColorPickerFrame:Show()
     near(game.picker.alpha, 0x40 / 255, "the border's opacity on the bar")
     ColorPickerFrame.Content.ColorPicker:SetColorAlpha(1); ColorPickerFrame.opacityFunc()
-    eq(GamepadReticleCustomizerDB.borderColor, "000000FF", "the bar sets the border's")
-    eq(GamepadReticleCustomizerDB.color, "FFFFFF80", "not the reticle's")
+    expectEqual(GamepadReticleCustomizerDB.borderColor, "000000FF", "the bar sets the border's")
+    expectEqual(GamepadReticleCustomizerDB.color, "FFFFFF80", "not the reticle's")
     ColorPickerFrame:Hide()
     game.time = game.time + 5
     control("swatch", "Color").setting.getValue()
@@ -519,19 +521,19 @@ test("controller: while the picker is open for our color, the sticks and D-pad d
     local driver = GamepadReticleCustomizer.PickerSticks.driver
     local function step(seconds) driver.scripts.OnUpdate(driver, seconds) end
     ColorPickerFrame:Show()
-    eq(driver.shown, false, "a picker opened by something else (the chat settings): left to the game")
-    eq(ColorPickerFrame.hasOpacity, nil, "and no opacity bar put on it")
+    expectEqual(driver.shown, false, "a picker opened by something else (the chat settings): left to the game")
+    expectEqual(ColorPickerFrame.hasOpacity, nil, "and no opacity bar put on it")
     ColorPickerFrame:Hide()
     SlashCmdList.GAMEPADRETICLECUSTOMIZER("FFFFFF80")
     control("swatch", "Color").setting.getValue()   -- the swatch reads the color as it opens the picker
     game.time = game.time + 0.1
     ColorPickerFrame:Show()
-    eq(driver.shown, true, "opened for the reticle color")
-    eq(ColorPickerFrame.hasOpacity, true, "the opacity bar put on the picker")
+    expectEqual(driver.shown, true, "opened for the reticle color")
+    expectEqual(ColorPickerFrame.hasOpacity, true, "the opacity bar put on the picker")
     near(game.picker.alpha, 128 / 255, "at the reticle's opacity")
     game.padUp = true; step(0.5)
     near(game.picker.alpha, 128 / 255 + 0.25, "D-pad up: more solid (0.5 a second)")
-    eq(GamepadReticleCustomizerDB.color:sub(7, 8), string.format("%02X", math.floor((128 / 255 + 0.25) * 255 + 0.5)),
+    expectEqual(GamepadReticleCustomizerDB.color:sub(7, 8), string.format("%02X", math.floor((128 / 255 + 0.25) * 255 + 0.5)),
         "and the reticle with it")
     game.padUp, game.padDown = false, true; step(10)
     near(game.picker.alpha, 0, "D-pad down: see-through, not past 0")
@@ -548,7 +550,7 @@ test("controller: while the picker is open for our color, the sticks and D-pad d
     near(game.picker.hsv[2], 1, "never past the wheel's edge")
     game.moveStickX = 0
     ColorPickerFrame:Hide()
-    eq(driver.shown, false, "picker shut: nothing runs")
+    expectEqual(driver.shown, false, "picker shut: nothing runs")
 end)
 
 test("controller: the D-pad up/down icon under the opacity bar, pressed while held", function()
@@ -573,15 +575,15 @@ test("controller: the D-pad up/down icon under the opacity bar, pressed while he
     end
     control("swatch", "Color").setting.getValue()
     ColorPickerFrame:Show()
-    eq(icon.shown, true, "shown")
-    eq(icon.atlas, "dpadupdown-normal", "the game's art for the controller in use")
-    eq(icon.point[2], ColorPickerFrame.Content.ColorPicker.Alpha, "under the opacity bar")
+    expectEqual(icon.shown, true, "shown")
+    expectEqual(icon.atlas, "dpadupdown-normal", "the game's art for the controller in use")
+    expectEqual(icon.point[2], ColorPickerFrame.Content.ColorPicker.Alpha, "under the opacity bar")
     game.padUp = true; driver.scripts.OnUpdate(driver, 0.1)
-    eq(icon.atlas, "dpadupdown-down", "pressed while held")
+    expectEqual(icon.atlas, "dpadupdown-down", "pressed while held")
     game.padUp = false; driver.scripts.OnUpdate(driver, 0.1)
-    eq(icon.atlas, "dpadupdown-normal", "back when let go")
+    expectEqual(icon.atlas, "dpadupdown-normal", "back when let go")
     ColorPickerFrame:Hide()
-    eq(icon.shown, false, "hidden with the picker")
+    expectEqual(icon.shown, false, "hidden with the picker")
     _G.InputIconTextureSetUtility, ColorPickerFrame.CreateTexture = nil, nil
 end)
 
@@ -589,114 +591,114 @@ test("keyboard: the picker gets the opacity bar but no stick driver", function()
     boot({ keyboard = true })
     control("swatch", "Color").setting.getValue()
     ColorPickerFrame:Show()
-    eq(ColorPickerFrame.hasOpacity, true)
-    eq(GamepadReticleCustomizer.PickerSticks.driver.shown, false)
+    expectEqual(ColorPickerFrame.hasOpacity, true)
+    expectEqual(GamepadReticleCustomizer.PickerSticks.driver.shown, false)
 end)
 
 -- Shapes
 
 test("the reticle: the game's dot, no Jiberish shapes without it; a Jiberish id without it falls back to the dot", function()
     boot()
-    eq(control("slider", "Reticle"), nil, "one choice only: no slider")
+    expectEqual(control("slider", "Reticle"), nil, "one choice only: no slider")
     GamepadReticleCustomizerDB.icon = "jiberish:x-bold"; GamepadReticleCustomizer.UpdateReticle()
-    eq(GamepadReticleCustomizer.Reticle.Drawn().icon, "dot")
+    expectEqual(GamepadReticleCustomizer.Reticle.Drawn().icon, "dot")
 end)
 
 test("with Jiberish Fabled Icons installed: its 16 reticles listed and drawn from its folder, credited, no install button", function()
     boot({ jiberish = true })
     local labels = choiceLabels("Reticle")
-    eq(#labels, 17, "the dot and 16 Jiberish shapes")
-    eq(labels[2], "Circle (bold)"); eq(labels[8], "Split plus (bold)"); eq(labels[17], "X (thin)")
+    expectEqual(#labels, 17, "the dot and 16 Jiberish shapes")
+    expectEqual(labels[2], "Circle (bold)"); expectEqual(labels[8], "Split plus (bold)"); expectEqual(labels[17], "X (thin)")
     choose("icon", "jiberish:splitplus-thin")
-    eq(GamepadReticleCustomizerDB.icon, "jiberish:splitplus-thin", "the slider's step saved as the shape's id")
-    eq(layer().shape.texture, "Interface\\AddOns\\JiberishIcons\\Media\\Crosshair\\splitplus-thin-128")
-    eq(control("button", "More looks"), nil, "no install button when it's there")
-    eq(control("slider", "Reticle").extra.tooltip:find("Shapes from Jiberish Fabled Icons", 1, true) ~= nil, true,
+    expectEqual(GamepadReticleCustomizerDB.icon, "jiberish:splitplus-thin", "the slider's step saved as the shape's id")
+    expectEqual(layer().shape.texture, "Interface\\AddOns\\JiberishIcons\\Media\\Crosshair\\splitplus-thin-128")
+    expectEqual(control("button", "More looks"), nil, "no install button when it's there")
+    expectEqual(control("slider", "Reticle").extra.tooltip:find("Shapes from Jiberish Fabled Icons", 1, true) ~= nil, true,
         "credited, as its license asks")
 end)
 
 test("choices are sliders (a dropdown's menu breaks on the controller): each kind of target, None, its own icon, the 8 raid markers, then the game's icons", function()
     boot()
     local labels = choiceLabels("Horde players")
-    eq(#labels, 3 + 8 + 12)
-    eq(labels[1], "None"); eq(labels[2], "Faction"); eq(labels[3], "Class")
-    eq(labels[11], "Raid marker: Skull"); eq(labels[12], "Icon: Sniper scope"); eq(labels[23], "Icon: Holy")
-    eq(table.concat(choiceLabels("Alliance players"), ","):sub(1, 18), "None,Faction,Class")
-    eq(choiceLabels("Friendly NPCs")[2], "Their job"); eq(choiceLabels("Neutral NPCs")[2], "Gray dots")
-    eq(choiceLabels("Enemy NPCs")[2], "Sword")
+    expectEqual(#labels, 3 + 8 + 12)
+    expectEqual(labels[1], "None"); expectEqual(labels[2], "Faction"); expectEqual(labels[3], "Class")
+    expectEqual(labels[11], "Raid marker: Skull"); expectEqual(labels[12], "Icon: Sniper scope"); expectEqual(labels[23], "Icon: Holy")
+    expectEqual(table.concat(choiceLabels("Alliance players"), ","):sub(1, 18), "None,Faction,Class")
+    expectEqual(choiceLabels("Friendly NPCs")[2], "Their job"); expectEqual(choiceLabels("Neutral NPCs")[2], "Gray dots")
+    expectEqual(choiceLabels("Enemy NPCs")[2], "Sword")
     choose("enemyNpcIcon", "marker8")
-    eq(GamepadReticleCustomizerDB.enemyNpcIcon, "marker8")
+    expectEqual(GamepadReticleCustomizerDB.enemyNpcIcon, "marker8")
     setTarget({ isPlayer = false, reaction = 2 })
     choose("enemyNpcIcon", "icon:scope")
-    eq(layer().shape.texture, "Interface\\Icons\\Ability_Hunter_SniperShot", "a game icon on the target")
+    expectEqual(layer().shape.texture, "Interface\\Icons\\Ability_Hunter_SniperShot", "a game icon on the target")
     setTarget({ isPlayer = false, reaction = 5 })
-    eq(layer().shape.texture, "Interface\\CharacterFrame\\TempPortraitAlphaMask", "another kind, still None: the reticle")
+    expectEqual(layer().shape.texture, "Interface\\CharacterFrame\\TempPortraitAlphaMask", "another kind, still None: the reticle")
 
     boot({ saved = { friendlyPlayerIcon = "class", icon = "dot" } })
-    eq(GamepadReticleCustomizer.choices.friendlyPlayerIcon, 3, "the slider starts at your saved choice")
+    expectEqual(GamepadReticleCustomizer.choices.friendlyPlayerIcon, 3, "the slider starts at your saved choice")
 end)
 
 test("icons show only while you have a target, at the icon size, in their own colors; the reticle comes back", function()
     boot({ saved = { color = "FF3030FF", size = 6, targetIcon = "marker8", iconSize = 30, borderSize = 2 } })
-    eq(layer().shape.texture, "Interface\\CharacterFrame\\TempPortraitAlphaMask", "no target: the reticle")
-    eq(layer().shape:GetWidth(), 6); eq(colorOf(layer().shape), "1.00 0.19 0.19 1.00")
+    expectEqual(layer().shape.texture, "Interface\\CharacterFrame\\TempPortraitAlphaMask", "no target: the reticle")
+    expectEqual(layer().shape:GetWidth(), 6); expectEqual(colorOf(layer().shape), "1.00 0.19 0.19 1.00")
     setTarget({ isPlayer = false, reaction = 2 })
-    eq(layer().shape.texture, "Interface\\TargetingFrame\\UI-RaidTargetingIcon_8", "a target: the skull")
-    eq(layer().shape:GetWidth(), 30, "at the icon size")
-    eq(colorOf(layer().shape), "1.00 1.00 1.00 1.00", "in its own colors")
-    eq(layer().border:GetWidth(), 30, "the border: an outline, copies at its size")
-    eq(layer().border.offset[1], 2, "shifted out by the border")
-    eq(layer().shape.texCoord[2], 1, "shown whole")
+    expectEqual(layer().shape.texture, "Interface\\TargetingFrame\\UI-RaidTargetingIcon_8", "a target: the skull")
+    expectEqual(layer().shape:GetWidth(), 30, "at the icon size")
+    expectEqual(colorOf(layer().shape), "1.00 1.00 1.00 1.00", "in its own colors")
+    expectEqual(layer().border:GetWidth(), 30, "the border: an outline, copies at its size")
+    expectEqual(layer().border.offset[1], 2, "shifted out by the border")
+    expectEqual(layer().shape.texCoord[2], 1, "shown whole")
     setTarget(nil)
-    eq(layer().shape.texture, "Interface\\CharacterFrame\\TempPortraitAlphaMask", "target gone: the reticle back")
-    eq(layer().shape:GetWidth(), 6); eq(colorOf(layer().shape), "1.00 0.19 0.19 1.00")
+    expectEqual(layer().shape.texture, "Interface\\CharacterFrame\\TempPortraitAlphaMask", "target gone: the reticle back")
+    expectEqual(layer().shape:GetWidth(), 6); expectEqual(colorOf(layer().shape), "1.00 0.19 0.19 1.00")
 end)
 
 test("a player's class icon: the game's classicon atlas for players; NPCs, an unknown class or a missing atlas keep the reticle", function()
     boot({ saved = { targetIcon = "class" } })
     setTarget({ isPlayer = true, classFile = "MAGE", reaction = 5 })
-    eq(GamepadReticleCustomizer.Reticle.Drawn().atlas, "classicon-mage")
-    eq(layer().shape.texture, "classicons-file", "drawn as the atlas's file")
-    eq(table.concat(layer().shape.texCoord, ","), "0.5,0.75,0.25,0.5", "and its cell")
-    eq(GamepadReticleCustomizer.Reticle.Drawn().icon, "class")
-    eq(layer().shape:GetWidth(), 32)
+    expectEqual(GamepadReticleCustomizer.Reticle.Drawn().atlas, "classicon-mage")
+    expectEqual(layer().shape.texture, "classicons-file", "drawn as the atlas's file")
+    expectEqual(table.concat(layer().shape.texCoord, ","), "0.5,0.75,0.25,0.5", "and its cell")
+    expectEqual(GamepadReticleCustomizer.Reticle.Drawn().icon, "class")
+    expectEqual(layer().shape:GetWidth(), 32)
     setTarget({ isPlayer = true, classFile = "DRUID", reaction = 2 })
-    eq(GamepadReticleCustomizer.Reticle.Drawn().atlas, "classicon-druid", "an enemy player too")
+    expectEqual(GamepadReticleCustomizer.Reticle.Drawn().atlas, "classicon-druid", "an enemy player too")
     setTarget({ isPlayer = false, reaction = 4 })
-    eq(GamepadReticleCustomizer.Reticle.Drawn().icon, "dot", "an NPC: the reticle")
-    eq(layer().shape.texture, "Interface\\CharacterFrame\\TempPortraitAlphaMask", "the dot's texture")
-    eq(table.concat(layer().shape.texCoord, ","), "0,1,0,1", "shown whole again")
+    expectEqual(GamepadReticleCustomizer.Reticle.Drawn().icon, "dot", "an NPC: the reticle")
+    expectEqual(layer().shape.texture, "Interface\\CharacterFrame\\TempPortraitAlphaMask", "the dot's texture")
+    expectEqual(table.concat(layer().shape.texCoord, ","), "0,1,0,1", "shown whole again")
     setTarget({ isPlayer = true, classFile = nil, reaction = 5 })
-    eq(GamepadReticleCustomizer.Reticle.Drawn().icon, "dot", "class unknown (hidden): the reticle")
+    expectEqual(GamepadReticleCustomizer.Reticle.Drawn().icon, "dot", "class unknown (hidden): the reticle")
     boot({ saved = { targetIcon = "class" }, classAtlases = false })
     setTarget({ isPlayer = true, classFile = "MAGE", reaction = 5 })
-    eq(GamepadReticleCustomizer.Reticle.Drawn().icon, "dot", "no such atlas on this client: the reticle")
+    expectEqual(GamepadReticleCustomizer.Reticle.Drawn().icon, "dot", "no such atlas on this client: the reticle")
 end)
 
 test("a target without a nameplate on screen (a vendor, a minion, off screen) keeps the reticle; its nameplate coming brings the icon", function()
     boot({ saved = { targetIcon = "marker8", iconSize = 30 } })
     setTarget({ isPlayer = false, reaction = 5, nameplate = false, plateUnit = "nameplate4" })
-    eq(GamepadReticleCustomizer.Reticle.Drawn().icon, "dot", "a vendor with friendly NPC nameplates off: the reticle")
+    expectEqual(GamepadReticleCustomizer.Reticle.Drawn().icon, "dot", "a vendor with friendly NPC nameplates off: the reticle")
     game.target.nameplate = true
     game.fire("NAME_PLATE_UNIT_ADDED", "nameplate4")
-    eq(GamepadReticleCustomizer.Reticle.Drawn().icon, "marker8", "its nameplate shows: the icon")
+    expectEqual(GamepadReticleCustomizer.Reticle.Drawn().icon, "marker8", "its nameplate shows: the icon")
     game.target.nameplate = false
     game.fire("NAME_PLATE_UNIT_REMOVED", "nameplate9")
-    eq(GamepadReticleCustomizer.Reticle.Drawn().icon, "marker8", "another unit's nameplate: nothing redrawn")
+    expectEqual(GamepadReticleCustomizer.Reticle.Drawn().icon, "marker8", "another unit's nameplate: nothing redrawn")
     game.fire("NAME_PLATE_UNIT_REMOVED", "nameplate4")
-    eq(GamepadReticleCustomizer.Reticle.Drawn().icon, "dot", "the target off screen: the reticle back")
+    expectEqual(GamepadReticleCustomizer.Reticle.Drawn().icon, "dot", "the target off screen: the reticle back")
     setTarget({ isPlayer = true, classFile = "MAGE", reaction = 5, nameplate = false })
-    eq(GamepadReticleCustomizer.Reticle.Drawn().icon, "dot", "a player with friendly nameplates off: the reticle")
+    expectEqual(GamepadReticleCustomizer.Reticle.Drawn().icon, "dot", "a player with friendly nameplates off: the reticle")
 end)
 
 test("a client without an atlas file: SetAtlas, after resetting the cell a Jiberish style left", function()
     boot({ jiberish = true, saved = { targetIcon = "class", classStyle = "jiberish:fabled" } })
     _G.C_Texture.GetAtlasInfo = function(atlas) if atlas:find("^classicon%-") then return {} end end
     setTarget({ isPlayer = true, classFile = "PRIEST", reaction = 5 })
-    eq(table.concat(layer().shape.texCoord, ","), "0.25,0.375,0.125,0.25", "the Jiberish cell")
+    expectEqual(table.concat(layer().shape.texCoord, ","), "0.25,0.375,0.125,0.25", "the Jiberish cell")
     choose("friendlyClassStyle", "game")
-    eq(layer().shape.atlas, "classicon-priest")
-    eq(table.concat(layer().shape.texCoord, ","), "0,1,0,1", "reset before SetAtlas")
+    expectEqual(layer().shape.atlas, "classicon-priest")
+    expectEqual(table.concat(layer().shape.texCoord, ","), "0,1,0,1", "reset before SetAtlas")
 end)
 
 -- Every kind of target's choice, in TARGET_KINDS' order.
@@ -708,59 +710,59 @@ end
 
 test("saved settings in older forms: a marker in the shape, one choice for every target, a custom texture", function()
     boot({ saved = { icon = "marker2" } })
-    eq(GamepadReticleCustomizerDB.icon, "dot"); eq(kindChoices(), "marker2 marker2 marker2 marker2 marker2", "on every kind")
-    eq(GamepadReticleCustomizerDB.targetIcon, nil)
+    expectEqual(GamepadReticleCustomizerDB.icon, "dot"); expectEqual(kindChoices(), "marker2 marker2 marker2 marker2 marker2", "on every kind")
+    expectEqual(GamepadReticleCustomizerDB.targetIcon, nil)
     boot({ saved = { targetIcon = "class" } })
-    eq(kindChoices(), "class class none none none", "a class: on players only")
+    expectEqual(kindChoices(), "class class none none none", "a class: on players only")
     boot({ saved = { targetIcon = "custom", customTexture = "Interface\\Icons\\INV_Misc_QuestionMark" } })
-    eq(kindChoices(), "none none none none none", "no texture paths"); eq(GamepadReticleCustomizerDB.customTexture, nil)
+    expectEqual(kindChoices(), "none none none none none", "no texture paths"); expectEqual(GamepadReticleCustomizerDB.customTexture, nil)
     boot({ saved = { icon = "custom", customTexture = 136243 } })
-    eq(kindChoices(), "none none none none none"); eq(GamepadReticleCustomizerDB.icon, "dot")
+    expectEqual(kindChoices(), "none none none none none"); expectEqual(GamepadReticleCustomizerDB.icon, "dot")
     boot({ saved = { icon = "jiberish:x-bold" } })
-    eq(GamepadReticleCustomizerDB.icon, "jiberish:x-bold", "a reticle shape stays"); eq(kindChoices(), "none none none none none")
+    expectEqual(GamepadReticleCustomizerDB.icon, "jiberish:x-bold", "a reticle shape stays"); expectEqual(kindChoices(), "none none none none none")
 end)
 
 test("Jiberish Fabled Icons installed but turned off: not offered, its choices fall back, a button tells how to turn it on", function()
     boot({ jiberishOff = true, saved = { icon = "jiberish:x-bold", size = 24, targetIcon = "class", classStyle = "jiberish:fabled" } })
-    eq(control("slider", "Reticle"), nil, "its shapes aren't offered")
-    eq(control("slider", "Horde class icons"), nil, "nor its styles")
-    eq(GamepadReticleCustomizer.Reticle.Drawn().icon, "dot", "a saved Jiberish shape falls back to the dot")
+    expectEqual(control("slider", "Reticle"), nil, "its shapes aren't offered")
+    expectEqual(control("slider", "Horde class icons"), nil, "nor its styles")
+    expectEqual(GamepadReticleCustomizer.Reticle.Drawn().icon, "dot", "a saved Jiberish shape falls back to the dot")
     setTarget({ isPlayer = true, classFile = "MAGE", reaction = 5 })
-    eq(GamepadReticleCustomizer.Reticle.Drawn().atlas, "classicon-mage", "and a Jiberish class style to the game's")
-    eq(GamepadReticleCustomizerDB.icon, "jiberish:x-bold", "your choice kept for when it's on again")
+    expectEqual(GamepadReticleCustomizer.Reticle.Drawn().atlas, "classicon-mage", "and a Jiberish class style to the game's")
+    expectEqual(GamepadReticleCustomizerDB.icon, "jiberish:x-bold", "your choice kept for when it's on again")
     local button = control("button", "More looks")
-    eq(button.extra.buttonText, "Enable Jiberish Fabled Icons", "not Get: it's installed")
+    expectEqual(button.extra.buttonText, "Enable Jiberish Fabled Icons", "not Get: it's installed")
     button.extra.onClick()
-    eq(popup():IsShown(), true, "the game-style popup")
-    eq(popup().Border.template, "DialogBorderTemplate", "the game's dialog border")
-    eq(popup().text.text:find("turned off", 1, true) ~= nil, true, popup().text.text)
-    eq(popup().editBox:IsShown(), false, "a message: nothing to copy")
-    eq(popupButtons(), "Not now, [secure] Turn on and reload")
+    expectEqual(popup():IsShown(), true, "the game-style popup")
+    expectEqual(popup().Border.template, "DialogBorderTemplate", "the game's dialog border")
+    expectEqual(popup().text.text:find("turned off", 1, true) ~= nil, true, popup().text.text)
+    expectEqual(popup().editBox:IsShown(), false, "a message: nothing to copy")
+    expectEqual(popupButtons(), "Not now, [secure] Turn on and reload")
     clickPopupButton("Turn on and reload")
-    eq(game.enabledAddOn.name, "JiberishIcons", "turned on")
-    eq(game.enabledAddOn.character, "Player-93-0A1B2C3D", "for this character, by its GUID as the AddOns list does (not its name)")
-    eq(game.enabledAddOn.saved, true, "saved before the reload, as the AddOns list does (or it stays off)")
-    eq(game.reloaded, "/reload", "then reloaded by the secure button")
+    expectEqual(game.enabledAddOn.name, "JiberishIcons", "turned on")
+    expectEqual(game.enabledAddOn.character, "Player-93-0A1B2C3D", "for this character, by its GUID as the AddOns list does (not its name)")
+    expectEqual(game.enabledAddOn.saved, true, "saved before the reload, as the AddOns list does (or it stays off)")
+    expectEqual(game.reloaded, "/reload", "then reloaded by the secure button")
 end)
 
 test("without it: the install button shows the link to copy", function()
     boot()
-    eq(control("button", "More looks").extra.buttonText, "Get Jiberish Fabled Icons", "in the Class icons row")
+    expectEqual(control("button", "More looks").extra.buttonText, "Get Jiberish Fabled Icons", "in the Class icons row")
     control("button", "More looks").extra.onClick()
-    eq(popup():IsShown(), true)
-    eq(popup().editBox:GetText(), "https://www.curseforge.com/wow/addons/jiberish-fabled-icons")
-    eq(popup().editBox.highlighted, true, "selected, ready for Ctrl+C")
-    eq(popupButtons(), "Close, [secure] Reload", "a Reload for once it's installed")
+    expectEqual(popup():IsShown(), true)
+    expectEqual(popup().editBox:GetText(), "https://www.curseforge.com/wow/addons/jiberish-fabled-icons")
+    expectEqual(popup().editBox.highlighted, true, "selected, ready for Ctrl+C")
+    expectEqual(popupButtons(), "Close, [secure] Reload", "a Reload for once it's installed")
     clickPopupButton("Close")
-    eq(popup():IsShown(), false)
+    expectEqual(popup():IsShown(), false)
 end)
 
 test("no icon picker and no texture paths: no Choose icon button, /grc texture is just a wrong color", function()
     boot()
-    eq(control("button", "Choose icon"), nil)
+    expectEqual(control("button", "Choose icon"), nil)
     SlashCmdList.GAMEPADRETICLECUSTOMIZER("texture Interface\\Icons\\Spell_Nature_Starfall")
-    eq(game.printed[#game.printed]:find("usage: /grc RRGGBBAA", 1, true) ~= nil, true, game.printed[#game.printed])
-    eq(GamepadReticleCustomizer.IconPicker, nil)
+    expectEqual(game.printed[#game.printed]:find("usage: /grc RRGGBBAA", 1, true) ~= nil, true, game.printed[#game.printed])
+    expectEqual(GamepadReticleCustomizer.IconPicker, nil)
 end)
 
 test("tooltips: text after a colon is a list (each line after \":\" a \"•\" line), for legibility", function()
@@ -774,10 +776,10 @@ test("tooltips: text after a colon is a list (each line after \":\" a \"•\" li
                     if not line:find("^• ") then
                         -- A colon outside a list line ends the line: what follows is a list.
                         local afterColon = line:gsub("https?://", ""):match(":%s*(.+)$")
-                        eq(afterColon, nil, name .. ": \"" .. line .. "\"")
+                        expectEqual(afterColon, nil, name .. ": \"" .. line .. "\"")
                     end
                 end
-                eq(tooltip:find("preview shows", 1, true), nil, name .. ": no telling what the preview shows")
+                expectEqual(tooltip:find("preview shows", 1, true), nil, name .. ": no telling what the preview shows")
             end
         end
     end
@@ -788,7 +790,7 @@ test("every choice slider's label fits the slider (22 characters, seen cut in ga
     local maxLength = GamepadReticleCustomizer.Icons.LABEL_MAX_LENGTH
     for _, slider in ipairs({ "Reticle", "Horde players", "Alliance players", "Friendly NPCs", "Neutral NPCs", "Enemy NPCs", "Horde class icons" }) do
         for _, label in ipairs(choiceLabels(slider)) do
-            eq(#label <= maxLength, true, slider .. ": \"" .. label .. "\" is " .. #label .. " characters")
+            expectEqual(#label <= maxLength, true, slider .. ": \"" .. label .. "\" is " .. #label .. " characters")
         end
     end
 end)
@@ -796,98 +798,98 @@ end)
 test("the dot and the shapes keep their own sizes: a shape starts at 32, the dot gets its own back", function()
     boot({ jiberish = true, saved = { size = 6 } })
     choose("icon", "jiberish:x-bold")
-    eq(GamepadReticleCustomizerDB.size, 32, "a shape starts at 32: at the dot's size it can't be seen")
+    expectEqual(GamepadReticleCustomizerDB.size, 32, "a shape starts at 32: at the dot's size it can't be seen")
     setting("size"):SetValue(40)
     choose("icon", "jiberish:plus-thin")
-    eq(GamepadReticleCustomizerDB.size, 40, "shape to shape: the size kept")
+    expectEqual(GamepadReticleCustomizerDB.size, 40, "shape to shape: the size kept")
     choose("icon", "dot")
-    eq(GamepadReticleCustomizerDB.size, 6, "back to the dot: the dot's own size, not 24 or 40")
-    eq(layer().shape:GetWidth(), 6)
+    expectEqual(GamepadReticleCustomizerDB.size, 6, "back to the dot: the dot's own size, not 24 or 40")
+    expectEqual(layer().shape:GetWidth(), 6)
     choose("icon", "jiberish:x-thin")
-    eq(GamepadReticleCustomizerDB.size, 40, "back to a shape: the shapes' size")
+    expectEqual(GamepadReticleCustomizerDB.size, 40, "back to a shape: the shapes' size")
 end)
 
 test("the reset rows' label is one space: blank, yet not \"\", so the game lines the button up with the others", function()
     boot()
-    eq(control("button", "Reset color").extra.name, " ")
-    eq(control("button", "Reset border color").extra.name, " ")
+    expectEqual(control("button", "Reset color").extra.name, " ")
+    expectEqual(control("button", "Reset border color").extra.name, " ")
 end)
 
 test("each color has its own reset: the reticle's to white, the border's to black", function()
     boot({ saved = { color = "FF3030CC", borderColor = "00FF00FF", borderSize = 2 } })
     control("button", "Reset color").extra.onClick()
-    eq(GamepadReticleCustomizerDB.color, "FFFFFFFF"); eq(colorOf(layer().shape), "1.00 1.00 1.00 1.00")
-    eq(GamepadReticleCustomizerDB.borderColor, "00FF00FF", "the border's untouched")
+    expectEqual(GamepadReticleCustomizerDB.color, "FFFFFFFF"); expectEqual(colorOf(layer().shape), "1.00 1.00 1.00 1.00")
+    expectEqual(GamepadReticleCustomizerDB.borderColor, "00FF00FF", "the border's untouched")
     control("button", "Reset border color").extra.onClick()
-    eq(GamepadReticleCustomizerDB.borderColor, "000000FF"); eq(colorOf(layer().border), "0.00 0.00 0.00 1.00")
+    expectEqual(GamepadReticleCustomizerDB.borderColor, "000000FF"); expectEqual(colorOf(layer().border), "0.00 0.00 0.00 1.00")
 end)
 
 test("class icon styles: the game's, or a Jiberish Fabled Icons class sheet's cell for the class; without it, the game's", function()
     boot()
-    eq(control("slider", "Horde class icons"), nil, "without Jiberish Fabled Icons: no slider, the game's icons only")
+    expectEqual(control("slider", "Horde class icons"), nil, "without Jiberish Fabled Icons: no slider, the game's icons only")
     boot({ jiberish = true, saved = { targetIcon = "class" } })
     local labels = choiceLabels("Horde class icons")
-    eq(#labels, 12, "the game's and 11 Jiberish styles")
-    eq(labels[2], "Fabled"); eq(labels[3], "Fabled Class"); eq(labels[4], "Fabled Pixels")
+    expectEqual(#labels, 12, "the game's and 11 Jiberish styles")
+    expectEqual(labels[2], "Fabled"); expectEqual(labels[3], "Fabled Class"); expectEqual(labels[4], "Fabled Pixels")
     choose("friendlyClassStyle", "jiberish:fabledpixels")
     setTarget({ isPlayer = true, classFile = "PRIEST", reaction = 5 })
-    eq(layer().shape.texture, "Interface\\AddOns\\JiberishIcons\\Media\\Class\\fabledpixels")
-    eq(table.concat(layer().shape.texCoord, ","), "0.25,0.375,0.125,0.25", "the Priest's cell: column 3, row 2 of 8")
+    expectEqual(layer().shape.texture, "Interface\\AddOns\\JiberishIcons\\Media\\Class\\fabledpixels")
+    expectEqual(table.concat(layer().shape.texCoord, ","), "0.25,0.375,0.125,0.25", "the Priest's cell: column 3, row 2 of 8")
     setTarget({ isPlayer = true, classFile = "DEMONHUNTER", reaction = 2 })
-    eq(table.concat(layer().shape.texCoord, ","), "0.375,0.5,0.25,0.375")
+    expectEqual(table.concat(layer().shape.texCoord, ","), "0.375,0.5,0.25,0.375")
     choose("friendlyClassStyle", "game")
-    eq(GamepadReticleCustomizer.Reticle.Drawn().atlas, "classicon-demonhunter", "the game's again")
-    eq(layer().shape.texture, "classicons-file")
-    eq(table.concat(layer().shape.texCoord, ","), "0.5,0.75,0.25,0.5",
+    expectEqual(GamepadReticleCustomizer.Reticle.Drawn().atlas, "classicon-demonhunter", "the game's again")
+    expectEqual(layer().shape.texture, "classicons-file")
+    expectEqual(table.concat(layer().shape.texCoord, ","), "0.5,0.75,0.25,0.5",
         "the game's cell, not the Jiberish one left behind (seen in game)")
     boot({ saved = { targetIcon = "class", classStyle = "jiberish:fabled" } })
     setTarget({ isPlayer = true, classFile = "MAGE", reaction = 5 })
-    eq(GamepadReticleCustomizer.Reticle.Drawn().atlas, "classicon-mage", "a Jiberish style without the addon: the game's icon")
+    expectEqual(GamepadReticleCustomizer.Reticle.Drawn().atlas, "classicon-mage", "a Jiberish style without the addon: the game's icon")
 end)
 
 test("without Gamepad Reticle On Target: a button shows its link to copy; with it, no button", function()
     boot()
     control("button", "Reticle on your target").extra.onClick()
-    eq(control("button", "Reticle on your target").extra.buttonText, "Get the addon")
-    eq(popup().editBox:GetText(), "https://www.curseforge.com/projects/1819101")
-    eq(popup().editBox.highlighted, true, "selected, ready for Ctrl+C")
-    eq(popupButtons(), "Close, [secure] Reload")
+    expectEqual(control("button", "Reticle on your target").extra.buttonText, "Get the addon")
+    expectEqual(popup().editBox:GetText(), "https://www.curseforge.com/projects/1819101")
+    expectEqual(popup().editBox.highlighted, true, "selected, ready for Ctrl+C")
+    expectEqual(popupButtons(), "Close, [secure] Reload")
     boot({ reticleOnTargetInstalled = true })
-    eq(control("button", "Reticle on your target"), nil, "installed: no button")
+    expectEqual(control("button", "Reticle on your target"), nil, "installed: no button")
 end)
 
 test("on the controller: A clicks the popup's first button, B the last, a hint says so; closing gives them back", function()
     boot()
     control("button", "More looks").extra.onClick()   -- Get Jiberish Fabled Icons: Reload, Close
-    eq(game.bindings.PAD1, "GamepadReticleCustomizerPopupReload", "A: the first button, Reload")
-    eq(game.bindings.PAD2, "GamepadReticleCustomizerPopupButton1", "B: the last, Close")
-    eq(popup().reloadButton.controllerIcon.atlas, "gamepad-test-pad1", "the A icon on Reload, as the game marks its buttons")
-    eq(popup().buttons[1].controllerIcon.atlas, "gamepad-test-pad2", "the B icon on Close")
-    eq(popup().hint.text, "", "the icons say it: no hint line")
+    expectEqual(game.bindings.PAD1, "GamepadReticleCustomizerPopupReload", "A: the first button, Reload")
+    expectEqual(game.bindings.PAD2, "GamepadReticleCustomizerPopupButton1", "B: the last, Close")
+    expectEqual(popup().reloadButton.controllerIcon.atlas, "gamepad-test-pad1", "the A icon on Reload, as the game marks its buttons")
+    expectEqual(popup().buttons[1].controllerIcon.atlas, "gamepad-test-pad2", "the B icon on Close")
+    expectEqual(popup().hint.text, "", "the icons say it: no hint line")
     _G[game.bindings.PAD2]:Click()
-    eq(popup():IsShown(), false, "B closed it")
-    eq(game.bindings.PAD1, nil, "the controller's buttons given back"); eq(game.bindings.PAD2, nil)
-    eq(game.bindings["ALT-CTRL-SHIFT-C"] ~= nil, true, "other bindings untouched")
+    expectEqual(popup():IsShown(), false, "B closed it")
+    expectEqual(game.bindings.PAD1, nil, "the controller's buttons given back"); expectEqual(game.bindings.PAD2, nil)
+    expectEqual(game.bindings["ALT-CTRL-SHIFT-C"] ~= nil, true, "other bindings untouched")
 
     boot({ noControllerIcons = true })
     control("button", "More looks").extra.onClick()
-    eq(popup().hint.text, "A: Reload      B: Close", "no icons on this client: said in words")
+    expectEqual(popup().hint.text, "A: Reload      B: Close", "no icons on this client: said in words")
 
     boot({ keyboard = true })
     control("button", "More looks").extra.onClick()
-    eq(game.bindings.PAD1, nil, "keyboard: no controller bindings"); eq(popup().hint.text, "")
-    eq(popup().reloadButton.controllerIcon:IsShown(), false, "and no icons")
+    expectEqual(game.bindings.PAD1, nil, "keyboard: no controller bindings"); expectEqual(popup().hint.text, "")
+    expectEqual(popup().reloadButton.controllerIcon:IsShown(), false, "and no icons")
 end)
 
 test("in a fight, a popup (it holds a secure Reload) opens once the fight is over", function()
     boot()
     game.combat = true
-    eq(GamepadReticleCustomizer.Popup.Show({ text = "Hello", buttons = { { text = "Reload", reload = true } } }), false)
-    eq(popup(), nil, "not built in combat")
+    expectEqual(GamepadReticleCustomizer.Popup.Show({ text = "Hello", buttons = { { text = "Reload", reload = true } } }), false)
+    expectEqual(popup(), nil, "not built in combat")
     game.combat = false
     game.fire("PLAYER_REGEN_ENABLED")
-    eq(popup():IsShown(), true, "after the fight")
-    eq(popup().text.text, "Hello")
+    expectEqual(popup():IsShown(), true, "after the fight")
+    expectEqual(popup().text.text, "Hello")
 end)
 
 -- The preview beside the settings page
@@ -901,41 +903,41 @@ end
 test("the preview shows beside our settings page only, with the reticle and the icon on a target as drawn", function()
     boot({ saved = { color = "FF3030FF", size = 10, targetIcon = "marker8", iconSize = 30, borderSize = 2 } })
     local preview = GamepadReticleCustomizer.Preview.frame
-    eq(preview.parent, SettingsPanel, "on the settings window")
-    eq(preview.Bg.template, "FlatPanelBackgroundTemplate", "the settings window's own background")
-    eq(preview.NineSlice.template, "NineSlicePanelTemplate"); eq(preview.NineSlice.layoutName, "ButtonFrameTemplateNoPortrait",
+    expectEqual(preview.parent, SettingsPanel, "on the settings window")
+    expectEqual(preview.Bg.template, "FlatPanelBackgroundTemplate", "the settings window's own background")
+    expectEqual(preview.NineSlice.template, "NineSlicePanelTemplate"); expectEqual(preview.NineSlice.layoutName, "ButtonFrameTemplateNoPortrait",
         "and its metal border")
-    eq(preview.reticle.template, "InsetFrameTemplate", "each cell an inset, as inside the game's windows")
-    eq(preview.title.text, "Preview")
-    eq(preview:IsShown(), false, "hidden until the page opens")
+    expectEqual(preview.reticle.template, "InsetFrameTemplate", "each cell an inset, as inside the game's windows")
+    expectEqual(preview.title.text, "Preview")
+    expectEqual(preview:IsShown(), false, "hidden until the page opens")
     showPage({ name = "Another page" })
-    eq(preview:IsShown(), false, "another page: hidden")
+    expectEqual(preview:IsShown(), false, "another page: hidden")
     showPage(game.category)
-    eq(preview:IsShown(), true, "our page: shown")
+    expectEqual(preview:IsShown(), true, "our page: shown")
     local width, height = preview:GetWidth(), preview:GetHeight()
-    eq(preview.reticle.shape.texture, "Interface\\CharacterFrame\\TempPortraitAlphaMask")
+    expectEqual(preview.reticle.shape.texture, "Interface\\CharacterFrame\\TempPortraitAlphaMask")
     -- Zoomed: the reticle and its border fill 80% of the 120 cell (96): 10 + 2 x 2 = 14 wide becomes 96.
     near(preview.reticle.shape:GetWidth(), 96 * 10 / 14, "zoomed to fill the cell")
     near(preview.reticle.border.offset[1], 2 * 96 / 14, "the outline zoomed too")
-    eq(colorOf(preview.reticle.shape), "1.00 0.19 0.19 1.00")
-    eq(preview.reticle.realShape:GetWidth(), 10, "and at its real size in the corner")
-    eq(preview.reticle.realBorder:GetWidth(), 10)
-    eq(preview.onTarget.shape.texture, "Interface\\TargetingFrame\\UI-RaidTargetingIcon_8")
+    expectEqual(colorOf(preview.reticle.shape), "1.00 0.19 0.19 1.00")
+    expectEqual(preview.reticle.realShape:GetWidth(), 10, "and at its real size in the corner")
+    expectEqual(preview.reticle.realBorder:GetWidth(), 10)
+    expectEqual(preview.onTarget.shape.texture, "Interface\\TargetingFrame\\UI-RaidTargetingIcon_8")
     near(outlined(preview.onTarget.border), 96, "an icon zoomed the same")
     near(outlined(preview.onTarget.realBorder), 32, "an icon bigger than the corner: shrunk to fit it (40 x 80%)")
     setting("size"):SetValue(20)
-    eq(preview.reticle.realShape:GetWidth(), 20, "redrawn on a change")
+    expectEqual(preview.reticle.realShape:GetWidth(), 20, "redrawn on a change")
     near(outlined(preview.reticle.border), 96, "the zoomed view still fills the cell")
-    eq(preview:GetWidth(), width); eq(preview:GetHeight(), height, "the window keeps its size")
+    expectEqual(preview:GetWidth(), width); expectEqual(preview:GetHeight(), height, "the window keeps its size")
     choose("friendlyPlayerIcon", "class")
-    eq(preview.onTarget.shape.texture, "classicons-file", "a player's class: your own as the example")
+    expectEqual(preview.onTarget.shape.texture, "classicons-file", "a player's class: your own as the example")
     choose("friendlyPlayerIcon", "none")
-    eq(preview.onTarget.label.text, "On a target: the reticle stays")
-    eq(preview.onTarget.shape.texture, "Interface\\CharacterFrame\\TempPortraitAlphaMask")
+    expectEqual(preview.onTarget.label.text, "On a target: the reticle stays")
+    expectEqual(preview.onTarget.shape.texture, "Interface\\CharacterFrame\\TempPortraitAlphaMask")
     setting("enabled"):SetValue(false)
-    eq(preview.alpha, 0.5, "the addon off: dimmed")
+    expectEqual(preview.alpha, 0.5, "the addon off: dimmed")
     showPage(nil)
-    eq(preview:IsShown(), false, "the window closed: hidden")
+    expectEqual(preview:IsShown(), false, "the window closed: hidden")
 end)
 
 -- /grc debug, run here against the fake game
@@ -966,7 +968,7 @@ local function driveDebugRun(friendlyPlayers, npcs)
         elseif color == "0.00 0.00 0.50 1.00" and game.target then
             setTarget(nil)
         end
-        frame()
+        runNextFrame()
     end
     error("the debug run never ended")
 end
@@ -986,21 +988,21 @@ test("/grc debug: every look checked, on 3 friendly classes and both NPC kinds, 
             { isPlayer = true, classFile = "MAGE", reaction = 5 }, { isPlayer = true, classFile = "PRIEST", reaction = 5 } },
             { { isPlayer = false, reaction = 2 }, { isPlayer = false, reaction = 4 } })
         local run = GamepadReticleCustomizerDebugDB.runs[1]
-        eq(failedChecks(run), "", "no failed check (Jiberish " .. tostring(jiberish) .. ")")
-        eq(run.failed, 0)
-        eq(run.found.class1, "WARRIOR"); eq(run.found.class2, "MAGE", "the second Warrior skipped: a class already seen")
-        eq(run.found.class3, "PRIEST"); eq(run.found.class4, nil, "no fourth class near")
-        eq(run.found.npc1, "enemy"); eq(run.found.npc2, "neutral", "both kinds")
-        eq(checkResult(run, "friendly player 2: its class icon, size 32 (MAGE): its nameplate shows the class's color"), "pass")
-        eq(checkResult(run, "(within 60 s)"), "pass")
-        eq(run.passed > 150, true, "passed " .. run.passed)
-        eq(run.steps[3].onScreen.x, 1200, "where the reticle is, in screen pixels")
-        eq(debugSuite.marker:IsShown(), false, "the square gone: done")
-        eq(GamepadReticleCustomizerDB.color, "3961CDFF", "your settings back")
-        eq(GamepadReticleCustomizerDB.size, 7); eq(GamepadReticleCustomizerDB.enemyNpcIcon, "marker2")
-        eq(GamepadReticleCustomizerDebugDB.settingsToRestore, nil)
-        eq(popup():IsShown(), true, "the reload popup")
-        eq(popupButtons(), "Later, [secure] Reload")
+        expectEqual(failedChecks(run), "", "no failed check (Jiberish " .. tostring(jiberish) .. ")")
+        expectEqual(run.failed, 0)
+        expectEqual(run.found.class1, "WARRIOR"); expectEqual(run.found.class2, "MAGE", "the second Warrior skipped: a class already seen")
+        expectEqual(run.found.class3, "PRIEST"); expectEqual(run.found.class4, nil, "no fourth class near")
+        expectEqual(run.found.npc1, "enemy"); expectEqual(run.found.npc2, "neutral", "both kinds")
+        expectEqual(checkResult(run, "friendly player 2: its class icon, size 32 (MAGE): its nameplate shows the class's color"), "pass")
+        expectEqual(checkResult(run, "(within 60 s)"), "pass")
+        expectEqual(run.passed > 150, true, "passed " .. run.passed)
+        expectEqual(run.steps[3].onScreen.x, 1200, "where the reticle is, in screen pixels")
+        expectEqual(debugSuite.marker:IsShown(), false, "the square gone: done")
+        expectEqual(GamepadReticleCustomizerDB.color, "3961CDFF", "your settings back")
+        expectEqual(GamepadReticleCustomizerDB.size, 7); expectEqual(GamepadReticleCustomizerDB.enemyNpcIcon, "marker2")
+        expectEqual(GamepadReticleCustomizerDebugDB.settingsToRestore, nil)
+        expectEqual(popup():IsShown(), true, "the reload popup")
+        expectEqual(popupButtons(), "Later, [secure] Reload")
     end
 end)
 
@@ -1009,11 +1011,11 @@ test("/grc debug: alone (yourself, one NPC kind, no nameplates: the reticle stay
     SlashCmdList.GAMEPADRETICLECUSTOMIZER("debug")
     driveDebugRun({ { isPlayer = true, classFile = "DRUID", reaction = 5 } }, { { isPlayer = false, reaction = 4 } })
     local run = GamepadReticleCustomizerDebugDB.runs[1]
-    eq(failedChecks(run), "", "nothing failed")
-    eq(run.found.class2, nil); eq(run.found.npc1, "neutral"); eq(run.found.npc2, nil)
-    eq(checkResult(run, "its nameplate shows the class's color"), nil, "no nameplate: no class icon, nothing to compare")
-    eq(checkResult(run, "target: its class icon, size 32 (DRUID): what's drawn"), "pass", "checked as the reticle staying")
-    eq(checkResult(run, "the other kind of NPC"), "skip")
+    expectEqual(failedChecks(run), "", "nothing failed")
+    expectEqual(run.found.class2, nil); expectEqual(run.found.npc1, "neutral"); expectEqual(run.found.npc2, nil)
+    expectEqual(checkResult(run, "its nameplate shows the class's color"), nil, "no nameplate: no class icon, nothing to compare")
+    expectEqual(checkResult(run, "target: its class icon, size 32 (DRUID): what's drawn"), "pass", "checked as the reticle staying")
+    expectEqual(checkResult(run, "the other kind of NPC"), "skip")
 end)
 
 test("/grc debug: an offered game icon missing on the client fails its check", function()
@@ -1022,7 +1024,7 @@ test("/grc debug: an offered game icon missing on the client fails its check", f
     SlashCmdList.GAMEPADRETICLECUSTOMIZER("debug")
     driveDebugRun({ { isPlayer = true, classFile = "MAGE", reaction = 5 } }, { { isPlayer = false, reaction = 2 } })
     local run = GamepadReticleCustomizerDebugDB.runs[1]
-    eq(checkResult(run, "every game icon offered exists on this client"), "fail")
+    expectEqual(checkResult(run, "every game icon offered exists on this client"), "fail")
     table.remove(GamepadReticleCustomizer.Icons.GAME_ICONS)
 end)
 
@@ -1032,14 +1034,14 @@ test("/grc friendly runs only the friendly player part, then the target cleared"
     driveDebugRun({ { isPlayer = true, classFile = "WARRIOR", reaction = 5 }, { isPlayer = true, classFile = "MAGE", reaction = 5 } },
         { { isPlayer = false, reaction = 2 } })
     local run = GamepadReticleCustomizerDebugDB.runs[1]
-    eq(run.name, "friendly")
-    eq(failedChecks(run), "", "nothing failed")
-    eq(run.found.class1, "WARRIOR"); eq(run.found.class2, "MAGE")
-    eq(run.found.npc1, nil, "no NPC part")
-    eq(checkResult(run, "dot, size 12, red"), nil, "no reticle-only part")
-    eq(checkResult(run, "target cleared: the reticle back"), "pass", "ends with the target cleared")
-    eq(GamepadReticleCustomizerDB.color, "3961CDFF", "your settings back")
-    eq(popup():IsShown(), true, "the reload popup")
+    expectEqual(run.name, "friendly")
+    expectEqual(failedChecks(run), "", "nothing failed")
+    expectEqual(run.found.class1, "WARRIOR"); expectEqual(run.found.class2, "MAGE")
+    expectEqual(run.found.npc1, nil, "no NPC part")
+    expectEqual(checkResult(run, "dot, size 12, red"), nil, "no reticle-only part")
+    expectEqual(checkResult(run, "target cleared: the reticle back"), "pass", "ends with the target cleared")
+    expectEqual(GamepadReticleCustomizerDB.color, "3961CDFF", "your settings back")
+    expectEqual(popup():IsShown(), true, "the reload popup")
 end)
 
 test("/grc monsters runs only the NPC part, then the target cleared", function()
@@ -1048,34 +1050,34 @@ test("/grc monsters runs only the NPC part, then the target cleared", function()
     driveDebugRun({ { isPlayer = true, classFile = "WARRIOR", reaction = 5 } },
         { { isPlayer = false, reaction = 4 }, { isPlayer = false, reaction = 1 } })
     local run = GamepadReticleCustomizerDebugDB.runs[1]
-    eq(run.name, "monsters")
-    eq(failedChecks(run), "", "nothing failed")
-    eq(run.found.npc1, "neutral"); eq(run.found.npc2, "enemy")
-    eq(run.found.class1, nil, "no friendly part")
-    eq(checkResult(run, "target cleared: the reticle back"), "pass")
+    expectEqual(run.name, "monsters")
+    expectEqual(failedChecks(run), "", "nothing failed")
+    expectEqual(run.found.npc1, "neutral"); expectEqual(run.found.npc2, "enemy")
+    expectEqual(run.found.class1, nil, "no friendly part")
+    expectEqual(checkResult(run, "target cleared: the reticle back"), "pass")
 end)
 
 test("in the release (no Debug.lua), /grc friendly and /grc monsters open the settings", function()
     boot({ releaseBuild = true })
     SlashCmdList.GAMEPADRETICLECUSTOMIZER("friendly")
-    eq(game.opened, 42)
+    expectEqual(game.opened, 42)
     game.opened = nil
     SlashCmdList.GAMEPADRETICLECUSTOMIZER("monsters")
-    eq(game.opened, 42)
+    expectEqual(game.opened, 42)
 end)
 
 test("/grc debug: no friendly player selected within 60 s fails; its keys are bound", function()
     boot()
-    eq(game.bindings["ALT-CTRL-SHIFT-Y"], "GamepadReticleCustomizerDebugTarget")
-    eq(game.bindings["ALT-CTRL-SHIFT-Z"], "GamepadReticleCustomizerDebugTargetEnemy")
-    eq(game.bindings["ALT-CTRL-SHIFT-X"], "GamepadReticleCustomizerDebugClearTarget")
-    eq(GamepadReticleCustomizerDebugTarget.attributes.macrotext, "/targetfriendplayer\n/target [noexists] player")
-    eq(GamepadReticleCustomizerDebugTargetEnemy.attributes.macrotext, "/targetenemy")
-    eq(GamepadReticleCustomizerDebugClearTarget.attributes.macrotext, "/cleartarget")
+    expectEqual(game.bindings["ALT-CTRL-SHIFT-Y"], "GamepadReticleCustomizerDebugTarget")
+    expectEqual(game.bindings["ALT-CTRL-SHIFT-Z"], "GamepadReticleCustomizerDebugTargetEnemy")
+    expectEqual(game.bindings["ALT-CTRL-SHIFT-X"], "GamepadReticleCustomizerDebugClearTarget")
+    expectEqual(GamepadReticleCustomizerDebugTarget.attributes.macrotext, "/targetfriendplayer\n/target [noexists] player")
+    expectEqual(GamepadReticleCustomizerDebugTargetEnemy.attributes.macrotext, "/targetenemy")
+    expectEqual(GamepadReticleCustomizerDebugClearTarget.attributes.macrotext, "/cleartarget")
     SlashCmdList.GAMEPADRETICLECUSTOMIZER("debug")
     driveDebugRun({}, {})
     local run = GamepadReticleCustomizerDebugDB.runs[1]
-    eq(checkResult(run, "select a friendly player (within 60 s)"), "fail")
+    expectEqual(checkResult(run, "select a friendly player (within 60 s)"), "fail")
 end)
 
 test("/grc debug: waits for the reticle on screen before its first step (the cursor hides it)", function()
@@ -1083,90 +1085,90 @@ test("/grc debug: waits for the reticle on screen before its first step (the cur
     GamepadReticle.Icons:Hide()   -- the cursor shows, as just after a reload
     SlashCmdList.GAMEPADRETICLECUSTOMIZER("debug")
     local debugSuite = GamepadReticleCustomizer.Debug
-    eq(colorOf(debugSuite.marker.texture), "1.00 1.00 0.00 1.00", "yellow: waiting")
-    frame(); frame(); frame()
-    eq(colorOf(debugSuite.marker.texture), "1.00 1.00 0.00 1.00", "still waiting, no step yet")
+    expectEqual(colorOf(debugSuite.marker.texture), "1.00 1.00 0.00 1.00", "yellow: waiting")
+    runNextFrame(); runNextFrame(); runNextFrame()
+    expectEqual(colorOf(debugSuite.marker.texture), "1.00 1.00 0.00 1.00", "still waiting, no step yet")
     GamepadReticle.Icons:Show()
-    frame(); frame()
-    eq(math.floor(debugSuite.marker.texture.color[3] * 255 + 0.5), 16,
+    runNextFrame(); runNextFrame()
+    expectEqual(math.floor(debugSuite.marker.texture.color[3] * 255 + 0.5), 16,
         "once it shows: step 2 (step 1, waiting for no target, passed at once)")
     runUntilNoTimersLeft()
     local run = GamepadReticleCustomizerDebugDB.runs[1]
-    eq(run.environment.reticleWaitSeconds, 2, "waited 2 s (4 polls)")
-    eq(run.environment.reticleOnScreenAtStart, true)
+    expectEqual(run.environment.reticleWaitSeconds, 2, "waited 2 s (4 polls)")
+    expectEqual(run.environment.reticleOnScreenAtStart, true)
 
     boot()
     GamepadReticleCustomizer.Debug.WAIT_SECONDS = 1
     GamepadReticle.Icons:Hide()
     SlashCmdList.GAMEPADRETICLECUSTOMIZER("debug")
     runUntilNoTimersLeft()
-    eq(GamepadReticleCustomizerDebugDB.runs[1].environment.reticleOnScreenAtStart, false, "never showed: runs anyway, says so")
+    expectEqual(GamepadReticleCustomizerDebugDB.runs[1].environment.reticleOnScreenAtStart, false, "never showed: runs anyway, says so")
 end)
 
 test("/grc debug: Alt+Ctrl+Shift+C starts it too (for the screenshot script)", function()
     boot()
-    eq(game.bindings["ALT-CTRL-SHIFT-C"], "GamepadReticleCustomizerDebugStart")
+    expectEqual(game.bindings["ALT-CTRL-SHIFT-C"], "GamepadReticleCustomizerDebugStart")
     _G[game.bindings["ALT-CTRL-SHIFT-C"]]:Click()
-    eq(#game.timers > 0, true, "running")
+    expectEqual(#game.timers > 0, true, "running")
     driveDebugRun({ { isPlayer = true, classFile = "MAGE", reaction = 5 } }, { { isPlayer = false, reaction = 2 } })
-    eq(GamepadReticleCustomizerDebugDB.runs[1].failed, 0)
+    expectEqual(GamepadReticleCustomizerDebugDB.runs[1].failed, 0)
 end)
 
 test("/grc debug: a fight stops it, your settings back, the square red", function()
     boot({ saved = { color = "3961CDFF" } })
     SlashCmdList.GAMEPADRETICLECUSTOMIZER("debug")
-    frame(); frame()
+    runNextFrame(); runNextFrame()
     game.combat = true
     game.fire("PLAYER_REGEN_DISABLED")
-    eq(GamepadReticleCustomizerDebugDB.runs[1].stopped, "combat")
-    eq(GamepadReticleCustomizerDB.color, "3961CDFF")
-    eq(GamepadReticleCustomizer.Debug.marker.texture.color[1], 1, "red")
+    expectEqual(GamepadReticleCustomizerDebugDB.runs[1].stopped, "combat")
+    expectEqual(GamepadReticleCustomizerDB.color, "3961CDFF")
+    expectEqual(GamepadReticleCustomizer.Debug.marker.texture.color[1], 1, "red")
     runUntilNoTimersLeft()
-    eq(#GamepadReticleCustomizerDebugDB.runs, 1, "nothing ran after the stop")
+    expectEqual(#GamepadReticleCustomizerDebugDB.runs, 1, "nothing ran after the stop")
 end)
 
 test("/grc debug: a reload in the middle of a run puts your settings back at the next login", function()
     boot({ saved = { color = "FF0000FF", size = 48 },
         debugSaved = { runs = {}, settingsToRestore = { color = "3961CDFF", size = 7, enabled = true } } })
-    eq(GamepadReticleCustomizerDB.color, "3961CDFF"); eq(GamepadReticleCustomizerDB.size, 7)
-    eq(GamepadReticleCustomizerDebugDB.settingsToRestore, nil)
-    eq(layer().shape:GetWidth(), 7, "and drawn")
+    expectEqual(GamepadReticleCustomizerDB.color, "3961CDFF"); expectEqual(GamepadReticleCustomizerDB.size, 7)
+    expectEqual(GamepadReticleCustomizerDebugDB.settingsToRestore, nil)
+    expectEqual(layer().shape:GetWidth(), 7, "and drawn")
 end)
 
 -- The addon and its release
 
 test("an addon of its own: needs no other addon; listed under Gamepad", function()
     local toc = readFile("GamepadReticleCustomizer.toc")
-    eq(toc:find("Dependencies", 1, true), nil); eq(toc:find("OptionalDeps", 1, true), nil)
-    eq(toc:match("## Category: ([^\r\n]+)"), "Gamepad", "under Gamepad in the AddOns list, the game's own word")
+    expectEqual(toc:find("Dependencies", 1, true), nil); expectEqual(toc:find("OptionalDeps", 1, true), nil)
+    expectEqual(toc:match("## Category: ([^\r\n]+)"), "Gamepad", "under Gamepad in the AddOns list, the game's own word")
 end)
 
 test("the release leaves Debug.lua out: ignored by .pkgmeta, and gone from the release .toc", function()
     assert(readFile(".pkgmeta"):find("\n  %- Debug%.lua\n"), ".pkgmeta ignores Debug.lua, alone on its line")
-    eq(table.concat(tocFiles(true), ","),
+    expectEqual(table.concat(tocFiles(true), ","),
         "SavedSettings.lua,Color.lua,Icons.lua,Target.lua,Range.lua,Reticle.lua,PickerSticks.lua,Popup.lua,Preview.lua,RelatedAddons.lua,GamepadReticleCustomizer.lua")
-    eq(tocFiles()[#tocFiles()], "Debug.lua", "the repo's .toc loads it last")
+    expectEqual(tocFiles()[#tocFiles()], "Debug.lua", "the repo's .toc loads it last")
 end)
 
 test("without Debug.lua (the release), the addon works and /grc debug opens the settings", function()
     boot({ releaseBuild = true })
-    eq(GamepadReticleCustomizer.Debug, nil)
-    eq(layer():IsShown(), true)
+    expectEqual(GamepadReticleCustomizer.Debug, nil)
+    expectEqual(layer():IsShown(), true)
     SlashCmdList.GAMEPADRETICLECUSTOMIZER("debug")
-    eq(game.opened, 42)
+    expectEqual(game.opened, 42)
 end)
 
 test("the reticle left in the middle of the screen (nothing moves it): no icon, the reticle stays", function()
     boot({ reticleOnTarget = false, saved = { targetIcon = "marker8" } })
     game.fire("PLAYER_ENTERING_WORLD")
     setTarget({ isPlayer = false, reaction = 2, plateUnit = "nameplate4" })
-    eq(GamepadReticleCustomizer.Reticle.Drawn().icon, "dot", "a target with its nameplate, but the reticle in the middle")
-    eq(GamepadReticleCustomizer.TargetInfo().reticleOnNameplate, false)
+    expectEqual(GamepadReticleCustomizer.Reticle.Drawn().icon, "dot", "a target with its nameplate, but the reticle in the middle")
+    expectEqual(GamepadReticleCustomizer.TargetInfo().reticleOnNameplate, false)
     -- Then something puts it under the nameplate (a restricted region: not measurable).
     GamepadReticle:SetPoint("CENTER", { restricted = true }, "BOTTOM")
-    eq(GamepadReticleCustomizer.Reticle.Drawn().icon, "marker8", "redrawn as soon as it's moved there")
+    expectEqual(GamepadReticleCustomizer.Reticle.Drawn().icon, "marker8", "redrawn as soon as it's moved there")
     GamepadReticle:SetPoint("CENTER", UIParent, "BOTTOM")
-    eq(GamepadReticleCustomizer.Reticle.Drawn().icon, "dot", "and back in the middle: the reticle")
+    expectEqual(GamepadReticleCustomizer.Reticle.Drawn().icon, "dot", "and back in the middle: the reticle")
 end)
 
 test("the reticle on a nameplate that can be measured: the target's own counts, another frame doesn't", function()
@@ -1177,44 +1179,44 @@ test("the reticle on a nameplate that can be measured: the target's own counts, 
     local healthBar = { GetParent = function() return plate end }
     C_NamePlate.GetNamePlateForUnit = function() return plate end
     GamepadReticle:SetPoint("CENTER", healthBar, "BOTTOM")
-    eq(GamepadReticleCustomizer.Reticle.Drawn().icon, "marker8", "under a part of the target's nameplate")
+    expectEqual(GamepadReticleCustomizer.Reticle.Drawn().icon, "marker8", "under a part of the target's nameplate")
     GamepadReticle:SetPoint("CENTER", { GetParent = function() return UIParent end }, "BOTTOM")
-    eq(GamepadReticleCustomizer.Reticle.Drawn().icon, "dot", "under some other frame")
+    expectEqual(GamepadReticleCustomizer.Reticle.Drawn().icon, "dot", "under some other frame")
 end)
 
 test("/grc and /gamepadreticlecustomizer", function()
     boot()
-    eq(SLASH_GAMEPADRETICLECUSTOMIZER1, "/grc"); eq(SLASH_GAMEPADRETICLECUSTOMIZER2, "/gamepadreticlecustomizer")
+    expectEqual(SLASH_GAMEPADRETICLECUSTOMIZER1, "/grc"); expectEqual(SLASH_GAMEPADRETICLECUSTOMIZER2, "/gamepadreticlecustomizer")
 end)
 
 test("its icon in the AddOns list: Media/icon-64.png, shipped", function()
     local function readBytes(path) local file = assert(io.open(path, "rb")); local text = file:read("*a"); file:close(); return text end
     local toc = readBytes("GamepadReticleCustomizer.toc"):gsub("\r", "")
-    eq(toc:match("## IconTexture: ([^\n]+)"), "Interface\\AddOns\\GamepadReticleCustomizer\\Media\\icon-64.png")
-    eq(readBytes("Media/icon-64.png"):sub(2, 4), "PNG", "a PNG file")
-    eq(readBytes(".pkgmeta"):find("- Media/icon-64.png", 1, true), nil, "not left out of the release")
+    expectEqual(toc:match("## IconTexture: ([^\n]+)"), "Interface\\AddOns\\GamepadReticleCustomizer\\Media\\icon-64.png")
+    expectEqual(readBytes("Media/icon-64.png"):sub(2, 4), "PNG", "a PNG file")
+    expectEqual(readBytes(".pkgmeta"):find("- Media/icon-64.png", 1, true), nil, "not left out of the release")
 end)
 
 test("debug build: Gamepad Reticle On Target turned off counts as missing, to see its button; the release doesn't", function()
     boot({ reticleOnTargetOff = true })
-    eq(control("button", "Reticle on your target").extra.buttonText, "Get the addon",
+    expectEqual(control("button", "Reticle on your target").extra.buttonText, "Get the addon",
         "turned off for this character: the button, as players without it see it")
     boot({ reticleOnTargetOff = true, releaseBuild = true })
-    eq(control("button", "Reticle on your target"), nil, "the release: installed is installed")
+    expectEqual(control("button", "Reticle on your target"), nil, "the release: installed is installed")
     boot({ reticleOnTargetInstalled = true })
-    eq(control("button", "Reticle on your target"), nil, "debug build, turned on: no button")
+    expectEqual(control("button", "Reticle on your target"), nil, "debug build, turned on: no button")
 end)
 
 test("a Get button for each missing sibling, in order, each with its own CurseForge link", function()
     boot()
-    eq(control("button", "Camera over shoulder").extra.buttonText, "Get the addon")
+    expectEqual(control("button", "Camera over shoulder").extra.buttonText, "Get the addon")
     control("button", "Camera over shoulder").extra.onClick()
-    eq(popup().editBox:GetText(), "https://www.curseforge.com/projects/1818297")
+    expectEqual(popup().editBox:GetText(), "https://www.curseforge.com/projects/1818297")
     control("button", "Reticle on your target").extra.onClick()
-    eq(popup().editBox:GetText(), "https://www.curseforge.com/projects/1819101")
+    expectEqual(popup().editBox:GetText(), "https://www.curseforge.com/projects/1819101")
     boot({ reticleOnTargetInstalled = true })
-    eq(control("button", "Reticle on your target"), nil, "installed: its button gone")
-    eq(control("button", "Camera over shoulder") ~= nil, true, "the other one still offered")
+    expectEqual(control("button", "Reticle on your target"), nil, "installed: its button gone")
+    expectEqual(control("button", "Camera over shoulder") ~= nil, true, "the other one still offered")
 end)
 
 -- Each kind of target's own icon.
@@ -1225,128 +1227,128 @@ local function ownIcons() return { friendlyPlayerIcon = "class", otherFactionIco
 test("each kind its own icon: your faction their class, the other faction theirs, enemy NPCs a sword, neutral NPCs gray dots", function()
     boot({ saved = ownIcons() })
     setTarget({ isPlayer = true, classFile = "MAGE", reaction = 5, faction = "Horde" })
-    eq(drawnLook(), "classicon-mage", "your faction: the class")
+    expectEqual(drawnLook(), "classicon-mage", "your faction: the class")
     setTarget({ isPlayer = true, classFile = "MAGE", reaction = 2, faction = "Alliance" })
-    eq(drawnLook(), "UI-HUD-UnitFrame-Player-PVP-AllianceIcon", "the other faction: its badge")
+    expectEqual(drawnLook(), "UI-HUD-UnitFrame-Player-PVP-AllianceIcon", "the other faction: its badge")
     setTarget({ isPlayer = true, classFile = "PRIEST", reaction = 4, faction = "Alliance" })
-    eq(drawnLook(), "UI-HUD-UnitFrame-Player-PVP-AllianceIcon", "the other faction, unflagged on a PvE realm (neutral): still its badge")
+    expectEqual(drawnLook(), "UI-HUD-UnitFrame-Player-PVP-AllianceIcon", "the other faction, unflagged on a PvE realm (neutral): still its badge")
     setTarget({ isPlayer = true, classFile = "PRIEST", reaction = 1, faction = "Horde" })
-    eq(drawnLook(), "classicon-priest", "your own faction, hostile (a duel): its class")
+    expectEqual(drawnLook(), "classicon-priest", "your own faction, hostile (a duel): its class")
     setTarget({ isPlayer = false, reaction = 2 })
-    eq(drawnLook(), "Interface\\Cursor\\Attack", "an enemy NPC: the attack cursor's sword")
+    expectEqual(drawnLook(), "Interface\\Cursor\\Attack", "an enemy NPC: the attack cursor's sword")
     setTarget({ isPlayer = false, reaction = 4 })
-    eq(drawnLook(), "SideInProgressquesticon", "a neutral NPC: the game's gray dots")
+    expectEqual(drawnLook(), "SideInProgressquesticon", "a neutral NPC: the game's gray dots")
     boot({ saved = { otherFactionIcon = "class" } })
     setTarget({ isPlayer = true, classFile = "MAGE", reaction = 2, faction = "Alliance" })
-    eq(drawnLook(), "classicon-mage", "the other faction can show their class instead")
+    expectEqual(drawnLook(), "classicon-mage", "the other faction can show their class instead")
     boot({ saved = { friendlyPlayerIcon = "faction" } })
     setTarget({ isPlayer = true, classFile = "MAGE", reaction = 5, faction = "Horde" })
-    eq(drawnLook(), "UI-HUD-UnitFrame-Player-PVP-HordeIcon", "your faction can show its badge too")
+    expectEqual(drawnLook(), "UI-HUD-UnitFrame-Player-PVP-HordeIcon", "your faction can show its badge too")
     setTarget({ isPlayer = false, reaction = 2 })
-    eq(GamepadReticleCustomizer.Reticle.Drawn().icon, "dot", "enemy NPCs still None: the reticle")
+    expectEqual(GamepadReticleCustomizer.Reticle.Drawn().icon, "dot", "enemy NPCs still None: the reticle")
 end)
 
 test("friendly NPCs, Their job: the game's own interaction icon for them, else a speech bubble", function()
     boot({ saved = ownIcons() })
     setTarget({ isPlayer = false, reaction = 5, interaction = "buy" }); runUntilNoTimersLeft()
-    eq(GamepadReticleCustomizer.Reticle.Drawn().cursorUnit, "target", "the game's icon for the target")
-    eq(layer().shape.cursorIcon, "buy", "set on our texture by the game")
+    expectEqual(GamepadReticleCustomizer.Reticle.Drawn().cursorUnit, "target", "the game's icon for the target")
+    expectEqual(layer().shape.cursorIcon, "buy", "set on our texture by the game")
     setTarget({ isPlayer = false, reaction = 5, interaction = "trainer", inRange = true }); runUntilNoTimersLeft()
-    eq(layer().shape.cursorIcon, "trainer", "close enough to interact: still the job, not the controller's button")
+    expectEqual(layer().shape.cursorIcon, "trainer", "close enough to interact: still the job, not the controller's button")
     setTarget({ isPlayer = false, reaction = 5 }); runUntilNoTimersLeft()
-    eq(drawnLook(), "Crosshair_Speak_128", "no answer from the game: a speech bubble")
+    expectEqual(drawnLook(), "Crosshair_Speak_128", "no answer from the game: a speech bubble")
     setTarget({ isPlayer = false, reaction = 5, interaction = "Point" }); runUntilNoTimersLeft()
-    eq(GamepadReticleCustomizer.Reticle.Drawn().icon, "dot", "nothing to interact with (the plain pointer): the reticle")
+    expectEqual(GamepadReticleCustomizer.Reticle.Drawn().icon, "dot", "nothing to interact with (the plain pointer): the reticle")
     setTarget({ isPlayer = false, reaction = 5, controlled = true }); runUntilNoTimersLeft()
-    eq(GamepadReticleCustomizer.Reticle.Drawn().icon, "dot", "another player's pet: the reticle")
+    expectEqual(GamepadReticleCustomizer.Reticle.Drawn().icon, "dot", "another player's pet: the reticle")
 end)
 
 test("the sword: gray while none of your spells reach the target, in color once one does", function()
     boot({ saved = { enemyNpcIcon = "swords", neutralNpcIcon = "swords" } })
     game.actions = { [1] = false, [2] = "unknown" }
     setTarget({ isPlayer = false, reaction = 2 })
-    eq(layer().shape.desaturated, true, "out of reach: gray")
+    expectEqual(layer().shape.desaturated, true, "out of reach: gray")
     local watcher = GamepadReticleCustomizer.Range.watcher
     game.actions[5] = true
     watcher.scripts.OnUpdate(watcher, 1)
-    eq(layer().shape.desaturated, false, "a spell reaches it: colored")
+    expectEqual(layer().shape.desaturated, false, "a spell reaches it: colored")
     game.actions = { [2] = "unknown" }
     setTarget({ isPlayer = false, reaction = 4 })
-    eq(drawnLook(), "Interface\\Cursor\\Attack", "a neutral NPC can have the sword too")
-    eq(layer().shape.desaturated, false, "no spell can tell: colored")
+    expectEqual(drawnLook(), "Interface\\Cursor\\Attack", "a neutral NPC can have the sword too")
+    expectEqual(layer().shape.desaturated, false, "no spell can tell: colored")
     setTarget({ isPlayer = true, classFile = "MAGE", reaction = 5, faction = "Horde" })
-    eq(layer().shape.desaturated, false, "not a sword: never gray")
+    expectEqual(layer().shape.desaturated, false, "not a sword: never gray")
 end)
 
 test("neutral NPCs: a yellow paw or the neutral shield, gray out of reach like the sword", function()
     boot({ saved = { neutralNpcIcon = "paw" } })
     game.actions = { [1] = true }
     setTarget({ isPlayer = false, reaction = 4 })
-    eq(drawnLook(), "Interface\\AddOns\\GamepadReticleCustomizer\\Media\\paw.png")
-    eq(colorOf(layer().shape), "1.00 0.82 0.00 1.00", "in reach: yellow")
+    expectEqual(drawnLook(), "Interface\\AddOns\\GamepadReticleCustomizer\\Media\\paw.png")
+    expectEqual(colorOf(layer().shape), "1.00 0.82 0.00 1.00", "in reach: yellow")
     game.actions = { [1] = false }
     setTarget({ isPlayer = false, reaction = 4 })
-    eq(colorOf(layer().shape), "0.60 0.60 0.60 1.00", "out of reach: gray")
+    expectEqual(colorOf(layer().shape), "0.60 0.60 0.60 1.00", "out of reach: gray")
     boot({ saved = { neutralNpcIcon = "shield" } })
     game.actions = { [1] = false }
     setTarget({ isPlayer = false, reaction = 4 })
-    eq(layer().shape.desaturated, true, "the shield: gray out of reach")
+    expectEqual(layer().shape.desaturated, true, "the shield: gray out of reach")
     for choice, atlas in pairs({ allianceShield = "honorsystem-portrait-alliance", hordeShield = "honorsystem-portrait-horde",
         ffaBadge = "UI-HUD-UnitFrame-Player-PVP-FFAIcon", warMode = "pvptalents-warmode-swords" }) do
         boot({ saved = { neutralNpcIcon = choice } })
         game.actions = { [1] = false }
         setTarget({ isPlayer = false, reaction = 4 })
-        eq(drawnLook(), atlas, choice)
-        eq(layer().shape.desaturated, true, choice .. ": gray out of reach")
+        expectEqual(drawnLook(), atlas, choice)
+        expectEqual(layer().shape.desaturated, true, choice .. ": gray out of reach")
     end
 end)
 
 test("on a client without those atlases: the game's icon files instead", function()
     boot({ noKindAtlases = true, saved = ownIcons() })
     setTarget({ isPlayer = false, reaction = 2 })
-    eq(drawnLook(), "Interface\\Cursor\\Attack")
+    expectEqual(drawnLook(), "Interface\\Cursor\\Attack")
     setTarget({ isPlayer = false, reaction = 4 })
-    eq(drawnLook(), "Interface\\GossipFrame\\IncompleteQuestIcon")
+    expectEqual(drawnLook(), "Interface\\GossipFrame\\IncompleteQuestIcon")
     setTarget({ isPlayer = false, reaction = 5 }); runUntilNoTimersLeft()
-    eq(drawnLook(), "Interface\\GossipFrame\\GossipGossipIcon")
+    expectEqual(drawnLook(), "Interface\\GossipFrame\\GossipGossipIcon")
     setTarget({ isPlayer = true, classFile = "MAGE", reaction = 2, faction = "Alliance" })
-    eq(GamepadReticleCustomizer.Reticle.Drawn().icon, "dot", "no faction atlas: the reticle")
+    expectEqual(GamepadReticleCustomizer.Reticle.Drawn().icon, "dot", "no faction atlas: the reticle")
 end)
 
 test("the player rows are named after the factions, yours first; without a faction, plain words", function()
     boot()
-    eq(control("slider", "Horde players") ~= nil, true); eq(control("slider", "Alliance players") ~= nil, true)
+    expectEqual(control("slider", "Horde players") ~= nil, true); expectEqual(control("slider", "Alliance players") ~= nil, true)
     _G.UnitFactionGroup = function(unit) if unit == "player" then return "Alliance" end end
-    eq(GamepadReticleCustomizer.KindLabel(GamepadReticleCustomizer.TARGET_KINDS[1]), "Alliance players", "an Alliance character: theirs first")
-    eq(GamepadReticleCustomizer.KindLabel(GamepadReticleCustomizer.TARGET_KINDS[2]), "Horde players")
+    expectEqual(GamepadReticleCustomizer.KindLabel(GamepadReticleCustomizer.TARGET_KINDS[1]), "Alliance players", "an Alliance character: theirs first")
+    expectEqual(GamepadReticleCustomizer.KindLabel(GamepadReticleCustomizer.TARGET_KINDS[2]), "Horde players")
     _G.UnitFactionGroup = function(unit) if unit == "player" then return "Neutral" end end
-    eq(GamepadReticleCustomizer.KindLabel(GamepadReticleCustomizer.TARGET_KINDS[1]), "Your faction")
+    expectEqual(GamepadReticleCustomizer.KindLabel(GamepadReticleCustomizer.TARGET_KINDS[1]), "Your faction")
 end)
 
 test("each faction its own class icon style, so friend and foe look different; one older style is copied to both", function()
     boot({ jiberish = true, saved = { friendlyPlayerIcon = "class", otherFactionIcon = "class",
         friendlyClassStyle = "game", otherClassStyle = "jiberish:fabled" } })
     setTarget({ isPlayer = true, classFile = "PRIEST", reaction = 5, faction = "Horde" })
-    eq(layer().shape.texture, "classicons-file", "your faction: the game's style (its atlas's file)")
+    expectEqual(layer().shape.texture, "classicons-file", "your faction: the game's style (its atlas's file)")
     setTarget({ isPlayer = true, classFile = "PRIEST", reaction = 2, faction = "Alliance" })
-    eq(layer().shape.texture, "Interface\\AddOns\\JiberishIcons\\Media\\Class\\fabled", "the other faction: its own style")
+    expectEqual(layer().shape.texture, "Interface\\AddOns\\JiberishIcons\\Media\\Class\\fabled", "the other faction: its own style")
     boot({ saved = { classStyle = "jiberish:fabledpixels" } })
-    eq(GamepadReticleCustomizerDB.friendlyClassStyle, "jiberish:fabledpixels"); eq(GamepadReticleCustomizerDB.otherClassStyle, "jiberish:fabledpixels")
-    eq(GamepadReticleCustomizerDB.classStyle, nil)
+    expectEqual(GamepadReticleCustomizerDB.friendlyClassStyle, "jiberish:fabledpixels"); expectEqual(GamepadReticleCustomizerDB.otherClassStyle, "jiberish:fabledpixels")
+    expectEqual(GamepadReticleCustomizerDB.classStyle, nil)
 end)
 
 test("Their job: drawn once, a short beat after selecting, and again when what you can interact with changes", function()
     boot({ saved = ownIcons() })
     setTarget({ isPlayer = false, reaction = 5, interaction = "buy" })
-    eq(#game.timers, 1, "one draw, a beat later: no wrong icon first")
-    eq(GamepadReticleCustomizer.Reticle.Drawn().cursorUnit, nil, "the reticle moving onto the nameplate meanwhile draws nothing")
+    expectEqual(#game.timers, 1, "one draw, a beat later: no wrong icon first")
+    expectEqual(GamepadReticleCustomizer.Reticle.Drawn().cursorUnit, nil, "the reticle moving onto the nameplate meanwhile draws nothing")
     runUntilNoTimersLeft()
-    eq(layer().shape.cursorIcon, "buy")
+    expectEqual(layer().shape.cursorIcon, "buy")
     game.target.interaction = "repair"
     game.fire("PLAYER_SOFT_INTERACT_CHANGED")
-    eq(layer().shape.cursorIcon, "repair", "drawn again when the interaction changes")
+    expectEqual(layer().shape.cursorIcon, "repair", "drawn again when the interaction changes")
     setTarget({ isPlayer = false, reaction = 2 })
-    eq(drawnLook(), "Interface\\Cursor\\Attack", "another kind: drawn at once")
+    expectEqual(drawnLook(), "Interface\\Cursor\\Attack", "another kind: drawn at once")
 end)
 
 test("our icon on the target hides the game's interaction icon on its nameplate; the reticle's shape doesn't", function()
@@ -1357,16 +1359,16 @@ test("our icon on the target hides the game's interaction icon on its nameplate;
     local plate = { UnitFrame = { SoftTargetFrame = iconSpot } }
     C_NamePlate.GetNamePlateForUnit = function(unit) if unit == "target" and game.target then return plate end end
     setTarget({ isPlayer = false, reaction = 2 })
-    eq(iconSpot.alpha, 0, "only our icon shows")
+    expectEqual(iconSpot.alpha, 0, "only our icon shows")
     setTarget({ isPlayer = false, reaction = 5 })
-    eq(GamepadReticleCustomizer.Reticle.Drawn().icon, "dot")
-    eq(iconSpot.alpha, 0.9, "our reticle's shape: the game's icon back, at its own alpha")
+    expectEqual(GamepadReticleCustomizer.Reticle.Drawn().icon, "dot")
+    expectEqual(iconSpot.alpha, 0.9, "our reticle's shape: the game's icon back, at its own alpha")
 end)
 
 test("the screenshot tour stays out of the release: ignored by .pkgmeta, in the .toc's development block", function()
     assert(readFile(".pkgmeta"):find("\n  %- Showcase%.lua\n"), ".pkgmeta ignores Showcase.lua, alone on its line")
-    eq(table.concat(tocFiles(true), ","):find("Showcase.lua", 1, true), nil, "not in the release .toc")
-    eq(table.concat(tocFiles(false), ","):find("Showcase.lua", 1, true) ~= nil, true, "in the development one")
+    expectEqual(table.concat(tocFiles(true), ","):find("Showcase.lua", 1, true), nil, "not in the release .toc")
+    expectEqual(table.concat(tocFiles(false), ","):find("Showcase.lua", 1, true) ~= nil, true, "in the development one")
 end)
 
 reportLine(passed .. " passed, " .. failed .. " failed")
