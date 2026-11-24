@@ -31,6 +31,7 @@ Icons show while the reticle sits on your target's nameplate. The game keeps the
 More shapes and class icon styles come with [Jiberish Fabled Icons](https://www.curseforge.com/wow/addons/jiberish-fabled-icons), if you have it installed. Its art stays its own: this addon only shows it, and never needs it.
 
 ## Goes well with
+- [Gamepad Fast Map](https://www.curseforge.com/projects/1827949): opens and closes the world map without its hitch.
 - [Gamepad Reticle On Target](https://www.curseforge.com/projects/1819101): puts the reticle on your target, so it stays on what you attack.
 - [Gamepad Camera Offset](https://www.curseforge.com/projects/1818297): moves the camera over your shoulder.
 

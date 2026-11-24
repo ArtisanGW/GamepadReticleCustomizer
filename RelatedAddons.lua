@@ -28,6 +28,14 @@ local RelatedAddons = {
             TOOLTIP = "Puts the reticle just below your target's nameplate, so the icon on a target shows there.\n\n"
             .. "A separate addon; this one works without it.",
         },
+        {
+            NAME = "GamepadFastMap",
+            TITLE = "Gamepad Fast Map",
+            LABEL = "Map without its hitch",   -- the settings row: what it does
+            LINK = "https://www.curseforge.com/projects/1827949",
+            TOOLTIP = "Opens and closes the world map without its hitch on the controller UI.\n\n"
+            .. "A separate addon; this one works without it.",
+        },
     },
 }
 addon.RelatedAddons = RelatedAddons

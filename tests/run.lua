@@ -403,13 +403,13 @@ test("its page under Options > AddOns, in order, with the defaults; /grc opens i
     expectEqual(game.category.name, "Gamepad Reticle Customizer")
     expectEqual(controlList(), "checkbox:Enable, slider:Size, swatch:Color, button:(Reset color), slider:Border, "
         .. "swatch:Border color, button:(Reset border color), "
-        .. "slider:Icon size, slider:Horde players, slider:Alliance players, slider:Friendly NPCs, slider:Neutral NPCs, slider:Enemy NPCs, button:More looks, button:Camera over shoulder, button:Reticle on your target",
+        .. "slider:Icon size, slider:Horde players, slider:Alliance players, slider:Friendly NPCs, slider:Neutral NPCs, slider:Enemy NPCs, button:More looks, button:Camera over shoulder, button:Reticle on your target, button:Map without its hitch",
         "without Jiberish Fabled Icons: no one-choice Reticle or Class icons slider; its button, More looks")
     boot({ jiberish = true })
     expectEqual(controlList(), "checkbox:Enable, slider:Reticle, slider:Size, swatch:Color, button:(Reset color), slider:Border, "
         .. "swatch:Border color, button:(Reset border color), "
         .. "slider:Icon size, slider:Horde players, slider:Horde class icons, slider:Alliance players, slider:Alliance class icons, "
-        .. "slider:Friendly NPCs, slider:Neutral NPCs, slider:Enemy NPCs, button:Camera over shoulder, button:Reticle on your target",
+        .. "slider:Friendly NPCs, slider:Neutral NPCs, slider:Enemy NPCs, button:Camera over shoulder, button:Reticle on your target, button:Map without its hitch",
         "with it: the shapes, and each player row's class style right under it, always")
     boot()
     local saved = GamepadReticleCustomizerDB
