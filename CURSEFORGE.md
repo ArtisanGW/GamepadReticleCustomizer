@@ -5,6 +5,8 @@
 
 With the controller UI on, the game shows a small white dot as its reticle. This addon lets you change how it looks, and turn it into an icon on your target.
 
+[![Support me on Ko-fi](https://images.weserv.nl/?url=storage.ko-fi.com/cdn/kofi5.png&h=36)](https://ko-fi.com/artisangw)
+
 It's a simple tool with no dependencies:
 - Shape, size, color and opacity, with a color picker that works on a controller
 - A border around it, in its own color and size: an outline, so open shapes like a cross get it on every side
@@ -33,5 +35,3 @@ More shapes and class icon styles come with [Jiberish Fabled Icons](https://www.
 - [Gamepad Camera Offset](https://www.curseforge.com/projects/1818297): moves the camera over your shoulder.
 
 The code is free to copy, as long as you credit it.
-
-[![Support me on Ko-fi](https://images.weserv.nl/?url=storage.ko-fi.com/cdn/kofi5.png&h=36)](https://ko-fi.com/artisangw)
