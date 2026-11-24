@@ -1,4 +1,4 @@
--- The settings page (Options > AddOns > Gamepad Reticle Customizer), /grc and
+-- The settings page (Options > AddOns > Gamepad Reticle Customizer), /gprc and
 -- the events. What each setting does is in the other files (SavedSettings.lua
 -- lists them).
 local ADDON_NAME, addon = ...
@@ -196,7 +196,7 @@ function addon.RegisterSettings()
             .. "• Right stick: the brightness\n"
             .. "• D-pad up and down: the opacity\n\n"
             .. "From chat:\n"
-            .. "• /grc RRGGBBAA, e.g. /grc FF3030FF")
+            .. "• /gprc RRGGBBAA, e.g. /gprc FF3030FF")
         -- The reset rows show only their button, under their color, lined up with the
         -- other controls: a label of one space reads as empty but isn't "", which
         -- the game would put at the left edge (Blizzard_SettingControls.lua:982-999).
@@ -312,11 +312,11 @@ eventFrame:SetScript("OnEvent", function(_, event, name)
     end
 end)
 
--- /grc                opens the settings (/gamepadreticlecustomizer works too)
--- /grc RRGGBBAA       sets the color
--- /grc debug ...      development builds only (Debug.lua);
---                     /grc friendly and /grc monsters run its parts
-SLASH_GAMEPADRETICLECUSTOMIZER1 = "/grc"
+-- /gprc                opens the settings (/gamepadreticlecustomizer works too)
+-- /gprc RRGGBBAA       sets the color
+-- /gprc debug ...      development builds only (Debug.lua);
+--                     /gprc friendly and /gprc monsters run its parts
+SLASH_GAMEPADRETICLECUSTOMIZER1 = "/gprc"
 SLASH_GAMEPADRETICLECUSTOMIZER2 = "/gamepadreticlecustomizer"
 SlashCmdList.GAMEPADRETICLECUSTOMIZER = function(message)
     local text = tostring(message or ""):match("^%s*(.-)%s*$")
@@ -330,6 +330,6 @@ SlashCmdList.GAMEPADRETICLECUSTOMIZER = function(message)
     if addon.SetColor(text) then
         say("reticle color: " .. addon.Color())
     else
-        say("usage: /grc RRGGBBAA (hex, alpha last), e.g. /grc FF3030FF")
+        say("usage: /gprc RRGGBBAA (hex, alpha last), e.g. /gprc FF3030FF")
     end
 end

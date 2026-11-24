@@ -11,7 +11,7 @@ It's a simple tool with no dependencies:
 - Shape, size, color and opacity, with a color picker that works on a controller
 - A border around it, in its own color and size: an outline, so open shapes like a cross get it on every side
 - A preview on the settings page
-- Settings in Options > AddOns > Gamepad Reticle Customizer, or /grc
+- Settings in Options > AddOns > Gamepad Reticle Customizer, or /gprc
 
 It starts as the game's own dot, so nothing changes until you choose.
 

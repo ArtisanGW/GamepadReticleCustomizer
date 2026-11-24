@@ -32,7 +32,7 @@ end
 
 -- The steps, in order: { name (the shot's file name), kind, macro, wanted, look }.
 Showcase.STEPS = {
-    { name = "settings-reticle-customizer", kind = "settings", macro = "/grc" },
+    { name = "settings-reticle-customizer", kind = "settings", macro = "/gprc" },
     { name = "settings-reticle-on-target", kind = "settings", macro = "/grt" },
     { name = "settings-camera-offset", kind = "settings", macro = "/gco" },
     { name = "npc-job-icon", kind = "target", macro = "/targetfriend",

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Runs /grc debug in the game (Debug.lua, the in-game test suite) and screenshots
+# Runs /gprc debug in the game (Debug.lua, the in-game test suite) and screenshots
 # each of its steps, then builds a comparison of the reticle's looks.
 #
 #   tests/screenshot_debug.sh [output folder]
@@ -94,7 +94,7 @@ if [ "${COMPARE_ONLY:-0}" != 1 ]; then
     # binds its key at login: the key is pressed again every START_RETRY_SECONDS
     # until the square shows (seen: the first press after a reload went nowhere).
     xdotool key --clearmodifiers "$START_KEYS"; last_press=$SECONDS
-    echo "/grc debug: $STEP_COUNT steps. After a reload, touch the controller once so its UI (and the reticle) comes back; then stay still."
+    echo "/gprc debug: $STEP_COUNT steps. After a reload, touch the controller once so its UI (and the reticle) comes back; then stay still."
     started=$SECONDS; last_step=0; last_target_press=0; none_since=0; probe="$OUTPUT_FOLDER/.probe.png"
     while :; do
         shoot "$probe"

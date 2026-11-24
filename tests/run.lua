@@ -398,7 +398,7 @@ end
 
 -- The settings page
 
-test("its page under Options > AddOns, in order, with the defaults; /grc opens it", function()
+test("its page under Options > AddOns, in order, with the defaults; /gprc opens it", function()
     boot()
     expectEqual(game.category.name, "Gamepad Reticle Customizer")
     expectEqual(controlList(), "checkbox:Enable, slider:Size, swatch:Color, button:(Reset color), slider:Border, "
@@ -474,7 +474,7 @@ end)
 
 -- Colors
 
-test("the color: 32 bits RRGGBBAA from /grc, six digits opaque, a wrong one changes nothing", function()
+test("the color: 32 bits RRGGBBAA from /gprc, six digits opaque, a wrong one changes nothing", function()
     boot()
     SlashCmdList.GAMEPADRETICLECUSTOMIZER("FF3030CC")
     expectEqual(GamepadReticleCustomizerDB.color, "FF3030CC")
@@ -757,11 +757,11 @@ test("without it: the install button shows the link to copy", function()
     expectEqual(popup():IsShown(), false)
 end)
 
-test("no icon picker and no texture paths: no Choose icon button, /grc texture is just a wrong color", function()
+test("no icon picker and no texture paths: no Choose icon button, /gprc texture is just a wrong color", function()
     boot()
     expectEqual(control("button", "Choose icon"), nil)
     SlashCmdList.GAMEPADRETICLECUSTOMIZER("texture Interface\\Icons\\Spell_Nature_Starfall")
-    expectEqual(game.printed[#game.printed]:find("usage: /grc RRGGBBAA", 1, true) ~= nil, true, game.printed[#game.printed])
+    expectEqual(game.printed[#game.printed]:find("usage: /gprc RRGGBBAA", 1, true) ~= nil, true, game.printed[#game.printed])
     expectEqual(GamepadReticleCustomizer.IconPicker, nil)
 end)
 
@@ -940,7 +940,7 @@ test("the preview shows beside our settings page only, with the reticle and the 
     expectEqual(preview:IsShown(), false, "the window closed: hidden")
 end)
 
--- /grc debug, run here against the fake game
+-- /gprc debug, run here against the fake game
 
 local function failedChecks(run)
     local lines = {}
@@ -979,7 +979,7 @@ local function checkResult(run, wanted)
     end
 end
 
-test("/grc debug: every look checked, on 3 friendly classes and both NPC kinds, your settings back, the reload box", function()
+test("/gprc debug: every look checked, on 3 friendly classes and both NPC kinds, your settings back, the reload box", function()
     for _, jiberish in ipairs({ false, true }) do
         boot({ jiberish = jiberish, saved = { color = "3961CDFF", size = 7, targetIcon = "marker2" } })
         SlashCmdList.GAMEPADRETICLECUSTOMIZER("debug")
@@ -1006,7 +1006,7 @@ test("/grc debug: every look checked, on 3 friendly classes and both NPC kinds, 
     end
 end)
 
-test("/grc debug: alone (yourself, one NPC kind, no nameplates: the reticle stays), the optional parts are skipped, nothing fails", function()
+test("/gprc debug: alone (yourself, one NPC kind, no nameplates: the reticle stays), the optional parts are skipped, nothing fails", function()
     boot({ noNameplates = true })
     SlashCmdList.GAMEPADRETICLECUSTOMIZER("debug")
     driveDebugRun({ { isPlayer = true, classFile = "DRUID", reaction = 5 } }, { { isPlayer = false, reaction = 4 } })
@@ -1018,7 +1018,7 @@ test("/grc debug: alone (yourself, one NPC kind, no nameplates: the reticle stay
     expectEqual(checkResult(run, "the other kind of NPC"), "skip")
 end)
 
-test("/grc debug: an offered game icon missing on the client fails its check", function()
+test("/gprc debug: an offered game icon missing on the client fails its check", function()
     boot()
     table.insert(GamepadReticleCustomizer.Icons.GAME_ICONS, { key = "gone", name = "Gone", file = "Interface\\Icons\\missing_icon" })
     SlashCmdList.GAMEPADRETICLECUSTOMIZER("debug")
@@ -1028,7 +1028,7 @@ test("/grc debug: an offered game icon missing on the client fails its check", f
     table.remove(GamepadReticleCustomizer.Icons.GAME_ICONS)
 end)
 
-test("/grc friendly runs only the friendly player part, then the target cleared", function()
+test("/gprc friendly runs only the friendly player part, then the target cleared", function()
     boot({ saved = { color = "3961CDFF" } })
     SlashCmdList.GAMEPADRETICLECUSTOMIZER("friendly")
     driveDebugRun({ { isPlayer = true, classFile = "WARRIOR", reaction = 5 }, { isPlayer = true, classFile = "MAGE", reaction = 5 } },
@@ -1044,7 +1044,7 @@ test("/grc friendly runs only the friendly player part, then the target cleared"
     expectEqual(popup():IsShown(), true, "the reload popup")
 end)
 
-test("/grc monsters runs only the NPC part, then the target cleared", function()
+test("/gprc monsters runs only the NPC part, then the target cleared", function()
     boot()
     SlashCmdList.GAMEPADRETICLECUSTOMIZER("monsters")
     driveDebugRun({ { isPlayer = true, classFile = "WARRIOR", reaction = 5 } },
@@ -1057,7 +1057,7 @@ test("/grc monsters runs only the NPC part, then the target cleared", function()
     expectEqual(checkResult(run, "target cleared: the reticle back"), "pass")
 end)
 
-test("in the release (no Debug.lua), /grc friendly and /grc monsters open the settings", function()
+test("in the release (no Debug.lua), /gprc friendly and /gprc monsters open the settings", function()
     boot({ releaseBuild = true })
     SlashCmdList.GAMEPADRETICLECUSTOMIZER("friendly")
     expectEqual(game.opened, 42)
@@ -1066,7 +1066,7 @@ test("in the release (no Debug.lua), /grc friendly and /grc monsters open the se
     expectEqual(game.opened, 42)
 end)
 
-test("/grc debug: no friendly player selected within 60 s fails; its keys are bound", function()
+test("/gprc debug: no friendly player selected within 60 s fails; its keys are bound", function()
     boot()
     expectEqual(game.bindings["ALT-CTRL-SHIFT-Y"], "GamepadReticleCustomizerDebugTarget")
     expectEqual(game.bindings["ALT-CTRL-SHIFT-Z"], "GamepadReticleCustomizerDebugTargetEnemy")
@@ -1080,7 +1080,7 @@ test("/grc debug: no friendly player selected within 60 s fails; its keys are bo
     expectEqual(checkResult(run, "select a friendly player (within 60 s)"), "fail")
 end)
 
-test("/grc debug: waits for the reticle on screen before its first step (the cursor hides it)", function()
+test("/gprc debug: waits for the reticle on screen before its first step (the cursor hides it)", function()
     boot()
     GamepadReticle.Icons:Hide()   -- the cursor shows, as just after a reload
     SlashCmdList.GAMEPADRETICLECUSTOMIZER("debug")
@@ -1105,7 +1105,7 @@ test("/grc debug: waits for the reticle on screen before its first step (the cur
     expectEqual(GamepadReticleCustomizerDebugDB.runs[1].environment.reticleOnScreenAtStart, false, "never showed: runs anyway, says so")
 end)
 
-test("/grc debug: Alt+Ctrl+Shift+C starts it too (for the screenshot script)", function()
+test("/gprc debug: Alt+Ctrl+Shift+C starts it too (for the screenshot script)", function()
     boot()
     expectEqual(game.bindings["ALT-CTRL-SHIFT-C"], "GamepadReticleCustomizerDebugStart")
     _G[game.bindings["ALT-CTRL-SHIFT-C"]]:Click()
@@ -1114,7 +1114,7 @@ test("/grc debug: Alt+Ctrl+Shift+C starts it too (for the screenshot script)", f
     expectEqual(GamepadReticleCustomizerDebugDB.runs[1].failed, 0)
 end)
 
-test("/grc debug: a fight stops it, your settings back, the square red", function()
+test("/gprc debug: a fight stops it, your settings back, the square red", function()
     boot({ saved = { color = "3961CDFF" } })
     SlashCmdList.GAMEPADRETICLECUSTOMIZER("debug")
     runNextFrame(); runNextFrame()
@@ -1127,7 +1127,7 @@ test("/grc debug: a fight stops it, your settings back, the square red", functio
     expectEqual(#GamepadReticleCustomizerDebugDB.runs, 1, "nothing ran after the stop")
 end)
 
-test("/grc debug: a reload in the middle of a run puts your settings back at the next login", function()
+test("/gprc debug: a reload in the middle of a run puts your settings back at the next login", function()
     boot({ saved = { color = "FF0000FF", size = 48 },
         debugSaved = { runs = {}, settingsToRestore = { color = "3961CDFF", size = 7, enabled = true } } })
     expectEqual(GamepadReticleCustomizerDB.color, "3961CDFF"); expectEqual(GamepadReticleCustomizerDB.size, 7)
@@ -1150,7 +1150,7 @@ test("the release leaves Debug.lua out: ignored by .pkgmeta, and gone from the r
     expectEqual(tocFiles()[#tocFiles()], "Debug.lua", "the repo's .toc loads it last")
 end)
 
-test("without Debug.lua (the release), the addon works and /grc debug opens the settings", function()
+test("without Debug.lua (the release), the addon works and /gprc debug opens the settings", function()
     boot({ releaseBuild = true })
     expectEqual(GamepadReticleCustomizer.Debug, nil)
     expectEqual(layer():IsShown(), true)
@@ -1184,9 +1184,9 @@ test("the reticle on a nameplate that can be measured: the target's own counts, 
     expectEqual(GamepadReticleCustomizer.Reticle.Drawn().icon, "dot", "under some other frame")
 end)
 
-test("/grc and /gamepadreticlecustomizer", function()
+test("/gprc and /gamepadreticlecustomizer", function()
     boot()
-    expectEqual(SLASH_GAMEPADRETICLECUSTOMIZER1, "/grc"); expectEqual(SLASH_GAMEPADRETICLECUSTOMIZER2, "/gamepadreticlecustomizer")
+    expectEqual(SLASH_GAMEPADRETICLECUSTOMIZER1, "/gprc"); expectEqual(SLASH_GAMEPADRETICLECUSTOMIZER2, "/gamepadreticlecustomizer")
 end)
 
 test("its icon in the AddOns list: Media/icon-64.png, shipped", function()

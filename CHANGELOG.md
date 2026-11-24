@@ -1,5 +1,9 @@
 # Gamepad Reticle Customizer
 
+## 1.2.0
+
+- The chat command is now /gprc (or /gamepadreticlecustomizer); /grc no longer works
+
 ## 1.1.4
 
 - Neutral NPCs: three more icons, the game's Alliance shield, Horde shield and PvP badge, each gray out of reach like the sword

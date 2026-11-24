@@ -1,14 +1,14 @@
--- /grc debug: an in-game test suite. It puts each look on the real reticle, one
+-- /gprc debug: an in-game test suite. It puts each look on the real reticle, one
 -- step every Debug.SECONDS_PER_STEP, checks what the game shows (our textures'
 -- size, color and picture, the game's dot hidden or back), puts your own settings
 -- back, and keeps the findings in GamepadReticleCustomizerDebugDB (written to
 -- disk on /reload). Not in the release zip (.pkgmeta).
---   /grc debug         runs the whole suite (out of combat, controller UI on)
---   /grc friendly      runs only its friendly player part, then the target cleared
---   /grc monsters      runs only its neutral and enemy NPC part, then the target cleared
+--   /gprc debug         runs the whole suite (out of combat, controller UI on)
+--   /gprc friendly      runs only its friendly player part, then the target cleared
+--   /gprc monsters      runs only its neutral and enemy NPC part, then the target cleared
 --   (by hand: select the targets yourself when the corner says so)
---   /grc debug last    prints the last run's findings again
---   /grc debug clear   empties the saved runs
+--   /gprc debug last    prints the last run's findings again
+--   /gprc debug clear   empties the saved runs
 -- A fight stops the run; a reload during one puts your settings back at login.
 --
 -- Its parts:
@@ -335,7 +335,7 @@ addWait("clear the target", "noTarget")
 addLook("target cleared: the reticle back", { targetIcon = "marker8", size = 12, borderSize = 2 })
 Debug.STEPS = STEPS
 
--- What each command runs: /grc debug all of it, /grc friendly and /grc monsters their part.
+-- What each command runs: /gprc debug all of it, /gprc friendly and /gprc monsters their part.
 Debug.PARTS = { debug = { "reticle", "friendly", "monsters", "cleared" },
     friendly = { "friendly", "cleared" }, monsters = { "monsters", "cleared" } }
 
@@ -387,7 +387,7 @@ local function countResults(run)
 end
 
 function Debug.PrintRun(run)
-    if not run then say("no saved run yet: /grc debug"); return end
+    if not run then say("no saved run yet: /gprc debug"); return end
     local counts = countResults(run)
     local stoppedNote = run.stopped and (" (stopped: " .. run.stopped .. ")") or ""
     say(string.format("%s: %d passed, %d failed, %d skipped%s", run.time or "?", counts.pass, counts.fail, counts.skip, stoppedNote))
@@ -545,7 +545,7 @@ function Debug.Start(runName)
     local plan = Debug.StepsFor(runName)
     currentRun = { name = runName, plan = plan, time = type(date) == "function" and date("%Y-%m-%d %H:%M:%S") or nil,
         environment = describeEnvironment(), checks = {}, steps = {}, stepNumber = 0, found = {}, classesSeen = {} }
-    say(string.format("/grc %s: %d steps. %s", runName, #plan, START_TEXTS[runName]))
+    say(string.format("/gprc %s: %d steps. %s", runName, #plan, START_TEXTS[runName]))
     wait("reticle", "the reticle on screen", 0)
 end
 
@@ -561,7 +561,7 @@ function Debug.Command(arguments)
         getDebugStore().runs = {}
         say("saved runs cleared")
     else
-        say("/grc debug (the whole suite), /grc friendly, /grc monsters, /grc debug last, /grc debug clear")
+        say("/gprc debug (the whole suite), /gprc friendly, /gprc monsters, /gprc debug last, /gprc debug clear")
     end
 end
 

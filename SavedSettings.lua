@@ -10,7 +10,7 @@
 --   Reticle.lua     draws the reticle, or the icon on a target, on the game's reticle
 --   PickerSticks.lua  the game's color picker on a controller
 --   Popup.lua         a popup in the game's own style, with a secure Reload when needed
---   GamepadReticleCustomizer.lua  the settings page, /grc and the events
+--   GamepadReticleCustomizer.lua  the settings page, /gprc and the events
 local _, addon = ...
 _G.GamepadReticleCustomizer = addon
 
