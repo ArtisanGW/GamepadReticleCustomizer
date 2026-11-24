@@ -1,4 +1,5 @@
 **Summary:** Changes the controller's reticle: its shape, size and color, or an icon on your target.
+**Categories:** Combat, Artwork
 
 ## Description
 
