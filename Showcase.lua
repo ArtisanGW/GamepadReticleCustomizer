@@ -33,8 +33,8 @@ end
 -- The steps, in order: { name (the shot's file name), kind, macro, wanted, look }.
 Showcase.STEPS = {
     { name = "settings-reticle-customizer", kind = "settings", macro = "/gprc" },
-    { name = "settings-reticle-on-target", kind = "settings", macro = "/grt" },
-    { name = "settings-camera-offset", kind = "settings", macro = "/gco" },
+    { name = "settings-reticle-on-target", kind = "settings", macro = "/gprt" },
+    { name = "settings-camera-offset", kind = "settings", macro = "/gpco" },
     { name = "npc-job-icon", kind = "target", macro = "/targetfriend",
         wanted = function(target)   -- a real job: not just talking, not a quest
             local name = interaction(target)
