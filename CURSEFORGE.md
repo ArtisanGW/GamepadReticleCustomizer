@@ -1,7 +1,17 @@
-**Summary:** Changes the controller's reticle: its shape, size and color, or an icon on your target.
-**Categories:** Combat, Artwork
+# Summary
 
-## Description
+Changes the controller's reticle: its shape, size and color, or an icon on your target.
+
+# Categories
+
+- Combat
+- Artwork
+
+# License
+
+Apache License 2.0
+
+# Description
 
 With the controller UI on, the game shows a small white dot as its reticle. This addon lets you change how it looks, and turn it into an icon on your target.
 
