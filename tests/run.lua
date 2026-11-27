@@ -235,20 +235,29 @@ local function boot(options)
     _G.UnitGUID = function(unit) if unit == "player" then return "Player-93-0A1B2C3D" end end
     _G.issecretvalue = function(value) return getmetatable(value) == secretMetatable end
     _G.canaccesstable = function(value) return value.forbidden ~= true end
-    -- The game's settings (CVars), options.cvars or the game's defaults; game.cvarsSet: each SetCVar, in order.
+    -- The game's settings (CVars): saved values (options.cvars, else the game's
+    -- defaults) and temporary ones over them (options.tempCVars: the controller UI's).
+    -- As measured in the game: SetCVar changes the saved value only, hidden under a
+    -- temporary one. game.cvarsSet: each SetCVar, in order.
     game.cvars = options.cvars or { SoftTargetInteract = "1", SoftTargetInteractArc = "0", SoftTargetIconGameObject = "0",
-        nameplateGameObjectMaxDistance = "30.000000" }
+        nameplateGameObjectMaxDistance = "30" }
+    game.tempCVars = options.tempCVars or {}
     game.cvarsSet = {}
+    -- As the game: an addon can't change a secure one in a fight.
+    local function refuseInFight(name)
+        local secure = { SoftTargetInteract = true, nameplateGameObjectMaxDistance = true }
+        if secure[name] and game.combat then error("ADDON_ACTION_BLOCKED SetCVar " .. name) end
+    end
     _G.C_CVar = {
-        GetCVar = function(name) return game.cvars[name] end,
+        GetCVar = function(name) return game.tempCVars[name] or game.cvars[name] end,
         SetCVar = function(name, value)
-            -- As the game: an addon can't change a secure one in a fight.
-            local secure = { SoftTargetInteract = true, nameplateGameObjectMaxDistance = true }
-            if secure[name] and game.combat then error("ADDON_ACTION_BLOCKED SetCVar " .. name) end
+            refuseInFight(name)
             game.cvars[name] = value
             game.cvarsSet[#game.cvarsSet + 1] = name .. "=" .. value
             return true
         end,
+        SetTempCVar = function(name, value) refuseInFight(name); game.tempCVars[name] = value end,
+        RemoveTempCVar = function(name) refuseInFight(name); game.tempCVars[name] = nil end,
     }
     -- Units' tooltips (game.tooltips[unit]: the lines) and your quest log (game.quests:
     -- { questID, objectives = { { text, type, finished } } }).
@@ -1446,45 +1455,54 @@ end)
 local function cvarsText()
     local names = { "SoftTargetInteract", "SoftTargetInteractArc", "SoftTargetIconGameObject", "nameplateGameObjectMaxDistance" }
     local values = {}
-    for _, name in ipairs(names) do values[#values + 1] = game.cvars[name] end
+    for _, name in ipairs(names) do values[#values + 1] = C_CVar.GetCVar(name) end   -- what the game uses
     return table.concat(values, " ")
 end
 local OUR_CVARS = "3 2 1 60"
 
-test("object icons: off at first, nothing changed; on, the game's four settings ours; off, yours back", function()
-    boot({ cvars = { SoftTargetInteract = "1", SoftTargetInteractArc = "1", SoftTargetIconGameObject = "1",
-        nameplateGameObjectMaxDistance = "30.000000" } })
+-- The controller UI's own temporary values (Blizzard_Gamepad/Core.lua).
+local CONTROLLER_TEMP_CVARS = { SoftTargetInteract = "1", SoftTargetInteractArc = "1", SoftTargetIconGameObject = "1" }
+local function copyOf(values) local copy = {}; for name, value in pairs(values) do copy[name] = value end; return copy end
+
+test("object icons: off at first, nothing changed; on, ours as temporary values, never saved; off, as before", function()
+    boot()
     expectEqual(GamepadReticleCustomizerDB.objectIcons, false)
-    expectEqual(#game.cvarsSet, 0, "nothing set until asked")
     setting("objectIcons"):SetValue(true)
     expectEqual(cvarsText(), OUR_CVARS)
-    table.sort(game.cvarsSet)
-    expectEqual(table.concat(game.cvarsSet, ","), "SoftTargetInteract=3,SoftTargetInteractArc=2,nameplateGameObjectMaxDistance=60",
-        "one already at ours (1) isn't set again")
+    expectEqual(#game.cvarsSet, 0, "your saved settings untouched")
     setting("objectIcons"):SetValue(false)
-    expectEqual(cvarsText(), "1 1 1 30.000000", "yours back")
-    expectEqual(GamepadReticleCustomizerDB.objectIconsBefore, nil)
+    expectEqual(cvarsText(), "1 0 0 30", "yours back")
+    expectEqual(next(game.tempCVars), nil, "no temporary value left")
 end)
 
-test("object icons: yours back at logout and ours at the next login; one you changed yourself stays yours", function()
+test("object icons: over the controller UI's temporary values, and those back when off", function()
+    boot({ tempCVars = copyOf(CONTROLLER_TEMP_CVARS) })
+    setting("objectIcons"):SetValue(true)
+    expectEqual(cvarsText(), OUR_CVARS)
+    setting("objectIcons"):SetValue(false)
+    expectEqual(cvarsText(), "1 1 1 30", "the controller UI's back")
+    expectEqual(game.tempCVars.SoftTargetIconGameObject, "1", "the one already at ours never touched")
+    expectEqual(#game.cvarsSet, 0)
+end)
+
+test("object icons: each loading screen sets ours again; a reload starts over; one changed meanwhile isn't put back", function()
     boot()
     setting("objectIcons"):SetValue(true)
-    game.cvars.SoftTargetInteractArc = "0"   -- you, in the game's settings
-    game.fire("PLAYER_LOGOUT")
-    expectEqual(cvarsText(), "1 0 0 30.000000", "the game keeps yours without the addon")
-    local saved, cvars = GamepadReticleCustomizerDB, game.cvars
-    boot({ saved = saved, cvars = cvars })
-    expectEqual(cvarsText(), OUR_CVARS, "the next login: ours again")
+    game.fire("PLAYER_ENTERING_WORLD")
+    expectEqual(cvarsText(), OUR_CVARS)
+    local saved = GamepadReticleCustomizerDB
+    boot({ saved = saved, tempCVars = copyOf(CONTROLLER_TEMP_CVARS) })   -- the game set its own again
+    expectEqual(cvarsText(), OUR_CVARS, "ours at login")
+    game.tempCVars.SoftTargetInteractArc = "0"   -- something else changed it
     setting("objectIcons"):SetValue(false)
-    expectEqual(cvarsText(), "1 0 0 30.000000", "off: the values from before the first time on")
+    expectEqual(cvarsText(), "1 0 1 30", "the controller UI's back, the changed one left as it is")
 end)
 
 test("object icons: in a fight the change waits for its end (the game refuses secure CVars then)", function()
     boot()
     game.combat = true
     setting("objectIcons"):SetValue(true)
-    expectEqual(cvarsText(), "1 0 0 30.000000", "nothing in the fight, no error")
-    game.fire("PLAYER_LOGOUT")   -- a reload in the fight
+    expectEqual(cvarsText(), "1 0 0 30", "nothing in the fight, no error")
     game.combat = false
     game.fire("PLAYER_REGEN_ENABLED")
     expectEqual(cvarsText(), OUR_CVARS)

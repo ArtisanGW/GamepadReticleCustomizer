@@ -36,8 +36,7 @@ _G.GamepadReticleCustomizer = addon
 --   iconSize:      the icon's width and height.
 --   borderSize:    how far the border reaches out around either (0: no border).
 --   borderColor:   the border's color, "RRGGBBAA".
---   objectIcons:   the game's interact icons on more objects (ObjectIcons.lua); its
---                  objectIconsBefore holds your own values, put back when it's off.
+--   objectIcons:   the game's interact icons on more objects (ObjectIcons.lua).
 --   questIcons:    quest icons beside nameplates (QuestIcons.lua).
 addon.DEFAULTS = { enabled = true, icon = "dot", color = "FFFFFFFF", size = 4, dotSize = 4, shapeSize = 32, friendlyClassStyle = "game", otherClassStyle = "game", iconSize = 32,
     friendlyPlayerIcon = "none", otherFactionIcon = "none", friendlyNpcIcon = "none", neutralNpcIcon = "none",

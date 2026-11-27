@@ -38,6 +38,14 @@ The sword, the paw, the shields, the PvP badge and the War Mode swords are gray 
 
 Icons show while the reticle sits on your target's nameplate. The game keeps the reticle in the middle of the screen, so use [Gamepad Reticle On Target](https://www.curseforge.com/projects/1819101) to put it there.
 
+## Nearby
+
+Two options for what's around you, each off at first:
+- **Object icons**: the game's interact icons on more objects (ore, herbs, skinning, chests, mailboxes, chairs), from 60 yards instead of 30 and in a wider arc, and the interact key on a keyboard too. Turned off, your own game settings come back
+- **Quest icons**: a sword beside the nameplates of what a quest needs you to kill, a bag beside those that drop an item you need
+
+Where the game hides quest text from addons, quest icons wait for it to show again.
+
 More shapes and class icon styles come with [Jiberish Fabled Icons](https://www.curseforge.com/wow/addons/jiberish-fabled-icons), if you have it installed. Its art stays its own: this addon only shows it, and never needs it.
 
 ## Goes well with

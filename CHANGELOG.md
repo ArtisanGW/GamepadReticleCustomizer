@@ -1,5 +1,12 @@
 # Gamepad Reticle Customizer
 
+## 1.3.0
+
+- Nearby, two new options, each off at first:
+  - Object icons: the game's interact icons on more of what's around you (ore, herbs, skinning, chests, mailboxes, chairs), from farther away (60 yards instead of 30) and in a wider arc, and the interact key on a keyboard too. Turned off, your own game settings come back
+  - Quest icons: a sword beside the nameplates of what a quest needs you to kill, a bag beside those that drop an item you need
+- Where the game hides quest text from addons, quest icons wait for it to show again, with no errors
+
 ## 1.2.0
 
 - The chat command is now /gprc (or /gamepadreticlecustomizer); /grc no longer works
