@@ -99,6 +99,13 @@ local function newRegion(parent)
     return region
 end
 
+-- A value the game hides from addons in instances (a secret value): comparing or
+-- indexing it is an error, as in the game; issecretvalue tells it apart.
+local secretMetatable = {}
+local function secretUsed() error("attempt to use a secret value", 2) end
+secretMetatable.__eq, secretMetatable.__lt, secretMetatable.__le, secretMetatable.__index = secretUsed, secretUsed, secretUsed, secretUsed
+local function secretValue() return setmetatable({}, secretMetatable) end
+
 local function boot(options)
     options = options or {}
     game = { frames = {}, settings = {}, callbacks = {}, controls = {}, time = 100, printed = {}, timers = {} }
@@ -222,6 +229,7 @@ local function boot(options)
     }
     _G.UnitName = function(unit) if unit == "player" then return "Artio" end end
     _G.UnitGUID = function(unit) if unit == "player" then return "Player-93-0A1B2C3D" end end
+    _G.issecretvalue = function(value) return getmetatable(value) == secretMetatable end
     _G.MinimalSliderWithSteppersMixin = { Label = { Right = 2 } }
     local function addControl(kind, setting, extra)
         game.controls[#game.controls + 1] = { kind = kind, setting = setting, extra = extra }
@@ -1369,6 +1377,32 @@ test("the screenshot tour stays out of the release: ignored by .pkgmeta, in the 
     assert(readFile(".pkgmeta"):find("\n  %- Showcase%.lua\n"), ".pkgmeta ignores Showcase.lua, alone on its line")
     expectEqual(table.concat(tocFiles(true), ","):find("Showcase.lua", 1, true), nil, "not in the release .toc")
     expectEqual(table.concat(tocFiles(false), ","):find("Showcase.lua", 1, true) ~= nil, true, "in the development one")
+end)
+
+test("in a dungeon (the target's GUID and name secret), Debug records each new target once, with no error", function()
+    boot({ saved = ownIcons() })
+    _G.UnitGUID = function(unit) if unit == "target" then return secretValue() end return "Player-93-0A1B2C3D" end
+    _G.UnitName = function(unit) if unit == "target" then return secretValue() end return "Artio" end
+    setTarget({ isPlayer = false, reaction = 2, interaction = "attack", plateUnit = "nameplate4" })
+    game.fire("NAME_PLATE_UNIT_ADDED", "nameplate4")   -- drawn again, the same target
+    game.fire("NAME_PLATE_UNIT_ADDED", "nameplate4")
+    local records = GamepadReticleCustomizerDebugDB.interactionIcons
+    expectEqual(#records, 1, "one record for one target")
+    expectEqual(records[1].name, "nil", "a hidden name is saved as unknown")
+    setTarget({ isPlayer = false, reaction = 5, interaction = "buy", plateUnit = "nameplate5" })
+    expectEqual(#records, 1, "a job icon's target: not before the job icon's wait")
+    game.fire("NAME_PLATE_UNIT_ADDED", "nameplate5")
+    expectEqual(#records, 1, "still waiting: a redraw meanwhile records nothing")
+    runUntilNoTimersLeft()
+    expectEqual(#records, 2, "after the wait: one more record")
+    expectEqual(records[2].texture, "Cursor Crosshair_buy_64", "the new target's icon")
+end)
+
+test("in a dungeon, a reticle anchor the game hides (a secret value) counts as on the nameplate, with no error", function()
+    boot()
+    setTarget({ isPlayer = false, reaction = 2, plateUnit = "nameplate4" })
+    function GamepadReticle:GetPoint() return "CENTER", secretValue(), "BOTTOM", 0, 0 end
+    expectEqual(GamepadReticleCustomizer.ReticleOnNameplate(), true)
 end)
 
 reportLine(passed .. " passed, " .. failed .. " failed")

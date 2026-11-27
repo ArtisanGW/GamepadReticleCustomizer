@@ -30,6 +30,8 @@ function addon.ReticleOnNameplate()
     if type(reticle) ~= "table" or type(reticle.GetPoint) ~= "function" then return false end
     local succeeded, _, anchor = pcall(reticle.GetPoint, reticle, 1)
     if not succeeded then return true end
+    -- An anchor the game hides from addons (a secret value) can't be compared: the same answer.
+    if type(issecretvalue) == "function" and issecretvalue(anchor) then return true end
     local namePlates = _G.C_NamePlate
     if type(anchor) ~= "table" or type(namePlates) ~= "table" or type(namePlates.GetNamePlateForUnit) ~= "function" then
         return false

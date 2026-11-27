@@ -308,7 +308,9 @@ eventFrame:SetScript("OnEvent", function(_, event, name)
     elseif event == "NAME_PLATE_UNIT_ADDED" or event == "NAME_PLATE_UNIT_REMOVED" then
         -- Only the target's own nameplate matters (name is the unit, "nameplate3").
         local succeeded, isTarget = pcall(UnitIsUnit, name, "target")
-        if not succeeded or isTarget ~= false then addon.UpdateReticle() end
+        -- An answer the game hides from addons (a secret value) can't be compared: drawn again then too.
+        local hidden = type(issecretvalue) == "function" and issecretvalue(isTarget)
+        if not succeeded or hidden or isTarget ~= false then addon.UpdateReticle() end
     end
 end)
 

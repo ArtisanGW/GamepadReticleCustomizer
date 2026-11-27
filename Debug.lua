@@ -606,6 +606,11 @@ end
 -- whether it has one, its atlas and texture, and whether it's tied to a quest you have.
 Debug.INTERACTION_RECORDS_KEPT = 20
 local interactionProbe
+-- A value the game hides from addons (a secret value) counts as unknown.
+local function readable(value)
+    if type(issecretvalue) == "function" and issecretvalue(value) then return nil end
+    return value
+end
 local function recordInteractionIcon()
     if type(SetUnitCursorTexture) ~= "function" then return end
     if not interactionProbe then
@@ -619,7 +624,7 @@ local function recordInteractionIcon()
         relatedSucceeded, related = pcall(C_QuestLog.UnitIsRelatedToActiveQuest, "target")
     end
     local record = {
-        name = tostring(UnitName("target")),
+        name = tostring(readable((UnitName("target")))),   -- a hidden name is saved as "nil"
         hasIcon = tostring(succeeded and hasIcon),
         atlas = tostring(interactionProbe:GetAtlas()),
         texture = tostring(interactionProbe:GetTexture()),
@@ -630,20 +635,27 @@ local function recordInteractionIcon()
     table.insert(store.interactionIcons, record)
     while #store.interactionIcons > Debug.INTERACTION_RECORDS_KEPT do table.remove(store.interactionIcons, 1) end
 end
--- After each draw of the reticle (the game's icon is ready by then), once per target.
-local lastRecordedTarget
-hooksecurefunc(addon, "UpdateReticle", function()
-    local guid = UnitExists("target") and type(UnitGUID) == "function" and UnitGUID("target") or nil
-    if not guid or guid == lastRecordedTarget then return end
-    lastRecordedTarget = guid
+-- Once per target change, as soon as the game's icon is ready: right away, or at
+-- the delayed draw a job icon waits for (GamepadReticleCustomizer.lua). The
+-- target's GUID is a secret value in instances and can't be compared there:
+-- PLAYER_TARGET_CHANGED (below) says when the target is a new one.
+local targetRecorded = true
+local function recordNewTarget()
+    if targetRecorded or addon.jobIconPending or not UnitExists("target") then return end
+    targetRecorded = true
     recordInteractionIcon()
-end)
+end
+hooksecurefunc(addon, "UpdateReticle", recordNewTarget)
 
 Debug.eventFrame = CreateFrame("Frame")
 Debug.eventFrame:RegisterEvent("PLAYER_LOGIN")
 Debug.eventFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
+Debug.eventFrame:RegisterEvent("PLAYER_TARGET_CHANGED")
 Debug.eventFrame:SetScript("OnEvent", function(_, event)
-    if event == "PLAYER_LOGIN" then
+    if event == "PLAYER_TARGET_CHANGED" then
+        targetRecorded = false
+        recordNewTarget()
+    elseif event == "PLAYER_LOGIN" then
         bindKeys()
         -- What the game says about Jiberish Fabled Icons' switch, at login.
         getDebugStore().jiberishAtLogin = jiberishRawState()
