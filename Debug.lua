@@ -606,11 +606,8 @@ end
 -- whether it has one, its atlas and texture, and whether it's tied to a quest you have.
 Debug.INTERACTION_RECORDS_KEPT = 20
 local interactionProbe
--- A value the game hides from addons (a secret value) counts as unknown.
-local function readable(value)
-    if type(issecretvalue) == "function" and issecretvalue(value) then return nil end
-    return value
-end
+-- A value the game hides from addons (a secret value) counts as unknown (Target.lua).
+local readable = addon.Readable
 local function recordInteractionIcon()
     if type(SetUnitCursorTexture) ~= "function" then return end
     if not interactionProbe then

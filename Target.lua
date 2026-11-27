@@ -47,10 +47,13 @@ function addon.ReticleOnNameplate()
     return false
 end
 
-local function readable(value)
+-- A value the game hides from addons (a secret value) as nil: it can't be
+-- compared, tested or used as a table key. Range.lua and QuestIcons.lua use it too.
+function addon.Readable(value)
     if type(issecretvalue) == "function" and issecretvalue(value) then return nil end
     return value
 end
+local readable = addon.Readable
 
 -- The game's reaction (UnitReaction) as a word: 1 to 3 enemy, 4 neutral, 5 and up friendly.
 local function reactionWord(reaction)

@@ -7,7 +7,10 @@
 --                     shapes when installed) and the icons on a target (its class,
 --                     the game's raid markers, a hand-picked set of the game's icons)
 --   Target.lua        what's targeted now: whether there's a target, a player's class
---   Reticle.lua     draws the reticle, or the icon on a target, on the game's reticle
+--   Range.lua         the icons drawn gray while your spells can't reach the target
+--   ObjectIcons.lua   the game's interact icons on more objects (its CVars)
+--   QuestIcons.lua    quest icons beside the nameplates of units a quest needs
+--   Reticle.lua       draws the reticle, or the icon on a target, on the game's reticle
 --   PickerSticks.lua  the game's color picker on a controller
 --   Popup.lua         a popup in the game's own style, with a secure Reload when needed
 --   GamepadReticleCustomizer.lua  the settings page, /gprc and the events
@@ -33,10 +36,13 @@ _G.GamepadReticleCustomizer = addon
 --   iconSize:      the icon's width and height.
 --   borderSize:    how far the border reaches out around either (0: no border).
 --   borderColor:   the border's color, "RRGGBBAA".
+--   objectIcons:   the game's interact icons on more objects (ObjectIcons.lua); its
+--                  objectIconsBefore holds your own values, put back when it's off.
+--   questIcons:    quest icons beside nameplates (QuestIcons.lua).
 addon.DEFAULTS = { enabled = true, icon = "dot", color = "FFFFFFFF", size = 4, dotSize = 4, shapeSize = 32, friendlyClassStyle = "game", otherClassStyle = "game", iconSize = 32,
     friendlyPlayerIcon = "none", otherFactionIcon = "none", friendlyNpcIcon = "none", neutralNpcIcon = "none",
     enemyNpcIcon = "none",
-    borderSize = 0, borderColor = "000000FF" }
+    borderSize = 0, borderColor = "000000FF", objectIcons = false, questIcons = false }
 -- The kinds of target, in the settings page's order: { key (its setting), label, tooltip }.
 addon.TARGET_KINDS = {
     { key = "friendlyPlayerIcon", label = "Your faction", tooltip = "Players of your faction.", classStyleKey = "friendlyClassStyle" },

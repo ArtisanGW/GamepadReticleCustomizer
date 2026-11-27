@@ -14,10 +14,7 @@ local Range = {
 }
 addon.Range = Range
 
-local function readable(value)
-    if type(issecretvalue) == "function" and issecretvalue(value) then return nil end
-    return value
-end
+local readable = addon.Readable   -- Target.lua
 
 -- true: a spell on your bars reaches the target; false: none does; nil: none can tell.
 function Range.TargetInReach()

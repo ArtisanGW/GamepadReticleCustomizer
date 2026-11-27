@@ -107,11 +107,12 @@ function addon.RegisterSettings()
     addon.category = category
     local settings = addon.Settings()
 
-    local function addSetting(key, valueType, label)
+    -- onChange (optional): what runs when it changes; the reticle drawn again by default.
+    local function addSetting(key, valueType, label, onChange)
         local variableName = "GamepadReticleCustomizer_" .. key
         local setting = Settings.RegisterAddOnSetting(category, variableName, key, settings, valueType, label,
             addon.DEFAULTS[key])
-        Settings.SetOnValueChangedCallback(variableName, function() addon.UpdateReticle() end)
+        Settings.SetOnValueChangedCallback(variableName, function() (onChange or addon.UpdateReticle)() end)
         return setting
     end
     local function addSwatch(key, label, tooltip)
@@ -255,6 +256,26 @@ function addon.RegisterSettings()
             "Jiberish Fabled Icons is installed but turned off.\n\n"
             .. "Turn it on to get its class icon styles and reticle shapes here.")
     end
+
+    -- Nearby: the game's icons on what's around you, not only your target.
+    if type(CreateSettingsListSectionHeaderInitializer) == "function" then
+        layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("Nearby"))
+    end
+    Settings.CreateCheckbox(category,
+        addSetting("objectIcons", Settings.VarType.Boolean, "Object icons", addon.ObjectIcons.Apply),
+        "The game's interact icons on more of what's around you:\n\n"
+        .. "• Ore, herbs, skinning, chests, mailboxes, chairs\n"
+        .. "• From farther away: 60 yards instead of 30\n"
+        .. "• In a wider arc\n"
+        .. "• The interact key on a keyboard too\n\n"
+        .. "Turned off, your own game settings come back.")
+    Settings.CreateCheckbox(category,
+        addSetting("questIcons", Settings.VarType.Boolean, "Quest icons", addon.QuestIcons.Refresh),
+        "Beside the nameplates of what a quest still needs:\n\n"
+        .. "• A sword: kill it\n"
+        .. "• A bag: it drops an item you need\n\n"
+        .. "The game can hide quest text from addons in dungeons, raids and fights; "
+        .. "nameplates shown then get theirs once it's back.")
 
     addon.RelatedAddons.AddButtons(addButton)
 

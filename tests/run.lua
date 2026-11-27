@@ -96,6 +96,7 @@ local function newRegion(parent)
     function region:CreateTexture() return newRegion(self) end
     function region:CreateFontString() return newRegion(self) end
     function region:Click() if self.scripts and self.scripts.OnClick then self.scripts.OnClick(self) end end
+    function region:IsForbidden() return self.forbidden == true end
     return region
 end
 
@@ -183,7 +184,10 @@ local function boot(options)
     _G.C_ClassColor = { GetClassColor = function(classFile) return game.classColors[classFile] end }
     -- The target's nameplate (unless target.nameplate == false: a vendor, a minion, or
     -- off screen), a player's health bar in its class's color (as the game shows them).
+    -- Other units' nameplates: game.plates[unit] (Nearby's tests).
+    game.plates = {}
     _G.C_NamePlate = { GetNamePlateForUnit = function(unit)
+        if game.plates[unit] then return game.plates[unit] end
         if unit ~= "target" or not game.target or game.target.nameplate == false or options.noNameplates then return nil end
         local color = game.classColors[game.target.classFile] or { r = 0, g = 1, b = 0 }
         return { UnitFrame = { healthBar = { GetStatusBarColor = function() return color.r, color.g, color.b end } } }
@@ -230,6 +234,38 @@ local function boot(options)
     _G.UnitName = function(unit) if unit == "player" then return "Artio" end end
     _G.UnitGUID = function(unit) if unit == "player" then return "Player-93-0A1B2C3D" end end
     _G.issecretvalue = function(value) return getmetatable(value) == secretMetatable end
+    _G.canaccesstable = function(value) return value.forbidden ~= true end
+    -- The game's settings (CVars), options.cvars or the game's defaults; game.cvarsSet: each SetCVar, in order.
+    game.cvars = options.cvars or { SoftTargetInteract = "1", SoftTargetInteractArc = "0", SoftTargetIconGameObject = "0",
+        nameplateGameObjectMaxDistance = "30.000000" }
+    game.cvarsSet = {}
+    _G.C_CVar = {
+        GetCVar = function(name) return game.cvars[name] end,
+        SetCVar = function(name, value)
+            -- As the game: an addon can't change a secure one in a fight.
+            local secure = { SoftTargetInteract = true, nameplateGameObjectMaxDistance = true }
+            if secure[name] and game.combat then error("ADDON_ACTION_BLOCKED SetCVar " .. name) end
+            game.cvars[name] = value
+            game.cvarsSet[#game.cvarsSet + 1] = name .. "=" .. value
+            return true
+        end,
+    }
+    -- Units' tooltips (game.tooltips[unit]: the lines) and your quest log (game.quests:
+    -- { questID, objectives = { { text, type, finished } } }).
+    game.tooltips, game.quests = {}, {}
+    _G.Enum = { TooltipDataLineType = { UnitName = 2, QuestObjective = 8, QuestTitle = 17 } }
+    _G.C_TooltipInfo = { GetUnit = function(unit)
+        local lines = game.tooltips[unit]
+        if getmetatable(lines) == secretMetatable then return lines end
+        return lines and { lines = lines } or nil
+    end }
+    _G.C_QuestLog = {
+        GetNumQuestLogEntries = function() return #game.quests end,
+        GetInfo = function(index) return game.quests[index] and { questID = game.quests[index].questID, isHeader = false } end,
+        GetQuestObjectives = function(questID)
+            for _, quest in ipairs(game.quests) do if quest.questID == questID then return quest.objectives end end
+        end,
+    }
     _G.MinimalSliderWithSteppersMixin = { Label = { Right = 2 } }
     local function addControl(kind, setting, extra)
         game.controls[#game.controls + 1] = { kind = kind, setting = setting, extra = extra }
@@ -411,13 +447,13 @@ test("its page under Options > AddOns, in order, with the defaults; /gprc opens 
     expectEqual(game.category.name, "Gamepad Reticle Customizer")
     expectEqual(controlList(), "checkbox:Enable, slider:Size, swatch:Color, button:(Reset color), slider:Border, "
         .. "swatch:Border color, button:(Reset border color), "
-        .. "slider:Icon size, slider:Horde players, slider:Alliance players, slider:Friendly NPCs, slider:Neutral NPCs, slider:Enemy NPCs, button:More looks, button:Camera over shoulder, button:Reticle on your target, button:Map without its hitch",
+        .. "slider:Icon size, slider:Horde players, slider:Alliance players, slider:Friendly NPCs, slider:Neutral NPCs, slider:Enemy NPCs, button:More looks, checkbox:Object icons, checkbox:Quest icons, button:Camera over shoulder, button:Reticle on your target, button:Map without its hitch",
         "without Jiberish Fabled Icons: no one-choice Reticle or Class icons slider; its button, More looks")
     boot({ jiberish = true })
     expectEqual(controlList(), "checkbox:Enable, slider:Reticle, slider:Size, swatch:Color, button:(Reset color), slider:Border, "
         .. "swatch:Border color, button:(Reset border color), "
         .. "slider:Icon size, slider:Horde players, slider:Horde class icons, slider:Alliance players, slider:Alliance class icons, "
-        .. "slider:Friendly NPCs, slider:Neutral NPCs, slider:Enemy NPCs, button:Camera over shoulder, button:Reticle on your target, button:Map without its hitch",
+        .. "slider:Friendly NPCs, slider:Neutral NPCs, slider:Enemy NPCs, checkbox:Object icons, checkbox:Quest icons, button:Camera over shoulder, button:Reticle on your target, button:Map without its hitch",
         "with it: the shapes, and each player row's class style right under it, always")
     boot()
     local saved = GamepadReticleCustomizerDB
@@ -1154,7 +1190,7 @@ end)
 test("the release leaves Debug.lua out: ignored by .pkgmeta, and gone from the release .toc", function()
     assert(readFile(".pkgmeta"):find("\n  %- Debug%.lua\n"), ".pkgmeta ignores Debug.lua, alone on its line")
     expectEqual(table.concat(tocFiles(true), ","),
-        "SavedSettings.lua,Color.lua,Icons.lua,Target.lua,Range.lua,Reticle.lua,PickerSticks.lua,Popup.lua,Preview.lua,RelatedAddons.lua,GamepadReticleCustomizer.lua")
+        "SavedSettings.lua,Color.lua,Icons.lua,Target.lua,Range.lua,ObjectIcons.lua,QuestIcons.lua,Reticle.lua,PickerSticks.lua,Popup.lua,Preview.lua,RelatedAddons.lua,GamepadReticleCustomizer.lua")
     expectEqual(tocFiles()[#tocFiles()], "Debug.lua", "the repo's .toc loads it last")
 end)
 
@@ -1403,6 +1439,162 @@ test("in a dungeon, a reticle anchor the game hides (a secret value) counts as o
     setTarget({ isPlayer = false, reaction = 2, plateUnit = "nameplate4" })
     function GamepadReticle:GetPoint() return "CENTER", secretValue(), "BOTTOM", 0, 0 end
     expectEqual(GamepadReticleCustomizer.ReticleOnNameplate(), true)
+end)
+
+-- Nearby: object icons (the game's CVars) and quest icons on nameplates
+
+local function cvarsText()
+    local names = { "SoftTargetInteract", "SoftTargetInteractArc", "SoftTargetIconGameObject", "nameplateGameObjectMaxDistance" }
+    local values = {}
+    for _, name in ipairs(names) do values[#values + 1] = game.cvars[name] end
+    return table.concat(values, " ")
+end
+local OUR_CVARS = "3 2 1 60"
+
+test("object icons: off at first, nothing changed; on, the game's four settings ours; off, yours back", function()
+    boot({ cvars = { SoftTargetInteract = "1", SoftTargetInteractArc = "1", SoftTargetIconGameObject = "1",
+        nameplateGameObjectMaxDistance = "30.000000" } })
+    expectEqual(GamepadReticleCustomizerDB.objectIcons, false)
+    expectEqual(#game.cvarsSet, 0, "nothing set until asked")
+    setting("objectIcons"):SetValue(true)
+    expectEqual(cvarsText(), OUR_CVARS)
+    table.sort(game.cvarsSet)
+    expectEqual(table.concat(game.cvarsSet, ","), "SoftTargetInteract=3,SoftTargetInteractArc=2,nameplateGameObjectMaxDistance=60",
+        "one already at ours (1) isn't set again")
+    setting("objectIcons"):SetValue(false)
+    expectEqual(cvarsText(), "1 1 1 30.000000", "yours back")
+    expectEqual(GamepadReticleCustomizerDB.objectIconsBefore, nil)
+end)
+
+test("object icons: yours back at logout and ours at the next login; one you changed yourself stays yours", function()
+    boot()
+    setting("objectIcons"):SetValue(true)
+    game.cvars.SoftTargetInteractArc = "0"   -- you, in the game's settings
+    game.fire("PLAYER_LOGOUT")
+    expectEqual(cvarsText(), "1 0 0 30.000000", "the game keeps yours without the addon")
+    local saved, cvars = GamepadReticleCustomizerDB, game.cvars
+    boot({ saved = saved, cvars = cvars })
+    expectEqual(cvarsText(), OUR_CVARS, "the next login: ours again")
+    setting("objectIcons"):SetValue(false)
+    expectEqual(cvarsText(), "1 0 0 30.000000", "off: the values from before the first time on")
+end)
+
+test("object icons: in a fight the change waits for its end (the game refuses secure CVars then)", function()
+    boot()
+    game.combat = true
+    setting("objectIcons"):SetValue(true)
+    expectEqual(cvarsText(), "1 0 0 30.000000", "nothing in the fight, no error")
+    game.fire("PLAYER_LOGOUT")   -- a reload in the fight
+    game.combat = false
+    game.fire("PLAYER_REGEN_ENABLED")
+    expectEqual(cvarsText(), OUR_CVARS)
+end)
+
+-- A nameplate for a unit, with its tooltip lines, shown as the game does.
+local function showPlate(unit, tooltipLines)
+    game.plates[unit] = newRegion(UIParent)
+    game.tooltips[unit] = tooltipLines
+    game.fire("NAME_PLATE_UNIT_ADDED", unit)
+    return game.plates[unit]
+end
+local function objectiveLine(text) return { type = Enum.TooltipDataLineType.QuestObjective, leftText = text } end
+local function questIconsOf(plate)
+    for _, frame in ipairs(game.frames) do
+        if frame.parent == plate and frame.kill then return frame end
+    end
+end
+-- "kill loot" as shown: "sword", "bag", "sword bag" (the sword nearest), or "none".
+local function shownIcons(plate)
+    local icons = questIconsOf(plate)
+    if not icons then return "none" end
+    local shown = {}
+    for _, icon in ipairs({ { texture = icons.kill, name = "sword" }, { texture = icons.loot, name = "bag" } }) do
+        if icon.texture:IsShown() then shown[#shown + 1] = { name = icon.name, offset = icon.texture.offset[1] } end
+    end
+    table.sort(shown, function(first, second) return first.offset > second.offset end)
+    local names = {}
+    for _, icon in ipairs(shown) do names[#names + 1] = icon.name end
+    return #names > 0 and table.concat(names, " ") or "none"
+end
+local function questLog()
+    game.quests = { { questID = 1221, objectives = {
+        { text = "0/6 Blueleaf Tuber", type = "item", finished = false },
+        { text = "3/8 Boar slain", type = "monster", finished = false },
+        { text = "8/8 Kobold slain", type = "monster", finished = true },
+        { text = "Speak to Mankrik", type = "event", finished = false },
+    } } }
+end
+
+test("quest icons: off at first; on, a sword to kill, a bag for an item it drops, both side by side", function()
+    boot()
+    questLog()
+    expectEqual(GamepadReticleCustomizerDB.questIcons, false)
+    local boar = showPlate("nameplate1", { { type = 2, leftText = "Boar" }, objectiveLine("3/8 Boar slain") })
+    expectEqual(shownIcons(boar), "none", "off: no icons, no frame made")
+    setting("questIcons"):SetValue(true)
+    expectEqual(shownIcons(boar), "sword")
+    near(questIconsOf(boar).kill.offset[1], -6, "6 left of the nameplate")
+    local tuber = showPlate("nameplate2", { objectiveLine("0/6 Blueleaf Tuber") })
+    expectEqual(shownIcons(tuber), "bag")
+    near(questIconsOf(tuber).loot.offset[1], -6, "alone: in the sword's place")
+    local both = showPlate("nameplate3", { objectiveLine("0/6 Blueleaf Tuber"), objectiveLine("3/8 Boar slain") })
+    expectEqual(shownIcons(both), "sword bag")
+    near(questIconsOf(both).loot.offset[1], -29, "beside the sword: 6 + 20 + 3")
+    expectEqual(shownIcons(showPlate("nameplate4", { objectiveLine("8/8 Kobold slain") })), "none", "a finished objective")
+    expectEqual(shownIcons(showPlate("nameplate5", { objectiveLine("Speak to Mankrik") })), "none", "not a kill or an item")
+    expectEqual(shownIcons(showPlate("nameplate6", { objectiveLine("2/8 Wolf slain") })), "none", "not in your quest log")
+    expectEqual(questIconsOf(boar).kill.atlas, "Crosshair_Attack_32"); expectEqual(questIconsOf(boar).loot.atlas, "Crosshair_pickup_32")
+    setting("questIcons"):SetValue(false)
+    expectEqual(shownIcons(boar) .. "," .. shownIcons(both), "none,none", "off: gone")
+end)
+
+test("quest icons: the quest log changing redraws them (an objective done: its icon gone), once per burst", function()
+    boot()
+    questLog()
+    setting("questIcons"):SetValue(true)
+    local boar = showPlate("nameplate1", { objectiveLine("3/8 Boar slain") })
+    game.quests[1].objectives[2].finished = true
+    game.fire("QUEST_LOG_UPDATE"); game.fire("QUEST_LOG_UPDATE")
+    expectEqual(#game.timers, 1, "one redraw for the burst")
+    runNextFrame()
+    expectEqual(shownIcons(boar), "none")
+end)
+
+test("quest icons: tooltip text the game hides (a secret value) is never compared: kept, then read after the fight", function()
+    boot()
+    questLog()
+    setting("questIcons"):SetValue(true)
+    local boar = showPlate("nameplate1", { objectiveLine("3/8 Boar slain") })
+    game.tooltips.nameplate1 = { objectiveLine(secretValue()) }   -- the fight starts
+    game.fire("QUEST_LOG_UPDATE"); runNextFrame()
+    expectEqual(shownIcons(boar), "sword", "a nameplate already shown keeps its icons, no error")
+    local wolf = showPlate("nameplate2", { { type = secretValue() } })
+    expectEqual(shownIcons(wolf), "none", "a nameplate new in the fight: none, no error")
+    local secretTooltip = showPlate("nameplate3", secretValue())
+    expectEqual(shownIcons(secretTooltip), "none", "a whole tooltip hidden")
+    expectEqual(shownIcons(showPlate("nameplate4", { forbidden = true })), "none", "lines the game forbids")
+    game.tooltips.nameplate1 = { objectiveLine("3/8 Boar slain") }   -- the fight ends
+    game.tooltips.nameplate2 = { objectiveLine("3/8 Boar slain") }
+    game.fire("PLAYER_REGEN_ENABLED")
+    expectEqual(shownIcons(boar) .. "," .. shownIcons(wolf), "sword,sword", "read again")
+end)
+
+test("quest icons: a nameplate reused for another unit loses the first one's icons; forbidden ones left alone", function()
+    boot()
+    questLog()
+    setting("questIcons"):SetValue(true)
+    local plate = showPlate("nameplate1", { objectiveLine("3/8 Boar slain") })
+    game.fire("NAME_PLATE_UNIT_REMOVED", "nameplate1")
+    game.plates.nameplate1 = nil
+    game.plates.nameplate7 = plate   -- the game's same frame, for another unit
+    game.tooltips.nameplate7 = { objectiveLine(secretValue()) }
+    game.fire("NAME_PLATE_UNIT_ADDED", "nameplate7")
+    expectEqual(shownIcons(plate), "none", "unreadable for the new unit: none, not the boar's")
+    local forbiddenPlate = newRegion(UIParent)
+    forbiddenPlate.forbidden = true
+    game.plates.nameplate8, game.tooltips.nameplate8 = forbiddenPlate, { objectiveLine("3/8 Boar slain") }
+    game.fire("NAME_PLATE_UNIT_ADDED", "nameplate8")
+    expectEqual(questIconsOf(forbiddenPlate), nil, "nothing made on a forbidden nameplate")
 end)
 
 reportLine(passed .. " passed, " .. failed .. " failed")

@@ -1,6 +1,6 @@
 ## Interface: 16001
 ## Title: Gamepad Reticle Customizer
-## Notes: Customizes the controller's reticle: its shape, size, color and border, and an icon on a target (a player's class, a sword on enemies that grays out of reach, a raid marker). Settings in Options > AddOns > Gamepad Reticle Customizer, or /gprc.
+## Notes: Customizes the controller's reticle: its shape, size, color and border, and an icon on a target (a player's class, a sword on enemies that grays out of reach, a raid marker), the game's interact icons on more objects, and quest icons on nameplates. Settings in Options > AddOns > Gamepad Reticle Customizer, or /gprc.
 ## Author: Artisan
 ## Version: @project-version@
 #@debug@
@@ -17,6 +17,8 @@ Color.lua
 Icons.lua
 Target.lua
 Range.lua
+ObjectIcons.lua
+QuestIcons.lua
 Reticle.lua
 PickerSticks.lua
 Popup.lua
