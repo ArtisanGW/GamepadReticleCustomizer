@@ -1,6 +1,21 @@
 -- The settings page (Options > AddOns > Gamepad Reticle Customizer), /gprc and
 -- the events. What each setting does is in the other files (SavedSettings.lua
 -- lists them).
+--
+-- Files, one job each (in the .toc's load order):
+--   SavedSettings.lua             the saved settings, with their defaults
+--   Color.lua                     the reticle's and its border's colors
+--   Icons.lua                     what the reticle can look like
+--   Target.lua                    what's targeted now, read from the game
+--   Range.lua                     target icons gray until a spell can reach
+--   Reticle.lua                   draws the customized reticle on the game's own
+--   PickerSticks.lua              the color picker on a controller
+--   Popup.lua                     a popup in the game's style
+--   Preview.lua                   a live preview beside the settings page
+--   RelatedAddons.lua             hints for our other controller addons
+--   GamepadReticleCustomizer.lua  the settings page, /gprc, events
+--   Showcase.lua                  development builds only: the screenshot tour
+--   Debug.lua                     development builds only: /gprc debug, the in-game tests
 local ADDON_NAME, addon = ...
 
 local CHAT_PREFIX = "|cff88ccffGamepad Reticle Customizer|r "
