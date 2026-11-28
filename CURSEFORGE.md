@@ -1,6 +1,6 @@
 # Summary
 
-Changes the controller's reticle: its shape, size and color, or an icon on your target.
+Make the reticle yours: pick its shape, size and color, or crown your target with an icon.
 
 # Categories
 
