@@ -15,7 +15,7 @@ GNU General Public License version 3 (GPLv3)
 
 With the controller UI on, the game shows a small white dot as its reticle. This addon lets you change how it looks, and turn it into an icon on your target.
 
-[![Support me on Ko-fi](https://images.weserv.nl/?url=storage.ko-fi.com/cdn/kofi5.png&h=36)](https://ko-fi.com/artisangw)
+[![Support me on Ko-fi](https://raw.githubusercontent.com/ArtisanGW/assets/main/kofi-button.png)](https://ko-fi.com/artisangw)
 
 It's a simple tool with no dependencies:
 - Shape, size, color and opacity, with a color picker that works on a controller
