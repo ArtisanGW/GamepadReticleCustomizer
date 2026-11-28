@@ -48,7 +48,7 @@ STEP_COUNT=$(cd "$SCRIPT_FOLDER/.." && luajit -e '
     local stub = setmetatable({}, { __index = function() return function() end end })
     CreateFrame = function() return stub end
     GamepadReticleCustomizer = {}
-    dofile("Debug.lua")
+    dofile("Code/Debug.lua")
     print(#GamepadReticleCustomizer.Debug.STEPS)')
 RELOAD_WAIT="${RELOAD_WAIT:-120}"
 START_RETRY_SECONDS=5

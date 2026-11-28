@@ -17,7 +17,7 @@
 --                     as the game shows it; the reticle when there's nothing to interact
 --                     with; a speech bubble when the game doesn't say
 --   "dots"            the game's gray "..." bubble (neutral NPCs)
---   "paw"             our own paw (Media/paw.png), yellow like neutral (neutral NPCs),
+--   "paw"             our own paw (Code/Media/paw.png), yellow like neutral (neutral NPCs),
 --                     gray while none of your spells reach the target (Range.lua)
 --   "shield"          the game's neutral shield (neutral NPCs), gray out of reach too
 --   "allianceShield", "hordeShield", "ffaBadge"
@@ -45,8 +45,8 @@ local Icons = {
         -- the game's attack cursor (its atlas Crosshair_PVP_128 is the PvP cursor, a shield)
         swords = { file = "Interface\\Cursor\\Attack" },
         -- white, drawn in color: the game's tiny pet paw atlas blurs at reticle sizes
-        paw = { file = "Interface\\AddOns\\GamepadReticleCustomizer\\Media\\paw.png", color = { 1, 0.82, 0 } },
-        shield = { atlas = "honorsystem-portrait-neutral", file = "Interface\\AddOns\\GamepadReticleCustomizer\\Media\\paw.png" },
+        paw = { file = "Interface\\AddOns\\GamepadReticleCustomizer\\Code\\Media\\paw.png", color = { 1, 0.82, 0 } },
+        shield = { atlas = "honorsystem-portrait-neutral", file = "Interface\\AddOns\\GamepadReticleCustomizer\\Code\\Media\\paw.png" },
         allianceShield = { atlas = "honorsystem-portrait-alliance", file = "Interface\\TargetingFrame\\UI-PVP-Alliance" },
         hordeShield = { atlas = "honorsystem-portrait-horde", file = "Interface\\TargetingFrame\\UI-PVP-Horde" },
         ffaBadge = { atlas = "UI-HUD-UnitFrame-Player-PVP-FFAIcon", file = "Interface\\TargetingFrame\\UI-PVP-FFA" },
