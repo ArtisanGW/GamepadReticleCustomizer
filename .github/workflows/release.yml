@@ -10,6 +10,10 @@
 #    - the repository secret CF_API_KEY (an API token from
 #      https://legacy.curseforge.com/account/api-tokens)
 #    Without them the CurseForge upload is skipped and the rest still runs.
+#    Same for Wago (https://addons.wago.io), once both are set:
+#    - the repository variable WAGO_PROJECT_ID (the project ID on its Wago page)
+#    - the repository secret WAGO_API_TOKEN (an API token from Wago, kept locally
+#      in ~/.config/apiKeys/wago)
 # A tag with "alpha" or "beta" in it (v1.1.0-beta1) uploads as an alpha or beta file.
 #
 # Run by hand (Actions > Release > Run workflow): tests and a zip, kept as the run's
@@ -45,9 +49,10 @@ jobs:
         if: github.event_name == 'push'
         uses: BigWigsMods/packager@01e8631a69c69d7654c788d152630d5fed9e3812   # v2.7.0
         with:
-          args: ${{ vars.CURSEFORGE_PROJECT_ID && format('-p {0}', vars.CURSEFORGE_PROJECT_ID) || '' }}
+          args: ${{ vars.CURSEFORGE_PROJECT_ID && format('-p {0}', vars.CURSEFORGE_PROJECT_ID) || '' }} ${{ vars.WAGO_PROJECT_ID && format('-a {0}', vars.WAGO_PROJECT_ID) || '' }}
         env:
           CF_API_KEY: ${{ secrets.CF_API_KEY }}
+          WAGO_API_TOKEN: ${{ secrets.WAGO_API_TOKEN }}
           GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build the zip only (run by hand)
