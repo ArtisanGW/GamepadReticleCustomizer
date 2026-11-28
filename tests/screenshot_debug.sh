@@ -24,16 +24,21 @@
 # middle instead.
 #   RELOAD_WAIT=120   COMPARE_ONLY=1 (no run: only the comparison, from the shots there)
 #
-# Window focus and key presses: devAddons/game_window.sh (WoWDevHelpers),
-# DEV_ADDONS points to another copy.
+# Window focus and key presses: DevTools/game_window.sh (WoWDevHelpers),
+# DEV_TOOLS points to another copy.
 # Exit codes: 0 done, 2 the game isn't running, 6 the run stopped in the game,
 # 7 a step never showed, 8 over the time limit.
 
 set -u
 SCRIPT_FOLDER="$(cd "$(dirname "$0")" && pwd)"
-DEV_ADDONS="${DEV_ADDONS:-$SCRIPT_FOLDER/../../devAddons}"
+if [ -z "${DEV_TOOLS:-}" ]; then
+    # DevTools (WoWDevHelpers): the first folder up from here that holds it.
+    DEV_TOOLS="$SCRIPT_FOLDER"
+    while [ "$DEV_TOOLS" != / ] && [ ! -f "$DEV_TOOLS/DevTools/game_window.sh" ]; do DEV_TOOLS="$(dirname "$DEV_TOOLS")"; done
+    DEV_TOOLS="$DEV_TOOLS/DevTools"
+fi
 # shellcheck source=/dev/null
-. "$DEV_ADDONS/game_window.sh"
+. "$DEV_TOOLS/game_window.sh"
 GAME_FOLDER="${DAYLIGHT_GAME:-/var/mnt/data/Jeux - Installations/World of Warcraft/_forever_}"
 SAVED_VARIABLES="$GAME_FOLDER/WTF/Account/129527646#1/SavedVariables/GamepadReticleCustomizer.lua"
 OUTPUT_FOLDER="${1:-$HOME/Documents/Coding/WoW/Reports/screenshots/$(date +%Y-%m-%d) reticle customizer}"

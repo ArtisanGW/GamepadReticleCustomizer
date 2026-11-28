@@ -18,9 +18,14 @@
 # Exit codes: 0 done, 2 the game isn't running, 9 a step never got ready.
 set -u
 SCRIPT_FOLDER="$(cd "$(dirname "$0")" && pwd)"
-DEV_ADDONS="${DEV_ADDONS:-$SCRIPT_FOLDER/../../devAddons}"
+if [ -z "${DEV_TOOLS:-}" ]; then
+    # DevTools (WoWDevHelpers): the first folder up from here that holds it.
+    DEV_TOOLS="$SCRIPT_FOLDER"
+    while [ "$DEV_TOOLS" != / ] && [ ! -f "$DEV_TOOLS/DevTools/game_window.sh" ]; do DEV_TOOLS="$(dirname "$DEV_TOOLS")"; done
+    DEV_TOOLS="$DEV_TOOLS/DevTools"
+fi
 # shellcheck source=/dev/null
-. "$DEV_ADDONS/game_window.sh"
+. "$DEV_TOOLS/game_window.sh"
 OUTPUT_FOLDER="${1:-$HOME/Documents/Coding/WoW/Screenshots/$(date +%Y-%m-%d) showcase}"
 SHOWCASE_KEYS="ctrl+alt+shift+b"   # Showcase.lua's KEY
 STEP_SECONDS=80                    # longest wait for one step (40 tries of a target)
