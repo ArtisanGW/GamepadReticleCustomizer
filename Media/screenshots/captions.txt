@@ -1,6 +1,6 @@
-player-warrior.png: The class icon on a warrior
-player-hunter.png: The class icon on a hunter
-player-shaman.png: The class icon on a shaman
-player-druid.png: The class icon on a druid
-npc-stable-master.png: The job icon for Stable Master
-neutral-npc.png: Your icon on a neutral NPC
+01_player-warrior.png: The class icon on a warrior
+02_player-hunter.png: The class icon on a hunter
+03_player-shaman.png: The class icon on a shaman
+04_player-druid.png: The class icon on a druid
+05_npc-stable-master.png: The job icon for Stable Master
+06_neutral-npc.png: Your icon on a neutral NPC
