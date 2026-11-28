@@ -1,5 +1,5 @@
 -- The game's color picker (ColorPickerFrame) on a controller, while it's open for
--- this addon's color: a snippet to copy as is into an addon (devAddons/luaSnippets;
+-- this addon's color: a snippet to copy as is into an addon (DevTools/luaSnippets;
 -- README.md there says how to use it).
 --
 -- Opened for an addon's setting, the picker's own stick bindings never work (the
