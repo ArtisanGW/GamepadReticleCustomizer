@@ -18,8 +18,6 @@ ignore:
   # the paw's source; the game uses Media/paw.png
   - Media/paw.svg
   - Media/icon-400.png
-  # earlier icon drafts, kept for reference
-  - Media/alternatives
 
 # The changelog shown with each release: written by hand, not built from commit messages.
 manual-changelog:
