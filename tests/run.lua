@@ -1197,10 +1197,10 @@ test("an addon of its own: needs no other addon; listed under Gamepad", function
 end)
 
 test("the release leaves Debug.lua out: ignored by .pkgmeta, and gone from the release .toc", function()
-    assert(readFile(".pkgmeta"):find("\n  %- Debug%.lua\n"), ".pkgmeta ignores Debug.lua, alone on its line")
+    assert(readFile(".pkgmeta"):find("\n  %- Code/Debug%.lua\n"), ".pkgmeta ignores Debug.lua, alone on its line")
     expectEqual(table.concat(tocFiles(true), ","),
-        "SavedSettings.lua,Color.lua,Icons.lua,Target.lua,Range.lua,ObjectIcons.lua,QuestIcons.lua,Reticle.lua,PickerSticks.lua,Popup.lua,Preview.lua,RelatedAddons.lua,GamepadReticleCustomizer.lua")
-    expectEqual(tocFiles()[#tocFiles()], "Debug.lua", "the repo's .toc loads it last")
+        "Code/SavedSettings.lua,Code/Color.lua,Code/Icons.lua,Code/Target.lua,Code/Range.lua,Code/ObjectIcons.lua,Code/QuestIcons.lua,Code/Reticle.lua,Code/PickerSticks.lua,Code/Popup.lua,Code/Preview.lua,Code/RelatedAddons.lua,Code/GamepadReticleCustomizer.lua")
+    expectEqual(tocFiles()[#tocFiles()], "Code/Debug.lua", "the repo's .toc loads it last")
 end)
 
 test("without Debug.lua (the release), the addon works and /gprc debug opens the settings", function()
@@ -1242,12 +1242,12 @@ test("/gprc and /gamepadreticlecustomizer", function()
     expectEqual(SLASH_GAMEPADRETICLECUSTOMIZER1, "/gprc"); expectEqual(SLASH_GAMEPADRETICLECUSTOMIZER2, "/gamepadreticlecustomizer")
 end)
 
-test("its icon in the AddOns list: Media/icon-64.png, shipped", function()
+test("its icon in the AddOns list: Code/Media/icon-64.png, shipped", function()
     local function readBytes(path) local file = assert(io.open(path, "rb")); local text = file:read("*a"); file:close(); return text end
     local toc = readBytes("GamepadReticleCustomizer.toc"):gsub("\r", "")
-    expectEqual(toc:match("## IconTexture: ([^\n]+)"), "Interface\\AddOns\\GamepadReticleCustomizer\\Media\\icon-64.png")
-    expectEqual(readBytes("Media/icon-64.png"):sub(2, 4), "PNG", "a PNG file")
-    expectEqual(readBytes(".pkgmeta"):find("- Media/icon-64.png", 1, true), nil, "not left out of the release")
+    expectEqual(toc:match("## IconTexture: ([^\n]+)"), "Interface\\AddOns\\GamepadReticleCustomizer\\Code\\Media\\icon-64.png")
+    expectEqual(readBytes("Code/Media/icon-64.png"):sub(2, 4), "PNG", "a PNG file")
+    expectEqual(readBytes(".pkgmeta"):find("- Code/Media/icon-64.png", 1, true), nil, "not left out of the release")
 end)
 
 test("debug build: Gamepad Reticle On Target turned off counts as missing, to see its button; the release doesn't", function()
@@ -1337,7 +1337,7 @@ test("neutral NPCs: a yellow paw or the neutral shield, gray out of reach like t
     boot({ saved = { neutralNpcIcon = "paw" } })
     game.actions = { [1] = true }
     setTarget({ isPlayer = false, reaction = 4 })
-    expectEqual(drawnLook(), "Interface\\AddOns\\GamepadReticleCustomizer\\Media\\paw.png")
+    expectEqual(drawnLook(), "Interface\\AddOns\\GamepadReticleCustomizer\\Code\\Media\\paw.png")
     expectEqual(colorOf(layer().shape), "1.00 0.82 0.00 1.00", "in reach: yellow")
     game.actions = { [1] = false }
     setTarget({ isPlayer = false, reaction = 4 })
@@ -1419,9 +1419,9 @@ test("our icon on the target hides the game's interaction icon on its nameplate;
 end)
 
 test("the screenshot tour stays out of the release: ignored by .pkgmeta, in the .toc's development block", function()
-    assert(readFile(".pkgmeta"):find("\n  %- Showcase%.lua\n"), ".pkgmeta ignores Showcase.lua, alone on its line")
-    expectEqual(table.concat(tocFiles(true), ","):find("Showcase.lua", 1, true), nil, "not in the release .toc")
-    expectEqual(table.concat(tocFiles(false), ","):find("Showcase.lua", 1, true) ~= nil, true, "in the development one")
+    assert(readFile(".pkgmeta"):find("\n  %- Code/Showcase%.lua\n"), ".pkgmeta ignores Showcase.lua, alone on its line")
+    expectEqual(table.concat(tocFiles(true), ","):find("Code/Showcase.lua", 1, true), nil, "not in the release .toc")
+    expectEqual(table.concat(tocFiles(false), ","):find("Code/Showcase.lua", 1, true) ~= nil, true, "in the development one")
 end)
 
 test("in a dungeon (the target's GUID and name secret), Debug records each new target once, with no error", function()

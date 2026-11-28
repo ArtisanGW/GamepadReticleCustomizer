@@ -32,7 +32,7 @@ STEPS="$(cd "$SCRIPT_FOLDER/.." && luajit -e '
     local stub = setmetatable({}, { __index = function() return function() end end })
     CreateFrame = function() return stub end
     GamepadReticleCustomizer = {}
-    dofile("Showcase.lua")
+    dofile("Code/Showcase.lua")
     for _, step in ipairs(GamepadReticleCustomizer.Showcase.STEPS) do print(step.kind .. " " .. step.name) end')"
 
 shoot() { spectacle --background --nonotify --fullscreen --output "$1" >/dev/null 2>&1; }
